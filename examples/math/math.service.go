@@ -116,11 +116,3 @@ func printEventParams(params moleculer.Params) {
 	fmt.Printf("result: ")
 	fmt.Printf(params.Get("result"))
 }
-
-// the service can be started stand alone using this main function
-// func main() {
-// 	fmt.Println("Math Service Main !!!")
-
-// 	broker := moleculer.BrokerFromConfig()
-// 	broker.Start(CreateService())
-// }
