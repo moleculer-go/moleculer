@@ -7,10 +7,10 @@ import (
 	"github.com/moleculer-go/moleculer"
 )
 
-// Create a Service Definition
-func CreateService() *moleculer.Service {
+// Create a Service Schema
+func CreateServiceSchema() *moleculer.ServiceSchema {
 
-	service := moleculer.Service{
+	schema := moleculer.ServiceSchema{
 		Name: "math",
 		Actions: []moleculer.ServiceAction{
 			{
@@ -36,9 +36,12 @@ func CreateService() *moleculer.Service {
 				onSubEvent,
 			},
 		},
+		Started: func() {
+			fmt.Println("math service started !")
+		},
 	}
 
-	return &service
+	return &schema
 }
 
 func onAddEvent(ctx context.Context, params moleculer.Params) {

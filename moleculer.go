@@ -8,7 +8,7 @@ import (
 	"github.com/moleculer-go/moleculer/service"
 )
 
-type Service = service.Service
+type ServiceSchema = service.ServiceSchema
 type ServiceAction = service.ServiceAction
 type ServiceEvent = service.ServiceEvent
 type Params = params.Params
@@ -16,11 +16,11 @@ type Params = params.Params
 // returns a valid broker based on a passed context
 // this is called from any action / event
 func BrokerFromContext(ctx *context.Context) *broker.ServiceBroker {
-	return broker.BrokerFromContext(ctx)
+	return broker.FromContext(ctx)
 }
 
 // returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
 func BrokerFromConfig() *broker.ServiceBroker {
-	return broker.BrokerFromConfig()
+	return broker.FromConfig()
 }

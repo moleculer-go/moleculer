@@ -24,8 +24,11 @@ type ServiceEvent struct {
 	Handler EventHandler
 }
 
-type Service struct {
+type StartedFunc func()
+
+type ServiceSchema struct {
 	Name    string
 	Actions []ServiceAction
 	Events  []ServiceEvent
+	Started StartedFunc
 }

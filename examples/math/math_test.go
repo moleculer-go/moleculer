@@ -12,7 +12,7 @@ import (
 var _ = Describe("Math", func() {
 
 	It("Can create a valid service definition", func() {
-		serviceDefinition := CreateService()
+		serviceDefinition := CreateServiceSchema()
 
 		Expect(serviceDefinition).Should(Not(BeNil()))
 		Expect(serviceDefinition.Name).To(Equal("math"))
@@ -29,7 +29,7 @@ var _ = Describe("Math", func() {
 	})
 
 	It("Can start broker with service and call actions", func() {
-		serviceDefinition := CreateService()
+		serviceDefinition := CreateServiceSchema()
 
 		broker := BrokerFromConfig()
 		broker.Start(serviceDefinition)
