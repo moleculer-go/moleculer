@@ -3,25 +3,8 @@ package endpoint
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
+	. "github.com/moleculer-go/moleculer/common"
 )
-
-type BrokerInfo struct {
-	NodeID string
-	Logger *log.Entry
-}
-
-type NodeInfo struct {
-	ID string
-}
-
-type ServiceInfo struct {
-	Name string
-}
-
-type ActionEventInfo struct {
-	Name string
-}
 
 type Endpoint struct {
 	Name        string

@@ -3,6 +3,7 @@ package endpoint
 import (
 	"fmt"
 
+	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/endpoint"
 	. "github.com/moleculer-go/moleculer/strategy"
 )

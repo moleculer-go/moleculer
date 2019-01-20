@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/moleculer-go/moleculer/params"
 )
@@ -15,20 +16,144 @@ type EventHandler func(ctx context.Context, params params.Params)
 
 type ServiceAction struct {
 	Name    string
-	Handler ActionHandler
+	Handler *ActionHandler
 	Schema  ActionSchema
 }
 
 type ServiceEvent struct {
 	Name    string
-	Handler EventHandler
+	Handler *EventHandler
 }
 
-type StartedFunc func()
+type FuncType func()
 
 type ServiceSchema struct {
-	Name    string
-	Actions []ServiceAction
-	Events  []ServiceEvent
-	Started StartedFunc
+	Name     string
+	Version  string
+	Settings map[string]interface{}
+	Metadata map[string]interface{}
+	Mixins   []*ServiceSchema
+	Actions  []ServiceAction
+	Events   []ServiceEvent
+	Created  FuncType
+	Started  FuncType
+	Stopped  FuncType
+}
+
+type Service struct {
+	name     string
+	version  string
+	settings map[string]interface{}
+	metadata map[string]interface{}
+	actions  []ServiceAction
+	events   []ServiceEvent
+	created  []FuncType
+	started  []FuncType
+	stopped  []FuncType
+}
+
+func (service *Service) GetName() string {
+	return service.name
+}
+
+func (service *Service) GetVersion() string {
+	return service.version
+}
+
+func (service *Service) GetActions() []ServiceAction {
+	return service.actions
+}
+
+func (service *Service) Summary() map[string]string {
+	return map[string]string{
+		"name":    service.name,
+		"version": service.version,
+	}
+}
+
+func (service *Service) GetEvents() []ServiceEvent {
+	return service.events
+}
+
+func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	// for _, mixinAction := range mixin.Actions {
+	// 	existing := filter(service.actions, func(item interface{}) bool {
+	// 		action := item.(ServiceAction)
+	// 		return action.Name == mixinAction.Name
+	// 	})
+	// }
+	return service
+}
+
+func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	return service
+}
+
+func mergeSettings(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	return service
+}
+
+func mergeMetadata(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	return service
+}
+
+func mergeHooks(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	return service
+}
+
+func applyMixins(service ServiceSchema) ServiceSchema {
+	for _, mixin := range service.Mixins {
+		service = mergeActions(service, mixin)
+		service = mergeEvents(service, mixin)
+		service = mergeSettings(service, mixin)
+		service = mergeMetadata(service, mixin)
+		service = mergeHooks(service, mixin)
+	}
+	return service
+}
+
+func copyProperties(service *Service, schema *ServiceSchema) {
+	service.name = schema.Name
+	service.version = schema.Version
+	service.settings = schema.Settings
+	service.metadata = schema.Metadata
+	service.actions = schema.Actions
+	service.events = schema.Events
+	if schema.Created != nil {
+		service.created = append(service.created, schema.Created)
+	}
+	if schema.Started != nil {
+		service.started = append(service.started, schema.Started)
+	}
+	if schema.Stopped != nil {
+		service.stopped = append(service.stopped, schema.Stopped)
+	}
+}
+
+func CreateServiceFromSchema(schema ServiceSchema) *Service {
+	if len(schema.Mixins) > 0 {
+		schema = applyMixins(schema)
+	}
+	service := &Service{}
+	copyProperties(service, &schema)
+	if service.name == "" {
+		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
+	}
+	return service
+}
+
+func (service *ServiceSchema) Start() {
+
+}
+
+type filterPredicate func(item interface{}) bool
+
+func filter(list []interface{}, predicate filterPredicate) []interface{} {
+	var result []interface{}
+	for _, item := range list {
+		if predicate(item) {
+			result = append(result, item)
+		}
+	}
+	return result
 }

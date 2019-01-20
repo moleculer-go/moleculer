@@ -5,8 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
-
+	. "github.com/moleculer-go/goemitter"
 	. "github.com/moleculer-go/moleculer/cacher"
 	. "github.com/moleculer-go/moleculer/endpoint"
 	. "github.com/moleculer-go/moleculer/middleware"
@@ -15,6 +14,7 @@ import (
 	. "github.com/moleculer-go/moleculer/service"
 	. "github.com/moleculer-go/moleculer/strategy"
 	. "github.com/moleculer-go/moleculer/transit"
+	log "github.com/sirupsen/logrus"
 )
 
 type brokerConfig struct {
@@ -28,6 +28,8 @@ type ServiceBroker struct {
 
 	logger *log.Entry
 
+	localBus *Emitter
+
 	registry *ServiceRegistry
 
 	middlewares *MiddlewareHandler
@@ -38,7 +40,7 @@ type ServiceBroker struct {
 
 	transit *Transit
 
-	services []*ServiceSchema
+	services []*Service
 
 	started bool
 
@@ -51,11 +53,18 @@ type ServiceBroker struct {
 	strategy Strategy
 }
 
-func startService(broker *ServiceBroker, service *ServiceSchema) {
+// GetLocalBus : return the service broker local bus (Event Emitter)
+func (broker *ServiceBroker) GetLocalBus() *Emitter {
+	return broker.localBus
+}
+
+func startService(broker *ServiceBroker, service *Service) {
 
 	broker.middlewares.CallHandlers("serviceStarting", service)
 
 	waitForDependencies(service)
+
+	service.Start()
 
 	notifyServiceStarted(service)
 
@@ -64,17 +73,17 @@ func startService(broker *ServiceBroker, service *ServiceSchema) {
 	broker.middlewares.CallHandlers("serviceStarted", service)
 }
 
-func (broker *ServiceBroker) registerLocalService(service *ServiceSchema) {
+func (broker *ServiceBroker) registerLocalService(service *Service) {
 	//TODO
 }
 
 // wait for all service dependencies to load
-func waitForDependencies(service *ServiceSchema) {
+func waitForDependencies(service *Service) {
 	//TODO
 }
 
 // notify a service when it is started
-func notifyServiceStarted(service *ServiceSchema) {
+func notifyServiceStarted(service *Service) {
 	if service.Started != nil {
 		service.Started()
 	}
@@ -93,11 +102,19 @@ func setupLogger() *log.Entry {
 	return brokerLogger
 }
 
-func (broker *ServiceBroker) Start(services ...*ServiceSchema) {
+// CreateService : for each service schema it will validate and create
+// a service instance in the broker.
+func (broker *ServiceBroker) CreateService(schemas ...*ServiceSchema) {
+	for _, schema := range schemas {
+		service := CreateServiceFromSchema(schema)
+		broker.services = append(broker.services, service)
+	}
+}
+
+func (broker *ServiceBroker) Start() {
 	broker.logger.Info("Broker - starting ...")
 
 	broker.started = false
-	broker.services = services
 
 	broker.middlewares.CallHandlers("starting", broker)
 
@@ -192,9 +209,9 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 	actionContext := createContext(broker, actionName, params)
 
 	//has to be async
-	endpoint.ActionHandler(&actionContext)
+	result := endpoint.ActionHandler(&actionContext)
 
-	return 0
+	return result
 }
 
 func (broker *ServiceBroker) Emit(event string, params interface{}) {
@@ -205,6 +222,15 @@ func (broker *ServiceBroker) init() {
 	broker.logger = setupLogger()
 	broker.contextBroker = contextBroker{}
 	broker.strategy = RoundRobinStrategy{}
+	broker.setupLocalBus()
+}
+
+func (broker *ServiceBroker) setupLocalBus() {
+	broker.localBus = CreateEmitter()
+
+	broker.localBus.On("$registry.service.added", func(args ...interface{}) {
+		//TODO check code from -> this.broker.servicesChanged(true)
+	})
 }
 
 // BrokerFromContext : returns a valid broker based on a passed context
