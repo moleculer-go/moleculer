@@ -113,29 +113,11 @@ func (service *Service) GetEvents() []ServiceEvent {
 	return service.events
 }
 
-/*
-Mixin Strategy:
-(done)settings:      	Extend with defaultsDeep.
-(done)metadata:   	Extend with defaultsDeep.
-(broken)actions:    	Extend with defaultsDeep. You can disable an action from mixin if you set to false in your service.
-(done)hooks:      	Extend with defaultsDeep.
-(broken)events:     	Concatenate listeners.
-
-TODO:
-name:           Merge & overwrite.
-version:    	Merge & overwrite.
-methods:       	Merge & overwrite.
-created:    	Concatenate listeners.
-started:    	Concatenate listeners.
-stopped:    	Concatenate listeners.
-mixins:	        Merge & overwrite.
-dependencies:   Merge & overwrite.
-*/
-
-func mergeActions(service ServiceSchema, mixin MixinSchema) ServiceSchema {
-	actions := make([]ServiceActionSchema, len(service.Actions))
-	for index, action := range service.Actions {
-		actions[index] = action
+func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	// Copy struct into a slice of interfaces
+	originListSlice := make([]interface{}, len(service.Actions))
+	for i, d := range service.Actions {
+		originListSlice[i] = d
 	}
 	// Copy origin list to avoid tainting
 	finalList := originListSlice
@@ -146,8 +128,9 @@ func mergeActions(service ServiceSchema, mixin MixinSchema) ServiceSchema {
 			action := item.(ServiceAction)
 			return action.Name == mixinAction.Name
 		})
-		if len(existing) == 0 {
-			actions = append(actions, mixinAction)
+		// If does not exist, add to mixed list
+		if len(filterExisting) == 0 {
+			finalList = append(finalList, mixinAction)
 		}
 	}
 	// Convert back from interface slice to struct
@@ -171,8 +154,9 @@ func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
 			action := item.(ServiceAction)
 			return action.Name == mixinEvent.Name
 		})
-		if len(existing) == 0 {
-			events = append(events, mixinEvent)
+		// If does not exist, add to mixed list
+		if len(filterExisting) == 0 {
+			finalList = append(finalList, mixinEvent)
 		}
 	}
 	// Convert back from interface slice to struct

@@ -15,10 +15,18 @@ var _ = Describe("MergeActions", func() {
 
 	It("Should merge and overwrite existing actions", func() {
 
-		mergedService := mergeActions(serviceSchemaOriginal, &serviceSchemaMixin)
+		mergedServiceAction := mergeActions(serviceSchemaOriginal, &serviceSchemaMixin)
 
-		Expect(mergedService.Actions).Should(Equal(serviceSchemaMixin.Actions))
-		Expect(mergedService.Actions).Should(Not(Equal(serviceSchemaOriginal.Actions)))
+		Expect(mergedServiceAction.Actions).Should(Equal(serviceSchemaMixin.Actions))
+		Expect(mergedServiceAction.Actions).Should(Not(Equal(serviceSchemaOriginal.Actions)))
+	})
+
+	It("Should merge and overwrite existing events", func() {
+
+		mergedServiceEvent := mergeEvents(serviceSchemaOriginal, &serviceSchemaMixin)
+
+		Expect(mergedServiceEvent.Events).Should(Equal(serviceSchemaMixin.Events))
+		Expect(mergedServiceEvent.Events).Should(Not(Equal(serviceSchemaOriginal.Events)))
 	})
 
 })
