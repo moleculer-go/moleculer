@@ -76,10 +76,6 @@ func startService(broker *ServiceBroker, service *Service) {
 	broker.middlewares.CallHandlers("serviceStarted", service)
 }
 
-// func (broker *ServiceBroker) registerLocalService(service *Service) {
-// 	//TODOv -> call registry
-// }
-
 // wait for all service dependencies to load
 func waitForDependencies(service *Service) {
 	//TODO
@@ -136,36 +132,6 @@ func (broker *ServiceBroker) Start() {
 
 	broker.logger.Info("Broker - started !")
 }
-
-// func (broker *ServiceBroker) findNextActionEndpoint(actionName string, opts ...map[string]interface{}) (*Endpoint, error) {
-
-// 	var endpoint *Endpoint
-// 	if opts != nil && opts[0]["nodeID"] != nil {
-// 		nodeID := opts[0]["nodeID"].(string)
-// 		//direct call
-// 		endpoint = broker.registry.GetEndpointByNodeId(actionName, nodeID)
-// 		if endpoint == nil {
-// 			broker.logger.Warnf("Service %s  is not found on %s node.", actionName, nodeID)
-// 			return nil, errors.New(fmt.Sprintf("Service Not Found - actionName: %s - nodeID: %s", actionName, nodeID))
-// 		}
-// 	} else {
-// 		// Get endpoint list by action name
-// 		endpointList := broker.registry.GetEndpointList(actionName)
-// 		if endpointList == nil {
-// 			broker.logger.Warnf("Service %s is not registered.", actionName)
-// 			return nil, errors.New(fmt.Sprintf("Service Not Registered - actionName: %s", actionName))
-// 		}
-// 		endpoint = endpointList.Next(broker.strategy)
-// 		if endpoint == nil {
-// 			errMsg := fmt.Sprintf("Service %s is not available.", actionName)
-// 			broker.logger.Warn(errMsg)
-// 			return nil, errors.New(errMsg)
-// 		}
-// 		return endpoint, nil
-// 	}
-
-// 	return endpoint, nil
-// }
 
 type contextKey int
 
