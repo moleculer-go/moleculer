@@ -2,7 +2,6 @@ package registry
 
 import (
 	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/endpoint"
 	. "github.com/moleculer-go/moleculer/service"
 	log "github.com/sirupsen/logrus"
 )
@@ -75,7 +74,7 @@ func (registry *ServiceRegistry) AddLocalService(service *Service) {
 		[]interface{}{service.Summary()})
 }
 
-func (registry *ServiceRegistry) NextActionEndpoint(actionName string, strategy *Strategy, params interface{}, opts ...OptionsFunc) *Endpoint {
+func (registry *ServiceRegistry) NextActionEndpoint(actionName string, strategy Strategy, params interface{}, opts ...OptionsFunc) Endpoint {
 	nodeID := GetStringOption("nodeID", opts)
 	if nodeID != "" {
 		return registry.actions.NextEndpointFromNode(actionName, strategy, nodeID, WrapOptions(opts))

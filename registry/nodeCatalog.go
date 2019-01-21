@@ -16,6 +16,14 @@ type Node struct {
 	rawInfo map[string]interface{}
 }
 
+func CreateNode(id string) *Node {
+	return &Node{id: id}
+}
+
+func (node *Node) GetID() string {
+	return node.id
+}
+
 type NodeCatalog struct {
 	localNode *Node
 }

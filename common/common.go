@@ -14,7 +14,7 @@ type Endpoint interface {
 }
 
 type Strategy interface {
-	SelectEndpoint([]*Endpoint) *Endpoint
+	SelectEndpoint([]Endpoint) Endpoint
 }
 
 type OptionsFunc func(key string) interface{}

@@ -11,7 +11,7 @@ import (
 type ActionSchema struct {
 }
 
-type ActionHandler func(ctx context.Context, params params.Params) interface{}
+type ActionHandler func(ctx context.Context, params params.Params) chan interface{}
 
 type EventHandler func(ctx context.Context, params params.Params)
 
@@ -144,18 +144,27 @@ func joinVersionToName(name string, version string) string {
 	return name
 }
 
+func CreateServiceAction(serviceName string, actionName string, handler ActionHandler, schema ActionSchema) ServiceAction {
+	return ServiceAction{
+		actionName,
+		fmt.Sprintf("%s.%s", serviceName, actionName),
+		handler,
+		schema,
+	}
+}
+
 func copyProperties(service *Service, schema *ServiceSchema) {
 	service.name = joinVersionToName(schema.Name, schema.Version)
 	service.version = schema.Version
 	service.settings = schema.Settings
 	service.metadata = schema.Metadata
 	for _, actionSchema := range schema.Actions {
-		service.actions = append(service.actions, ServiceAction{
+		service.actions = append(service.actions, CreateServiceAction(
+			service.name,
 			actionSchema.Name,
-			fmt.Sprintf("%s.%s", service.name, actionSchema.Name),
 			actionSchema.Handler,
 			actionSchema.Schema,
-		})
+		))
 	}
 
 	for _, eventSchema := range schema.Events {
