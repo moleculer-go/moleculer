@@ -192,30 +192,16 @@ func createContext(broker *ServiceBroker, actionName string, params interface{})
 	return context.WithValue(parent, ContextAction, contextAction{actionName, params})
 }
 
-// Call :  call a service action
-//
+// Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
 	broker.logger.Info("Broker - calling actionName: ", actionName, " params: ", params, " opts: ", opts)
 
-	// //TODO find a better way... this was suposed to be one line.. in both functions opts is ...
-	// var endpoint *Endpoint
-	// var err error
-	// if opts != nil {
-	// 	endpoint, err = broker.findNextActionEndpoint(actionName, opts[0])
-	// } else {
-	// 	endpoint, err = broker.findNextActionEndpoint(actionName)
-	// }
-	// if err != nil {
-	// 	panic(err) //TODO error handling...
-	// }
-
 	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
 	if endpoint == nil {
-		//TODO error handling...
+		//TODO error handling... could not find the action in the registry
 	}
 
 	actionContext := createContext(broker, actionName, params)
-
 	return endpoint.InvokeAction(&actionContext)
 }
 
