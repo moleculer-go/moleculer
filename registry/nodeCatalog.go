@@ -1,25 +1,20 @@
 package registry
 
 import (
-	. "github.com/moleculer-go/moleculer/service"
+	. "github.com/moleculer-go/moleculer/common"
 )
 
-type Node struct {
-	id       string
-	sequence int
-	ipList   []string
-	hostname string
-	client   map[string]string
-	config   map[string]interface{}
-	port     string
-
-	rawInfo map[string]interface{}
-}
-
 type NodeCatalog struct {
-	localNode *Node
+	nodes []*Node
 }
 
-func (node *Node) AddService(service *Service) {
+func CreateNodesCatalog() *NodeCatalog {
+	return &NodeCatalog{}
+}
 
+// discoverNodeID - should return the node id for this machine
+// TODO: Check moleculer JS algo for this..
+func DiscoverNodeID() string {
+	//TODO
+	return "fixed-node-value"
 }
