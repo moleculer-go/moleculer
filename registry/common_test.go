@@ -3,6 +3,7 @@ package registry_test
 import (
 	. "github.com/moleculer-go/goemitter"
 	. "github.com/moleculer-go/moleculer/common"
+	. "github.com/moleculer-go/moleculer/registry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -12,8 +13,10 @@ func CreateLogger(name string) *log.Entry {
 	return logger.WithField(name, "<Unit Test>")
 }
 
+var localNode = CreateNode(DiscoverNodeID())
+
 func CreateBroker() *BrokerInfo {
 	localBus := CreateEmitter()
-	broker := &BrokerInfo{Logger: logger, GetLogger: CreateLogger, GetLocalBus: func() *Emitter { return localBus }}
+	broker := &BrokerInfo{GetLocalNode: func() *Node { return &localNode }, GetLogger: CreateLogger, GetLocalBus: func() *Emitter { return localBus }}
 	return broker
 }

@@ -8,9 +8,9 @@ import (
 	"github.com/moleculer-go/moleculer/service"
 )
 
-type ServiceSchema = service.ServiceSchema
-type ServiceAction = service.ServiceAction
-type ServiceEvent = service.ServiceEvent
+type Service = service.ServiceSchema
+type Action = service.ServiceActionSchema
+type Event = service.ServiceEventSchema
 type Params = params.Params
 
 // returns a valid broker based on a passed context

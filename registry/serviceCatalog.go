@@ -3,16 +3,22 @@ package registry
 import (
 	"fmt"
 
+	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/service"
 )
 
 type ServiceEntry struct {
 	service *Service
-	node    *Node //not sure is required
+	node    Node //not sure is required
 }
 
 type ServiceCatalog struct {
 	services map[string]*ServiceEntry
+}
+
+func CreateServiceCatalog() *ServiceCatalog {
+	services := make(map[string]*ServiceEntry)
+	return &ServiceCatalog{services}
 }
 
 func (serviceCatalog *ServiceCatalog) getLocalNodeServices() []map[string]interface{} {
@@ -39,8 +45,8 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 }
 
 // Add : add a service to the catalog.
-func (serviceCatalog *ServiceCatalog) Add(node *Node, service *Service) {
-	nodeID := node.id
+func (serviceCatalog *ServiceCatalog) Add(node Node, service *Service) {
+	nodeID := node.GetID()
 	key := createKey(service.GetName(), service.GetVersion(), nodeID)
 	serviceCatalog.services[key] = &ServiceEntry{service, node}
 }

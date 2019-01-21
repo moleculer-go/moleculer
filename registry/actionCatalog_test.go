@@ -16,8 +16,8 @@ var _ = Describe("Actions Catalog", func() {
 	actionSchema := ActionSchema{}
 	node1 := CreateNode("node-test-1")
 	node2 := CreateNode("node-test-2")
-	handler := func(ctx context.Context, params params.Params) chan interface{} {
-		return nil
+	handler := func(ctx context.Context, params params.Params) interface{} {
+		return "default action result"
 	}
 	bankCreditAction := CreateServiceAction("bank", "credit", handler, actionSchema)
 
@@ -26,15 +26,14 @@ var _ = Describe("Actions Catalog", func() {
 	Describe("Invoking Actions ", func() {
 		It("Should invoke action on action endpoint", func() {
 
+			msg := "message from action"
 			catalog := CreateActionCatalog()
-			peopleCreate := func(ctx context.Context, params params.Params) chan interface{} {
-				result := make(chan interface{})
-				result <- "message from action"
-				return result
+			peopleCreate := func(ctx context.Context, params params.Params) interface{} {
+				return msg
 			}
 			testAction := CreateServiceAction("people", "create", peopleCreate, actionSchema)
 
-			catalog.Add(node1, testAction, true)
+			catalog.Add(&node1, testAction, true)
 
 			actionEnpoint := catalog.NextEndpoint("people.create", strategy)
 			Expect(actionEnpoint).Should(Not(BeNil()))
@@ -43,7 +42,7 @@ var _ = Describe("Actions Catalog", func() {
 			Expect(resultChannel).Should(Not(BeNil()))
 
 			result := <-resultChannel
-			Expect(result).Should(Equal("message from action"))
+			Expect(result).Should(Equal(msg))
 
 		})
 	})
@@ -67,7 +66,7 @@ var _ = Describe("Actions Catalog", func() {
 			nextEndpoint := catalog.NextEndpoint("bank.credit", strategy)
 			Expect(nextEndpoint).Should(BeNil())
 
-			catalog.Add(node1, bankCreditAction, true)
+			catalog.Add(&node1, bankCreditAction, true)
 
 			Expect(catalog.Size()).Should(Equal(1))
 
@@ -84,7 +83,7 @@ var _ = Describe("Actions Catalog", func() {
 			nextEndpoint := catalog.NextEndpoint("bank.credit", strategy)
 			Expect(nextEndpoint).Should(BeNil())
 
-			catalog.Add(node1, bankCreditAction, true)
+			catalog.Add(&node1, bankCreditAction, true)
 
 			Expect(catalog.Size()).Should(Equal(1))
 
@@ -95,14 +94,14 @@ var _ = Describe("Actions Catalog", func() {
 			nextEndpoint = catalog.NextEndpoint("user.signUp", strategy)
 			Expect(nextEndpoint).Should(BeNil())
 
-			catalog.Add(node1, CreateServiceAction("user", "signUp", handler, actionSchema), true)
+			catalog.Add(&node1, CreateServiceAction("user", "signUp", handler, actionSchema), true)
 
 			Expect(catalog.Size()).Should(Equal(2))
 			nextEndpoint = catalog.NextEndpoint("user.signUp", strategy)
 			Expect(nextEndpoint).Should(Not(BeNil()))
 			Expect(nextEndpoint.IsLocal()).Should(Equal(true))
 
-			catalog.Add(node2, CreateServiceAction("user", "signUp", handler, actionSchema), false)
+			catalog.Add(&node2, CreateServiceAction("user", "signUp", handler, actionSchema), false)
 			Expect(catalog.Size()).Should(Equal(2))
 
 			//local action on node 1

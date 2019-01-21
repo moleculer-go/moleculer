@@ -21,31 +21,30 @@ func (endpointList *EndpointList) Size() int {
 // }
 
 // Add : Add an endpoint
-func (endpointList *EndpointList) Add(broker *BrokerInfo, node *NodeInfo, service *ServiceInfo, actionEvent *ActionEventInfo) *Endpoint {
-	// found := find(endpointList.endpoints, func(endpoint *Endpoint) bool {
-	// 	//return endpoint.Match(node.ID, )
-	// 	return node.ID == endpoint.Node.ID &&
-	// 		service.Name == endpoint.Service.Name &&
-	// 		actionEvent.Name == endpoint.ActionEvent.Name
-	// })
-	// if found != nil {
-	// 	found.Update(broker, node, service, actionEvent)
-	// 	return found
-	// } else {
-	// 	name := fmt.Sprintf("%s:%s", node.ID, actionEvent.Name)
-	// 	local := node.ID == broker.NodeID
-	// 	isAvailable := true
-	// 	newEndpoint := &Endpoint{name, *broker, *node, *service, *actionEvent, local, isAvailable}
+//func (endpointList *EndpointList) Add(broker *BrokerInfo, node *NodeInfo, service *ServiceInfo, actionEvent *ActionEventInfo) *Endpoint {
+// found := find(endpointList.endpoints, func(endpoint *Endpoint) bool {
+// 	//return endpoint.Match(node.ID, )
+// 	return node.ID == endpoint.Node.ID &&
+// 		service.Name == endpoint.Service.Name &&
+// 		actionEvent.Name == endpoint.ActionEvent.Name
+// })
+// if found != nil {
+// 	found.Update(broker, node, service, actionEvent)
+// 	return found
+// } else {
+// 	name := fmt.Sprintf("%s:%s", node.ID, actionEvent.Name)
+// 	local := node.ID == broker.NodeID
+// 	isAvailable := true
+// 	newEndpoint := &Endpoint{name, *broker, *node, *service, *actionEvent, local, isAvailable}
 
-	// 	broker.Logger.Infof(
-	// 		"Endpoint created - Name: %s - Broker.NodeID: %s - Node.ID: %s - Service.Name: %s - ActionEvent.Name: %s - local: %t",
-	// 		name, broker.NodeID, node.ID, service.Name, actionEvent.Name, local)
+// 	broker.Logger.Infof(
+// 		"Endpoint created - Name: %s - Broker.NodeID: %s - Node.ID: %s - Service.Name: %s - ActionEvent.Name: %s - local: %t",
+// 		name, broker.NodeID, node.ID, service.Name, actionEvent.Name, local)
 
-	// 	endpointList.endpoints = append(endpointList.endpoints, newEndpoint)
-	// 	return newEndpoint
-	// }
-	return nil
-}
+// 	endpointList.endpoints = append(endpointList.endpoints, newEndpoint)
+// 	return newEndpoint
+// }
+//}
 
 // Next : Get next endpoint
 func (endpointList *EndpointList) Next(strategy Strategy) *Endpoint {
@@ -87,17 +86,17 @@ func find(endpoints []Endpoint, predicate endpointPredicate) *Endpoint {
 	return nil
 }
 
-func selectNextEndpoint(endpoints []Endpoint, strategy Strategy) *Endpoint {
+// func selectNextEndpoint(endpoints []Endpoint, strategy Strategy) *Endpoint {
 
-	availableEndpoints := filter(endpoints, func(endpoint *Endpoint) bool {
-		return false //endpoint.IsAvailable()
-	})
+// 	availableEndpoints := filter(endpoints, func(endpoint *Endpoint) bool {
+// 		return false //endpoint.IsAvailable()
+// 	})
 
-	if len(availableEndpoints) == 0 {
-		return nil
-	} else if len(availableEndpoints) == 1 {
-		return availableEndpoints[0]
-	}
+// 	if len(availableEndpoints) == 0 {
+// 		return nil
+// 	} else if len(availableEndpoints) == 1 {
+// 		return availableEndpoints[0]
+// 	}
 
-	return strategy.SelectEndpoint(availableEndpoints)
-}
+// 	return strategy.SelectEndpoint(availableEndpoints)
+// }

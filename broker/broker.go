@@ -5,7 +5,7 @@ import (
 
 	. "github.com/moleculer-go/goemitter"
 	. "github.com/moleculer-go/moleculer/cacher"
-	. "github.com/moleculer-go/moleculer/endpoint"
+	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/middleware"
 	. "github.com/moleculer-go/moleculer/registry"
 	. "github.com/moleculer-go/moleculer/serializer"
@@ -49,6 +49,10 @@ type ServiceBroker struct {
 	config brokerConfig
 
 	strategy Strategy
+
+	info *BrokerInfo
+
+	localNode Node
 }
 
 // GetLocalBus : return the service broker local bus (Event Emitter)
@@ -205,9 +209,9 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 	// 	panic(err) //TODO error handling...
 	// }
 
-	endpoint, err := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
-	if err != nil {
-		panic(err) //TODO error handling...
+	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
+	if endpoint == nil {
+		//TODO error handling...
 	}
 
 	actionContext := createContext(broker, actionName, params)
@@ -219,11 +223,31 @@ func (broker *ServiceBroker) Emit(event string, params interface{}) {
 	broker.logger.Debug("Broker - emit !")
 }
 
+func (broker *ServiceBroker) GetInfo() *BrokerInfo {
+	return broker.info
+}
+
+func (broker *ServiceBroker) IsStarted() bool {
+	return broker.started
+}
+
+func (broker *ServiceBroker) GetLogger(name string) *log.Entry {
+	return broker.logger.WithField(name, true)
+}
+
+func (broker *ServiceBroker) GetLocalNode() *Node {
+	return &broker.localNode
+}
+
 func (broker *ServiceBroker) init() {
 	broker.logger = setupLogger()
 	broker.contextBroker = contextBroker{}
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
+	broker.localNode = CreateNode(DiscoverNodeID())
+	broker.info = &BrokerInfo{broker.GetLocalNode, broker.GetLogger, broker.GetLocalBus, broker.IsStarted}
+	broker.registry = CreateRegistry(broker.GetInfo())
+
 }
 
 func (broker *ServiceBroker) setupLocalBus() {

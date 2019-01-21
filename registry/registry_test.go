@@ -10,7 +10,7 @@ var _ = Describe("Registry", func() {
 
 	Describe("Create a Registry", func() {
 		broker := CreateBroker()
-		It("Should create a registry and ...", func() {
+		It("Should create a valid registry", func() {
 			registry := CreateRegistry(broker)
 
 			Expect(registry).Should(Not(BeNil()))

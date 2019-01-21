@@ -1,5 +1,9 @@
 package params
 
+import (
+	"context"
+)
+
 type Params struct {
 }
 
@@ -13,4 +17,8 @@ func (params *Params) GetString(name string) string {
 
 func (params *Params) Get(name string) string {
 	return params.GetString(name)
+}
+
+func ParamsFromContext(ctx *context.Context) Params {
+	return Params{}
 }

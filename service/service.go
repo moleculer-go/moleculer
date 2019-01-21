@@ -11,7 +11,7 @@ import (
 type ActionSchema struct {
 }
 
-type ActionHandler func(ctx context.Context, params params.Params) chan interface{}
+type ActionHandler func(ctx context.Context, params params.Params) interface{}
 
 type EventHandler func(ctx context.Context, params params.Params)
 
