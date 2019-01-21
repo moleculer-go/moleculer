@@ -1,4 +1,4 @@
-package endpoint_test
+package broker_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestEndpointList(t *testing.T) {
+func TestBroker(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "EndpointList Suite")
+	RunSpecs(t, "Broker Suite")
 }

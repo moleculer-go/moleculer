@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/moleculer-go/moleculer/params"
 )
@@ -14,15 +15,27 @@ type ActionHandler func(ctx context.Context, params params.Params) interface{}
 
 type EventHandler func(ctx context.Context, params params.Params)
 
-type ServiceAction struct {
+type ServiceActionSchema struct {
 	Name    string
-	Handler *ActionHandler
+	Handler ActionHandler
 	Schema  ActionSchema
 }
 
-type ServiceEvent struct {
+type ServiceAction struct {
+	name     string
+	fullname string
+	handler  ActionHandler
+	schema   ActionSchema
+}
+
+type ServiceEventSchema struct {
 	Name    string
-	Handler *EventHandler
+	Handler EventHandler
+}
+
+type ServiceEvent struct {
+	name    string
+	handler EventHandler
 }
 
 type FuncType func()
@@ -33,8 +46,8 @@ type ServiceSchema struct {
 	Settings map[string]interface{}
 	Metadata map[string]interface{}
 	Mixins   []*ServiceSchema
-	Actions  []ServiceAction
-	Events   []ServiceEvent
+	Actions  []ServiceActionSchema
+	Events   []ServiceEventSchema
 	Created  FuncType
 	Started  FuncType
 	Stopped  FuncType
@@ -50,6 +63,18 @@ type Service struct {
 	created  []FuncType
 	started  []FuncType
 	stopped  []FuncType
+}
+
+func (serviceAction *ServiceAction) ReplaceHandler(actionHandler ActionHandler) {
+	serviceAction.handler = actionHandler
+}
+
+func (serviceAction *ServiceAction) GetHandler() ActionHandler {
+	return serviceAction.handler
+}
+
+func (serviceAction *ServiceAction) GetFullName() string {
+	return serviceAction.fullname
 }
 
 func (service *Service) GetName() string {
@@ -112,13 +137,43 @@ func applyMixins(service ServiceSchema) ServiceSchema {
 	return service
 }
 
+func joinVersionToName(name string, version string) string {
+	if version != "" {
+		return fmt.Sprintf("%s.%s", version, name)
+	}
+	return name
+}
+
+func CreateServiceAction(serviceName string, actionName string, handler ActionHandler, schema ActionSchema) ServiceAction {
+	return ServiceAction{
+		actionName,
+		fmt.Sprintf("%s.%s", serviceName, actionName),
+		handler,
+		schema,
+	}
+}
+
 func copyProperties(service *Service, schema *ServiceSchema) {
-	service.name = schema.Name
+	service.name = joinVersionToName(schema.Name, schema.Version)
 	service.version = schema.Version
 	service.settings = schema.Settings
 	service.metadata = schema.Metadata
-	service.actions = schema.Actions
-	service.events = schema.Events
+	for _, actionSchema := range schema.Actions {
+		service.actions = append(service.actions, CreateServiceAction(
+			service.name,
+			actionSchema.Name,
+			actionSchema.Handler,
+			actionSchema.Schema,
+		))
+	}
+
+	for _, eventSchema := range schema.Events {
+		service.events = append(service.events, ServiceEvent{
+			eventSchema.Name,
+			eventSchema.Handler,
+		})
+	}
+
 	if schema.Created != nil {
 		service.created = append(service.created, schema.Created)
 	}
@@ -130,7 +185,7 @@ func copyProperties(service *Service, schema *ServiceSchema) {
 	}
 }
 
-func CreateServiceFromSchema(schema ServiceSchema) *Service {
+func CreateService(schema ServiceSchema) *Service {
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
@@ -142,7 +197,7 @@ func CreateServiceFromSchema(schema ServiceSchema) *Service {
 	return service
 }
 
-func (service *ServiceSchema) Start() {
+func (service *Service) Start() {
 
 }
 

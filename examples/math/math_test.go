@@ -32,7 +32,7 @@ var _ = Describe("Math", func() {
 		serviceDefinition := CreateServiceSchema()
 
 		broker := BrokerFromConfig()
-		broker.CreateService(serviceDefinition)
+		broker.AddService(serviceDefinition)
 		broker.Start()
 
 		Expect(broker).Should(Not(BeNil()))

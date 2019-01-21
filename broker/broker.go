@@ -2,12 +2,10 @@ package broker
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	. "github.com/moleculer-go/goemitter"
 	. "github.com/moleculer-go/moleculer/cacher"
-	. "github.com/moleculer-go/moleculer/endpoint"
+	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/middleware"
 	. "github.com/moleculer-go/moleculer/registry"
 	. "github.com/moleculer-go/moleculer/serializer"
@@ -51,6 +49,10 @@ type ServiceBroker struct {
 	config brokerConfig
 
 	strategy Strategy
+
+	info *BrokerInfo
+
+	localNode Node
 }
 
 // GetLocalBus : return the service broker local bus (Event Emitter)
@@ -58,6 +60,7 @@ func (broker *ServiceBroker) GetLocalBus() *Emitter {
 	return broker.localBus
 }
 
+// startService start a service within the provided broker
 func startService(broker *ServiceBroker, service *Service) {
 
 	broker.middlewares.CallHandlers("serviceStarting", service)
@@ -68,14 +71,14 @@ func startService(broker *ServiceBroker, service *Service) {
 
 	notifyServiceStarted(service)
 
-	broker.registerLocalService(service)
+	broker.registry.AddLocalService(service)
 
 	broker.middlewares.CallHandlers("serviceStarted", service)
 }
 
-func (broker *ServiceBroker) registerLocalService(service *Service) {
-	//TODO
-}
+// func (broker *ServiceBroker) registerLocalService(service *Service) {
+// 	//TODOv -> call registry
+// }
 
 // wait for all service dependencies to load
 func waitForDependencies(service *Service) {
@@ -84,9 +87,9 @@ func waitForDependencies(service *Service) {
 
 // notify a service when it is started
 func notifyServiceStarted(service *Service) {
-	if service.Started != nil {
-		service.Started()
-	}
+	// if service.Started != nil {
+	// 	service.Started()
+	// }
 	//TODO: notify mixins also.. that might have the started method
 }
 
@@ -102,11 +105,11 @@ func setupLogger() *log.Entry {
 	return brokerLogger
 }
 
-// CreateService : for each service schema it will validate and create
+// AddService : for each service schema it will validate and create
 // a service instance in the broker.
-func (broker *ServiceBroker) CreateService(schemas ...*ServiceSchema) {
+func (broker *ServiceBroker) AddService(schemas ...ServiceSchema) {
 	for _, schema := range schemas {
-		service := CreateServiceFromSchema(schema)
+		service := CreateService(schema)
 		broker.services = append(broker.services, service)
 	}
 }
@@ -134,35 +137,35 @@ func (broker *ServiceBroker) Start() {
 	broker.logger.Info("Broker - started !")
 }
 
-func (broker *ServiceBroker) findNextActionEndpoint(actionName string, opts ...map[string]interface{}) (*Endpoint, error) {
+// func (broker *ServiceBroker) findNextActionEndpoint(actionName string, opts ...map[string]interface{}) (*Endpoint, error) {
 
-	var endpoint *Endpoint
-	if opts != nil && opts[0]["nodeID"] != nil {
-		nodeID := opts[0]["nodeID"].(string)
-		//direct call
-		endpoint = broker.registry.GetEndpointByNodeId(actionName, nodeID)
-		if endpoint == nil {
-			broker.logger.Warnf("Service %s  is not found on %s node.", actionName, nodeID)
-			return nil, errors.New(fmt.Sprintf("Service Not Found - actionName: %s - nodeID: %s", actionName, nodeID))
-		}
-	} else {
-		// Get endpoint list by action name
-		endpointList := broker.registry.GetEndpointList(actionName)
-		if endpointList == nil {
-			broker.logger.Warnf("Service %s is not registered.", actionName)
-			return nil, errors.New(fmt.Sprintf("Service Not Registered - actionName: %s", actionName))
-		}
-		endpoint = endpointList.Next(broker.strategy)
-		if endpoint == nil {
-			errMsg := fmt.Sprintf("Service %s is not available.", actionName)
-			broker.logger.Warn(errMsg)
-			return nil, errors.New(errMsg)
-		}
-		return endpoint, nil
-	}
+// 	var endpoint *Endpoint
+// 	if opts != nil && opts[0]["nodeID"] != nil {
+// 		nodeID := opts[0]["nodeID"].(string)
+// 		//direct call
+// 		endpoint = broker.registry.GetEndpointByNodeId(actionName, nodeID)
+// 		if endpoint == nil {
+// 			broker.logger.Warnf("Service %s  is not found on %s node.", actionName, nodeID)
+// 			return nil, errors.New(fmt.Sprintf("Service Not Found - actionName: %s - nodeID: %s", actionName, nodeID))
+// 		}
+// 	} else {
+// 		// Get endpoint list by action name
+// 		endpointList := broker.registry.GetEndpointList(actionName)
+// 		if endpointList == nil {
+// 			broker.logger.Warnf("Service %s is not registered.", actionName)
+// 			return nil, errors.New(fmt.Sprintf("Service Not Registered - actionName: %s", actionName))
+// 		}
+// 		endpoint = endpointList.Next(broker.strategy)
+// 		if endpoint == nil {
+// 			errMsg := fmt.Sprintf("Service %s is not available.", actionName)
+// 			broker.logger.Warn(errMsg)
+// 			return nil, errors.New(errMsg)
+// 		}
+// 		return endpoint, nil
+// 	}
 
-	return endpoint, nil
-}
+// 	return endpoint, nil
+// }
 
 type contextKey int
 
@@ -191,31 +194,49 @@ func createContext(broker *ServiceBroker, actionName string, params interface{})
 
 // Call :  call a service action
 //
-func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...map[string]interface{}) interface{} {
+func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
 	broker.logger.Info("Broker - calling actionName: ", actionName, " params: ", params, " opts: ", opts)
 
-	//TODO find a better way... this was suposed to be one line.. in both functions opts is ...
-	var endpoint *Endpoint
-	var err error
-	if opts != nil {
-		endpoint, err = broker.findNextActionEndpoint(actionName, opts[0])
-	} else {
-		endpoint, err = broker.findNextActionEndpoint(actionName)
-	}
-	if err != nil {
-		panic(err) //TODO error handling...
+	// //TODO find a better way... this was suposed to be one line.. in both functions opts is ...
+	// var endpoint *Endpoint
+	// var err error
+	// if opts != nil {
+	// 	endpoint, err = broker.findNextActionEndpoint(actionName, opts[0])
+	// } else {
+	// 	endpoint, err = broker.findNextActionEndpoint(actionName)
+	// }
+	// if err != nil {
+	// 	panic(err) //TODO error handling...
+	// }
+
+	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
+	if endpoint == nil {
+		//TODO error handling...
 	}
 
 	actionContext := createContext(broker, actionName, params)
 
-	//has to be async
-	result := endpoint.ActionHandler(&actionContext)
-
-	return result
+	return endpoint.InvokeAction(&actionContext)
 }
 
 func (broker *ServiceBroker) Emit(event string, params interface{}) {
 	broker.logger.Debug("Broker - emit !")
+}
+
+func (broker *ServiceBroker) GetInfo() *BrokerInfo {
+	return broker.info
+}
+
+func (broker *ServiceBroker) IsStarted() bool {
+	return broker.started
+}
+
+func (broker *ServiceBroker) GetLogger(name string) *log.Entry {
+	return broker.logger.WithField(name, true)
+}
+
+func (broker *ServiceBroker) GetLocalNode() *Node {
+	return &broker.localNode
 }
 
 func (broker *ServiceBroker) init() {
@@ -223,6 +244,10 @@ func (broker *ServiceBroker) init() {
 	broker.contextBroker = contextBroker{}
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
+	broker.localNode = CreateNode(DiscoverNodeID())
+	broker.info = &BrokerInfo{broker.GetLocalNode, broker.GetLogger, broker.GetLocalBus, broker.IsStarted}
+	broker.registry = CreateRegistry(broker.GetInfo())
+
 }
 
 func (broker *ServiceBroker) setupLocalBus() {
