@@ -6,11 +6,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Registry", func() {
+var _ = Describe("Service Catalog", func() {
 
-	Describe("Create a Registry", func() {
+	Describe("Create a Service Catalog", func() {
 		broker := CreateBroker()
 		It("Should create a registry and ...", func() {
+
 			registry := CreateRegistry(broker)
 
 			Expect(registry).Should(Not(BeNil()))

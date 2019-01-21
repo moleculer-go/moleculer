@@ -1,7 +1,7 @@
 package strategy
 
 import (
-	. "github.com/moleculer-go/moleculer/endpoint"
+	. "github.com/moleculer-go/moleculer/common"
 )
 
 type RoundRobinStrategy struct {

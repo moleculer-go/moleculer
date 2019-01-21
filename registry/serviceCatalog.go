@@ -31,6 +31,13 @@ func (serviceCatalog *ServiceCatalog) Has(name string, version string, nodeID st
 	return exists
 }
 
+// Get : Return the service for the given name, version and nodeID if it exists in the catalog.
+func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID string) *ServiceEntry {
+	key := createKey(name, version, nodeID)
+	service := serviceCatalog.services[key]
+	return service
+}
+
 // Add : add a service to the catalog.
 func (serviceCatalog *ServiceCatalog) Add(node *Node, service *Service) {
 	nodeID := node.id

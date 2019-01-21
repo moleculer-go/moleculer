@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/moleculer-go/moleculer/endpoint"
-	. "github.com/moleculer-go/moleculer/endpointList"
 )
 
 var logger = log.WithField("Unit Test", true)
