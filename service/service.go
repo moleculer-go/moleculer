@@ -100,16 +100,54 @@ func (service *Service) GetEvents() []ServiceEvent {
 }
 
 func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
-	// for _, mixinAction := range mixin.Actions {
-	// 	existing := filter(service.actions, func(item interface{}) bool {
-	// 		action := item.(ServiceAction)
-	// 		return action.Name == mixinAction.Name
-	// 	})
-	// }
+	// Copy struct into a slice of interfaces
+	originListSlice := make([]interface{}, len(service.Actions))
+	for i, d := range service.Actions {
+		originListSlice[i] = d
+	}
+	// Copy origin list to avoid tainting
+	finalList := originListSlice
+	// Loop over in mixin
+	for _, mixinAction := range mixin.Actions {
+		// Check if already exists in service
+		filterExisting := filter(originListSlice, func(item interface{}) bool {
+			action := item.(ServiceAction)
+			return action.Name == mixinAction.Name
+		})
+		// If does not exist, add to mixed list
+		if len(filterExisting) == 0 {
+			finalList = append(finalList, mixinAction)
+		}
+	}
+	// Convert back from interface slice to struct
+	var thisInterface interface{} = &finalList
+	service.Actions, _ = thisInterface.([]ServiceAction)
 	return service
 }
 
 func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+	// Copy struct into a slice of interfaces
+	originListSlice := make([]interface{}, len(service.Events))
+	for i, d := range service.Events {
+		originListSlice[i] = d
+	}
+	// Copy origin list to avoid tainting
+	finalList := originListSlice
+	// Loop over in mixin
+	for _, mixinEvent := range mixin.Events {
+		// Check if already exists in service
+		filterExisting := filter(originListSlice, func(item interface{}) bool {
+			action := item.(ServiceAction)
+			return action.Name == mixinEvent.Name
+		})
+		// If does not exist, add to mixed list
+		if len(filterExisting) == 0 {
+			finalList = append(finalList, mixinEvent)
+		}
+	}
+	// Convert back from interface slice to struct
+	var thisInterface interface{} = &finalList
+	service.Events, _ = thisInterface.([]ServiceEvent)
 	return service
 }
 
