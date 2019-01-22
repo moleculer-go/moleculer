@@ -19,7 +19,7 @@ type ServiceRegistry struct {
 
 func CreateRegistry(broker *BrokerInfo) *ServiceRegistry {
 	registry := &ServiceRegistry{}
-	registry.logger = broker.GetLogger("registry")
+	registry.logger = broker.GetLogger("registry", "Service Registry")
 	registry.broker = broker
 	registry.actions = CreateActionCatalog()
 	registry.services = CreateServiceCatalog()

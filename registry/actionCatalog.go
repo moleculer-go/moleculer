@@ -1,8 +1,6 @@
 package registry
 
 import (
-	"context"
-
 	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/params"
 	. "github.com/moleculer-go/moleculer/service"
@@ -27,12 +25,12 @@ func CreateActionCatalog() *ActionCatalog {
 	return &ActionCatalog{actionsByName, actionsByNode}
 }
 
-func invokeRemoteAction(ctx *context.Context, actionEntry *ActionEntry) chan interface{} {
+func invokeRemoteAction(ctx *Context, actionEntry *ActionEntry) chan interface{} {
 	//TODO
 	return nil
 }
 
-func invokeLocalAction(ctx *context.Context, actionEntry *ActionEntry) chan interface{} {
+func invokeLocalAction(ctx *Context, actionEntry *ActionEntry) chan interface{} {
 
 	result := make(chan interface{})
 
@@ -50,7 +48,7 @@ func invokeLocalAction(ctx *context.Context, actionEntry *ActionEntry) chan inte
 	return result
 }
 
-func (actionEntry *ActionEntry) InvokeAction(ctx *context.Context) chan interface{} {
+func (actionEntry *ActionEntry) InvokeAction(ctx *Context) chan interface{} {
 	if actionEntry.isLocal {
 		return invokeLocalAction(ctx, actionEntry)
 	}

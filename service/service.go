@@ -1,19 +1,19 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
-	"github.com/moleculer-go/moleculer/params"
+	. "github.com/moleculer-go/moleculer/common"
+	. "github.com/moleculer-go/moleculer/params"
 )
 
 type ActionSchema struct {
 }
 
-type ActionHandler func(ctx context.Context, params params.Params) interface{}
+type ActionHandler func(ctx Context, params Params) interface{}
 
-type EventHandler func(ctx context.Context, params params.Params)
+type EventHandler func(ctx Context, params Params)
 
 type ServiceActionSchema struct {
 	Name    string

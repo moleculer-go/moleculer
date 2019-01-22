@@ -16,7 +16,7 @@ var _ = Describe("Actions Catalog", func() {
 	actionSchema := ActionSchema{}
 	node1 := CreateNode("node-test-1")
 	node2 := CreateNode("node-test-2")
-	handler := func(ctx context.Context, params params.Params) interface{} {
+	handler := func(ctx Context, params params.Params) interface{} {
 		return "default action result"
 	}
 	bankCreditAction := CreateServiceAction("bank", "credit", handler, actionSchema)
@@ -28,7 +28,7 @@ var _ = Describe("Actions Catalog", func() {
 
 			msg := "message from action"
 			catalog := CreateActionCatalog()
-			peopleCreate := func(ctx context.Context, params params.Params) interface{} {
+			peopleCreate := func(ctx Context, params params.Params) interface{} {
 				return msg
 			}
 			testAction := CreateServiceAction("people", "create", peopleCreate, actionSchema)

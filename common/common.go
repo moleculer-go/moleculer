@@ -2,14 +2,23 @@
 package common
 
 import (
-	"context"
-
 	. "github.com/moleculer-go/goemitter"
 	log "github.com/sirupsen/logrus"
 )
 
+type Context interface {
+	InvokeAction(opts ...OptionsFunc) chan interface{}
+
+	Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{}
+	Emit(eventName string, params interface{}, groups ...string)
+	Broadcast(eventName string, params interface{}, groups ...string)
+	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context
+	GetActionName() string
+	GetParams() interface{}
+}
+
 type Endpoint interface {
-	InvokeAction(context *context.Context) chan interface{}
+	InvokeAction(context *Context) chan interface{}
 	IsLocal() bool
 }
 
@@ -43,7 +52,7 @@ func WrapOptions(opts []OptionsFunc) OptionsFunc {
 	}
 }
 
-type getLoggerFunction func(name string) *log.Entry
+type getLoggerFunction func(name string, value string) *log.Entry
 type getLocalBusFunction func() *Emitter
 type isStartedFunction func() bool
 type getLocalNodeFunction func() *Node

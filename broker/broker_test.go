@@ -1,28 +1,26 @@
 package broker_test
 
 import (
-	"context"
 	"fmt"
 
-	. "github.com/onsi/ginkgo"
+	test "github.com/onsi/ginkgo"
 
 	. "github.com/onsi/gomega"
 
-	"github.com/moleculer-go/moleculer"
+	. "github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer/broker"
-	. "github.com/moleculer-go/moleculer/params"
 )
 
-var _ = Describe("Broker", func() {
+var _ = test.Describe("Broker", func() {
 
-	It("Should make a local call and return results", func() {
+	test.It("Should make a local call and return results", func() {
 		actionResult := "abra cadabra"
-		service := moleculer.Service{
+		service := Service{
 			Name: "do",
-			Actions: []moleculer.Action{
-				moleculer.Action{
+			Actions: []Action{
+				Action{
 					Name: "stuff",
-					Handler: func(ctx context.Context, params Params) interface{} {
+					Handler: func(ctx Context, params Params) interface{} {
 						return actionResult
 					},
 				},
@@ -41,38 +39,30 @@ var _ = Describe("Broker", func() {
 
 	})
 
-	It("Should call multiple local calls (in chain)", func() {
+	test.It("Should call multiple local calls (in chain)", func() {
 
-		actionResult := "abra cadabra"
-		service := moleculer.Service{
+		actionResult := "step 1 done ! -> step 2: step 2 done ! -> magic: Just magic !!!"
+		service := Service{
 			Name: "machine",
-			Actions: []moleculer.Action{
-				moleculer.Action{
+			Actions: []Action{
+				Action{
 					Name: "step1",
-					Handler: func(ctx context.Context, params Params) interface{} {
-						////////////////////////////////////////
-						////
-						//// TODO NEXT --> create my own context, to chain calls like ctx.Call() ...
-						////  also to help model what I need to pass forward for the context to work..
-						////  also implement all context funcionality and params also.. so I can make more useful tests :)
-						////
-						////////////////////////////////////////
-						broker := FromContext(&ctx)
-						step2Result := <-broker.Call("machine.step2", 0)
+					Handler: func(ctx Context, params Params) interface{} {
+						step2Result := <-ctx.Call("machine.step2", 0)
 						return fmt.Sprintf("step 1 done ! -> step 2: %s", step2Result.(string))
 					},
 				},
-				moleculer.Action{
+				Action{
 					Name: "step2",
-					Handler: func(ctx context.Context, params Params) interface{} {
-						broker := FromContext(&ctx)
-						magicResult := <-broker.Call("machine.magic", 0)
+					Handler: func(ctx Context, params Params) interface{} {
+						magicResult := <-ctx.Call("machine.magic", 0)
 						return fmt.Sprintf("step 2 done ! -> magic: %s", magicResult.(string))
 					},
 				},
-				moleculer.Action{
+				Action{
 					Name: "magic",
-					Handler: func(ctx context.Context, params Params) interface{} {
+					Handler: func(ctx Context, params Params) interface{} {
+						ctx.Emit("magic.happened, params", "Always !")
 						return "Just magic !!!"
 					},
 				},
@@ -83,7 +73,7 @@ var _ = Describe("Broker", func() {
 		broker.AddService(service)
 		broker.Start()
 
-		result := <-broker.Call("do.stuff", 1)
+		result := <-broker.Call("machine.step1", 1)
 
 		fmt.Printf("Results from action: %s", result)
 

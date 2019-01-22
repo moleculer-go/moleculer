@@ -1,7 +1,6 @@
 package math
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
@@ -44,17 +43,17 @@ func CreateServiceSchema() *moleculer.ServiceSchema {
 	return &schema
 }
 
-func onAddEvent(ctx context.Context, params moleculer.Params) {
+func onAddEvent(ctx Context, params moleculer.Params) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func onSubEvent(ctx context.Context, params moleculer.Params) {
+func onSubEvent(ctx Context, params moleculer.Params) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func addAction(ctx context.Context, params moleculer.Params) interface{} {
+func addAction(ctx Context, params moleculer.Params) interface{} {
 	broker := moleculer.BrokerFromContext(&ctx)
 
 	a := params.GetInt("a")
@@ -70,7 +69,7 @@ func addAction(ctx context.Context, params moleculer.Params) interface{} {
 	return result
 }
 
-func multAction(ctx context.Context, params moleculer.Params) interface{} {
+func multAction(ctx Context, params moleculer.Params) interface{} {
 	broker := moleculer.BrokerFromContext(&ctx)
 
 	a := params.GetInt("a")
@@ -95,7 +94,7 @@ func multAction(ctx context.Context, params moleculer.Params) interface{} {
 	return result
 }
 
-func subAction(ctx context.Context, params moleculer.Params) interface{} {
+func subAction(ctx Context, params moleculer.Params) interface{} {
 	broker := moleculer.BrokerFromContext(&ctx)
 
 	a := params.GetInt("a")
