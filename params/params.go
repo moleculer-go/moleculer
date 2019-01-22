@@ -1,7 +1,7 @@
 package params
 
 import (
-	"context"
+	. "github.com/moleculer-go/moleculer/common"
 )
 
 type Params struct {
@@ -19,6 +19,6 @@ func (params *Params) Get(name string) string {
 	return params.GetString(name)
 }
 
-func ParamsFromContext(ctx *context.Context) Params {
+func ParamsFromContext(ctx *Context) Params {
 	return Params{}
 }
