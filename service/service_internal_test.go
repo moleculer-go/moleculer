@@ -42,6 +42,9 @@ var _ = Describe("MergeActions", func() {
 		Metadata: map[string]interface{}{
 			"star-system": "sun",
 		},
+		Hooks: map[string]interface{}{
+			"solar-system": "true",
+		},
 		Actions: []ServiceActionSchema{
 			ServiceActionSchema{
 				Name:    "rotate",
@@ -63,7 +66,11 @@ var _ = Describe("MergeActions", func() {
 		},
 		Metadata: map[string]interface{}{
 			"resolution": "high",
-		}, Actions: []ServiceActionSchema{
+		},
+		Hooks: map[string]interface{}{
+			"earth": "true",
+		},
+		Actions: []ServiceActionSchema{
 			ServiceActionSchema{
 				Name:    "tide",
 				Handler: mixinTideFunc,
@@ -80,6 +87,7 @@ var _ = Describe("MergeActions", func() {
 			},
 		},
 	}
+
 	It("Should merge and overwrite existing actions", func() {
 
 		mergedServiceAction := mergeActions(serviceSchemaOriginal, &serviceSchemaMixin)
@@ -103,7 +111,11 @@ var _ = Describe("MergeActions", func() {
 			},
 		}))
 
-		mergedService = mergeEvents(serviceSchema, moonMixIn)
+	})
+
+	It("Should merge and overwrite existing events", func() {
+
+		mergedService := mergeEvents(serviceSchema, moonMixIn)
 		Expect(mergedService.Events).Should(Equal([]ServiceEventSchema{
 			ServiceEventSchema{
 				Name:    "earth.rotates",
@@ -113,6 +125,36 @@ var _ = Describe("MergeActions", func() {
 				Name:    "moon.isClose",
 				Handler: mixinMoonIsCloseFunc,
 			},
+		},
+		))
+	})
+
+	It("Should merge and overwrite existing settings", func() {
+
+		mergedService := mergeSettings(serviceSchema, moonMixIn)
+		Expect(mergedService.Settings).Should(Equal(map[string]interface{}{
+			"dinosauros": true,
+			"craters":    true,
+		},
+		))
+	})
+
+	It("Should merge and overwrite existing metadata", func() {
+
+		mergedService := mergeMetadata(serviceSchema, moonMixIn)
+		Expect(mergedService.Metadata).Should(Equal(map[string]interface{}{
+			"star-system": "sun",
+			"resolution":  "high",
+		},
+		))
+	})
+
+	It("Should merge and overwrite existing hooks", func() {
+
+		mergedService := mergeHooks(serviceSchema, moonMixIn)
+		Expect(mergedService.Hooks).Should(Equal(map[string]interface{}{
+			"solar-system": "true",
+			"earth":        "true",
 		},
 		))
 	})
