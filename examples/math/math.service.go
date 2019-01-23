@@ -4,14 +4,15 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
+	. "github.com/moleculer-go/moleculer"
 )
 
 // Create a Service Schema
-func CreateServiceSchema() *moleculer.ServiceSchema {
+func CreateServiceSchema() Service {
 
-	schema := moleculer.ServiceSchema{
+	schema := Service{
 		Name: "math",
-		Actions: []moleculer.ServiceAction{
+		Actions: []Action{
 			{
 				Name:    "add",
 				Handler: addAction,
@@ -25,7 +26,7 @@ func CreateServiceSchema() *moleculer.ServiceSchema {
 				Handler: multAction,
 			},
 		},
-		Events: []moleculer.ServiceEvent{
+		Events: []Event{
 			{
 				"math.add.called",
 				onAddEvent,
@@ -40,27 +41,28 @@ func CreateServiceSchema() *moleculer.ServiceSchema {
 		},
 	}
 
-	return &schema
+	return schema
 }
 
-func onAddEvent(ctx Context, params moleculer.Params) {
+func onAddEvent(ctx Context, params Params) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func onSubEvent(ctx Context, params moleculer.Params) {
+func onSubEvent(ctx Context, params Params) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func addAction(ctx Context, params moleculer.Params) interface{} {
-	broker := moleculer.BrokerFromContext(&ctx)
-
-	a := params.GetInt("a")
-	b := params.GetInt("b")
+func addAction(context Context, params Params) interface{} {
+	context.GetLogger().Info("math service add action.")
+	a := params.Int("a")
+	b := params.Int("b")
 	result := a + b
 
-	defer broker.Emit("add.called", map[string]int{
+	context.GetLogger().Info("params -> a: ", a, "b: ", b, "result: ", result)
+
+	defer context.Emit("add.called", map[string]int{
 		"a":      a,
 		"b":      b,
 		"result": result,
@@ -69,23 +71,22 @@ func addAction(ctx Context, params moleculer.Params) interface{} {
 	return result
 }
 
-func multAction(ctx Context, params moleculer.Params) interface{} {
-	broker := moleculer.BrokerFromContext(&ctx)
-
-	a := params.GetInt("a")
-	b := params.GetInt("b")
+func multAction(context Context, params Params) interface{} {
+	a := params.Int("a")
+	b := params.Int("b")
 	result := 0
 
 	for i := 1; i <= b; i++ {
-		actionResult := broker.Call("math.add", map[string]int{
-			"a": a,
-			"b": a,
-		})
-		intResult := actionResult.(int)
-		result = result + intResult
+		actionResult := <-context.Call(
+			"math.add",
+			map[string]interface{}{
+				"a": a,
+				"b": a,
+			})
+		result = result + actionResult.(int)
 	}
 
-	defer broker.Emit("mult.called", map[string]int{
+	defer context.Emit("mult.called", map[string]int{
 		"a":      a,
 		"b":      b,
 		"result": result,
@@ -94,19 +95,16 @@ func multAction(ctx Context, params moleculer.Params) interface{} {
 	return result
 }
 
-func subAction(ctx Context, params moleculer.Params) interface{} {
-	broker := moleculer.BrokerFromContext(&ctx)
-
-	a := params.GetInt("a")
-	b := params.GetInt("b")
+func subAction(context Context, params Params) interface{} {
+	a := params.Int("a")
+	b := params.Int("b")
 	result := a - b
 
-	defer broker.Emit("sub.called", map[string]int{
+	defer context.Emit("sub.called", map[string]int{
 		"a":      a,
 		"b":      b,
 		"result": result,
 	})
-
 	return result
 }
 

@@ -75,7 +75,7 @@ func (registry *ServiceRegistry) AddLocalService(service *Service) {
 
 	//registry.regenerateLocalRawInfo(registry.broker.IsStarted())
 
-	registry.logger.Infof("%s service is registered.", service.GetName())
+	registry.logger.Infof("Registry - %s service is registered.", service.GetName())
 
 	registry.broker.GetLocalBus().EmitAsync(
 		"$registry.service.added",

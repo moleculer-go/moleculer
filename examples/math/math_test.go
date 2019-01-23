@@ -1,7 +1,7 @@
 package math_test
 
 import (
-	. "github.com/onsi/ginkgo"
+	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	. "github.com/moleculer-go/moleculer/examples/math"
@@ -9,9 +9,9 @@ import (
 	. "github.com/moleculer-go/moleculer"
 )
 
-var _ = Describe("Math", func() {
+var _ = test.Describe("Math", func() {
 
-	It("Can create a valid service definition", func() {
+	test.It("Can create a valid service definition", func() {
 		serviceDefinition := CreateServiceSchema()
 
 		Expect(serviceDefinition).Should(Not(BeNil()))
@@ -28,7 +28,7 @@ var _ = Describe("Math", func() {
 
 	})
 
-	It("Can start broker with service and call actions", func() {
+	test.It("Can start broker with service and call actions", func() {
 		serviceDefinition := CreateServiceSchema()
 
 		broker := BrokerFromConfig()
@@ -37,7 +37,7 @@ var _ = Describe("Math", func() {
 
 		Expect(broker).Should(Not(BeNil()))
 
-		result := broker.Call("add", map[string]int{
+		result := <-broker.Call("math.add", map[string]int{
 			"a": 1,
 			"b": 10,
 		})

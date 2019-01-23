@@ -3,14 +3,13 @@ package moleculer
 import (
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/common"
-	"github.com/moleculer-go/moleculer/params"
 	"github.com/moleculer-go/moleculer/service"
 )
 
 type Service = service.ServiceSchema
 type Action = service.ServiceActionSchema
 type Event = service.ServiceEventSchema
-type Params = params.Params
+type Params = common.Params
 
 type Context = common.Context
 

@@ -6,6 +6,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Params interface {
+	Get(name string) string
+	String(name string) string
+	Int(name string) int
+	Int64(name string) int64
+	Float(name string) float32
+	Float64(name string) float64
+	Map(name string) Params
+}
+
 type Context interface {
 	InvokeAction(opts ...OptionsFunc) chan interface{}
 
@@ -14,7 +24,9 @@ type Context interface {
 	Broadcast(eventName string, params interface{}, groups ...string)
 	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context
 	GetActionName() string
-	GetParams() interface{}
+	GetParams() Params
+
+	GetLogger() *log.Entry
 }
 
 type Endpoint interface {

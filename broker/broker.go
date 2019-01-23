@@ -111,7 +111,7 @@ func (broker *ServiceBroker) AddService(schemas ...ServiceSchema) {
 }
 
 func (broker *ServiceBroker) Start() {
-	broker.logger.Info("Broker - starting ...")
+	broker.logger.Info("Broker -> starting ...")
 
 	broker.started = false
 
@@ -130,7 +130,7 @@ func (broker *ServiceBroker) Start() {
 
 	broker.middlewares.CallHandlers("started", broker)
 
-	broker.logger.Info("Broker - started !")
+	broker.logger.Info("Broker -> started !")
 }
 
 type contextKey int
@@ -168,7 +168,7 @@ func (broker *ServiceBroker) broadcastWithContext(context *Context, groups ...st
 func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFunc) chan interface{} {
 	actionName := (*context).GetActionName()
 	params := (*context).GetParams()
-	broker.logger.Info("Broker - calling actionName: ", actionName, " params: ", params, " opts: ", opts)
+	broker.logger.Debug("Broker - callWithContext() actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
 	if endpoint == nil {
@@ -176,14 +176,17 @@ func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFu
 		broker.logger.Error(msg)
 		panic(errors.New(msg))
 	}
+
+	broker.logger.Debug("Broker - calling actionName: ", actionName)
 	return endpoint.InvokeAction(context)
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
-	broker.logger.Debug("Broker - Call(() actionName: ", actionName, " params: ", params, " opts: ", opts)
+	broker.logger.Info("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
+
 	actionContext := broker.rootContext.NewActionContext(actionName, params, WrapOptions(opts))
-	broker.logger.Debug("Broker - Call(() actionContext created ...")
+	broker.logger.Info("Broker - Call() actionContext created!  ")
 
 	return actionContext.InvokeAction(WrapOptions(opts))
 }
@@ -234,17 +237,6 @@ func (broker *ServiceBroker) setupLocalBus() {
 	broker.localBus.On("$registry.service.added", func(args ...interface{}) {
 		//TODO check code from -> this.broker.servicesChanged(true)
 	})
-}
-
-// BrokerFromContext : returns a valid broker based on a passed context
-// this is called from any action / event
-func FromContext(ctx *Context) *ServiceBroker {
-	broker := ServiceBroker{context: ctx}
-	broker.init()
-
-	broker.logger.Info("Broker - BrokerFromContext() ")
-
-	return &broker
 }
 
 // BrokerFromConfig : returns a valid broker based on environment configuration

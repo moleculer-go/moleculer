@@ -2,7 +2,6 @@ package registry
 
 import (
 	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/params"
 	. "github.com/moleculer-go/moleculer/service"
 )
 
@@ -30,17 +29,21 @@ func invokeRemoteAction(ctx *Context, actionEntry *ActionEntry) chan interface{}
 	return nil
 }
 
-func invokeLocalAction(ctx *Context, actionEntry *ActionEntry) chan interface{} {
-
+func invokeLocalAction(context *Context, actionEntry *ActionEntry) chan interface{} {
 	result := make(chan interface{})
+
+	logger := (*context).GetLogger().WithField("actionCatalog", "invokeLocalAction")
+	logger.Debug("Before Invoking action: ", (*actionEntry).action.GetFullName())
 
 	//Apply before middlewares here ? or at the broker level ?
 
 	//invoke action :)
 	go func() {
 		handler := actionEntry.action.GetHandler()
-		actionChannel := handler(*ctx, ParamsFromContext(ctx))
-		result <- actionChannel
+		actionResult := handler(*context, (*context).GetParams())
+		logger.Debug("action: ", (*actionEntry).action.GetFullName(),
+			" results: ", actionResult)
+		result <- actionResult
 	}()
 
 	//Apply after middlewares
