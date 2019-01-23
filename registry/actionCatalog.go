@@ -2,7 +2,6 @@ package registry
 
 import (
 	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/params"
 	. "github.com/moleculer-go/moleculer/service"
 )
 
@@ -30,7 +29,7 @@ func invokeRemoteAction(ctx *Context, actionEntry *ActionEntry) chan interface{}
 	return nil
 }
 
-func invokeLocalAction(ctx *Context, actionEntry *ActionEntry) chan interface{} {
+func invokeLocalAction(context *Context, actionEntry *ActionEntry) chan interface{} {
 
 	result := make(chan interface{})
 
@@ -39,7 +38,7 @@ func invokeLocalAction(ctx *Context, actionEntry *ActionEntry) chan interface{} 
 	//invoke action :)
 	go func() {
 		handler := actionEntry.action.GetHandler()
-		actionChannel := handler(*ctx, ParamsFromContext(ctx))
+		actionChannel := handler(*context, (*context).GetParams())
 		result <- actionChannel
 	}()
 

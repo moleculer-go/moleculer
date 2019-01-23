@@ -2,6 +2,7 @@ package middleware
 
 import (
 	. "github.com/moleculer-go/moleculer/common"
+	. "github.com/moleculer-go/moleculer/params"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -33,7 +34,7 @@ func CreateContext(actionDelegate actionDelegateFunc, emitDelegate eventDelegate
 	return context
 }
 
-// NewActionContext : create a new context for a specific action
+// NewActionContext : create a new context for a specific action call
 func (context ContextImpl) NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context {
 	actionContext := ContextImpl{
 		actionDelegate:    context.actionDelegate,
@@ -43,7 +44,6 @@ func (context ContextImpl) NewActionContext(actionName string, params interface{
 		params:            params,
 	}
 	actionContext.parent = &context
-
 	return actionContext
 }
 
@@ -80,6 +80,6 @@ func (context ContextImpl) GetActionName() string {
 	return context.actionName
 }
 
-func (context ContextImpl) GetParams() interface{} {
-	return context.params
+func (context ContextImpl) GetParams() Params {
+	return CreateParams(&context.params)
 }

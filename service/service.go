@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/params"
 )
 
 type ActionSchema struct {

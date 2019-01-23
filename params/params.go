@@ -4,21 +4,38 @@ import (
 	. "github.com/moleculer-go/moleculer/common"
 )
 
-type Params struct {
+type ParamsImpl struct {
+	source *interface{}
+	values *map[string]interface{}
 }
 
-func (params *Params) GetInt(name string) int {
-	return 0
+func (params ParamsImpl) Int(name string) int {
+	return (*params.values)[name].(int)
 }
 
-func (params *Params) GetString(name string) string {
-	return ""
+func (params ParamsImpl) Int64(name string) int64 {
+	return (*params.values)[name].(int64)
 }
 
-func (params *Params) Get(name string) string {
-	return params.GetString(name)
+func (params ParamsImpl) Float(name string) float32 {
+	return (*params.values)[name].(float32)
 }
 
-func ParamsFromContext(ctx *Context) Params {
-	return Params{}
+func (params ParamsImpl) Float64(name string) float64 {
+	return (*params.values)[name].(float64)
+}
+
+func (params ParamsImpl) String(name string) string {
+	return (*params.values)[name].(string)
+}
+
+func (params ParamsImpl) Get(name string) string {
+	return params.String(name)
+}
+
+func CreateParams(source *interface{}) Params {
+	//TODO parse source and feed into values
+
+	values := make(map[string]interface{})
+	return ParamsImpl{source, &values}
 }
