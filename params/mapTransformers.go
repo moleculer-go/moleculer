@@ -76,8 +76,7 @@ func getValueType(value *interface{}) string {
 
 // getMapTransformer : return the map transformer for the specific map type
 func getMapTransformer(value *interface{}) *mapTransformer {
-	valueType := fmt.Sprintf("%T", (*value))
-	//fmt.Println("getMapReader() valueType: ", valueType)
+	valueType := getValueType(value)
 	for _, transformer := range mapTransformers {
 		if valueType == transformer.name {
 			return &transformer
