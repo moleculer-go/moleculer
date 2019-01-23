@@ -1,11 +1,15 @@
 package service_test
 
 import (
+	"context"
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	. "github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer/service"
 )
 
@@ -13,15 +17,74 @@ var logger = log.WithField("Unit Test", true)
 
 var _ = Describe("MergeActions", func() {
 
-	serviceSchema := Service{"earth", "0.2", map[string]interface{}(nil), map[string]interface{}(nil), []ServiceAction(nil), []ServiceEvent(nil), nil, nil, nil}
-	serviceSchemaOriginal := ServiceSchema{"earth", "0.2", map[string]interface{}(nil), map[string]interface{}(nil), nil, []ServiceAction(nil), []ServiceEvent(nil), nil, nil, nil}
-	serviceSchemaMixin := ServiceSchema{"venus", "0.2", map[string]interface{}(nil), map[string]interface{}(nil), nil, []ServiceAction(nil), []ServiceEvent(nil), nil, nil, nil}
+	serviceSchema := Service{
+		Name:    "earth",
+		Version: "0.2",
+		Settings: map[string]interface{}{
+			"dinosauros": true,
+		},
+		Metadata: map[string]interface{}{
+			"star-system": "sun",
+		},
+		Actions: []Action{
+			Action{
+				Name: "rotate",
+				Handler: func(ctx context.Context, params Params) interface{} {
+					return "Hellow Leleu ;) I'm rotating ..."
+				},
+			},
+		},
+		Events: []Event{
+			Event{
+				Name: "earth.rotates",
+				Handler: func(ctx context.Context, params Params) {
+					fmt.Println("spining spining spining")
+				},
+			},
+		},
+	}
+
+	moonMixIn := Mixin{
+		Name: "moon",
+		Settings: map[string]interface{}{
+			"craters": true,
+		},
+		Metadata: map[string]interface{}{
+			"resolution": "high",
+		}, Actions: []Action{
+			Action{
+				Name: "tide",
+				Handler: func(ctx context.Context, params Params) interface{} {
+					return "tide influence in the oceans"
+				},
+			},
+		},
+		Events: []Event{
+			Event{
+				Name: "earth.rotates",
+				Handler: func(ctx context.Context, params Params) {
+					fmt.Println("update tide in relation to the moon")
+				},
+			},
+			Event{
+				Name: "moon.isClose",
+				Handler: func(ctx context.Context, params Params) {
+					fmt.Println("rise the tide !")
+				},
+			},
+		},
+	}
 
 	It("Should merge and overwrite existing actions", func() {
 
-		thisName := serviceSchema.GetName()
-		Expect(thisName).Should(Equal(serviceSchemaOriginal.Name))
-		Expect(thisName).Should(Not(Equal(serviceSchemaMixin.Name)))
+		//just to avoid the "not used errors"
+		Expect(serviceSchema).Should(Not(BeNil()))
+		Expect(moonMixIn).Should(Not(BeNil()))
+
+		thisService := CreateService(serviceSchema)
+		thisName := thisService.GetName()
+		Expect(thisName).Should(Equal(serviceSchema.Name))
+		Expect(thisName).Should(Not(Equal(moonMixIn.Name)))
 
 	})
 
