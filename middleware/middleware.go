@@ -2,7 +2,7 @@ package middleware
 
 import (
 	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/params"
+
 	. "github.com/moleculer-go/moleculer/service"
 )
 
