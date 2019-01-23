@@ -7,12 +7,12 @@ import (
 	. "github.com/moleculer-go/moleculer/common"
 )
 
-type ActionSchema struct {
-}
-
 type ActionHandler func(ctx Context, params Params) interface{}
 
 type EventHandler func(ctx Context, params Params)
+
+type ActionSchema struct {
+}
 
 type ServiceActionSchema struct {
 	Name    string
@@ -70,7 +70,6 @@ type Service struct {
 	version  string
 	settings map[string]interface{}
 	metadata map[string]interface{}
-	hooks    map[string]interface{}
 	actions  []ServiceAction
 	events   []ServiceEvent
 	created  []FuncType
@@ -113,7 +112,7 @@ func (service *Service) GetEvents() []ServiceEvent {
 	return service.events
 }
 
-func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+func mergeActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	// Copy struct into a slice of interfaces
 	originListSlice := make([]interface{}, len(service.Actions))
 	for i, d := range service.Actions {
@@ -125,7 +124,7 @@ func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
 	for _, mixinAction := range mixin.Actions {
 		// Check if already exists in service
 		filterExisting := filter(originListSlice, func(item interface{}) bool {
-			action := item.(ServiceAction)
+			action := item.(ServiceActionSchema)
 			return action.Name == mixinAction.Name
 		})
 		// If does not exist, add to mixed list
@@ -135,11 +134,11 @@ func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
 	}
 	// Convert back from interface slice to struct
 	var thisInterface interface{} = &finalList
-	service.Actions, _ = thisInterface.([]ServiceAction)
+	service.Actions, _ = thisInterface.([]ServiceActionSchema)
 	return service
 }
 
-func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+func mergeEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	// Copy struct into a slice of interfaces
 	originListSlice := make([]interface{}, len(service.Events))
 	for i, d := range service.Events {
@@ -151,8 +150,8 @@ func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
 	for _, mixinEvent := range mixin.Events {
 		// Check if already exists in service
 		filterExisting := filter(originListSlice, func(item interface{}) bool {
-			action := item.(ServiceAction)
-			return action.Name == mixinEvent.Name
+			event := item.(ServiceActionSchema)
+			return event.Name == mixinEvent.Name
 		})
 		// If does not exist, add to mixed list
 		if len(filterExisting) == 0 {
@@ -161,11 +160,11 @@ func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
 	}
 	// Convert back from interface slice to struct
 	var thisInterface interface{} = &finalList
-	service.Events, _ = thisInterface.([]ServiceEvent)
+	service.Events, _ = thisInterface.([]ServiceEventSchema)
 	return service
 }
 
-func mergeSettings(service ServiceSchema, mixin MixinSchema) ServiceSchema {
+func mergeSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	settings := make(map[string]interface{})
 	for index, setting := range service.Settings {
 		if _, ok := service.Settings[index]; ok {
@@ -182,7 +181,7 @@ func mergeSettings(service ServiceSchema, mixin MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeMetadata(service ServiceSchema, mixin MixinSchema) ServiceSchema {
+func mergeMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	metadata := make(map[string]interface{})
 	for index, value := range service.Metadata {
 		if _, ok := service.Metadata[index]; ok {
@@ -199,7 +198,7 @@ func mergeMetadata(service ServiceSchema, mixin MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeHooks(service ServiceSchema, mixin MixinSchema) ServiceSchema {
+func mergeHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	hooks := make(map[string]interface{})
 	for index, hook := range service.Hooks {
 		if _, ok := service.Hooks[index]; ok {
@@ -218,11 +217,11 @@ func mergeHooks(service ServiceSchema, mixin MixinSchema) ServiceSchema {
 
 func applyMixins(service ServiceSchema) ServiceSchema {
 	for _, mixin := range service.Mixins {
-		service = mergeActions(service, mixin)
-		service = mergeEvents(service, mixin)
-		service = mergeSettings(service, mixin)
-		service = mergeMetadata(service, mixin)
-		service = mergeHooks(service, mixin)
+		service = mergeActions(service, &mixin)
+		service = mergeEvents(service, &mixin)
+		service = mergeSettings(service, &mixin)
+		service = mergeMetadata(service, &mixin)
+		service = mergeHooks(service, &mixin)
 	}
 	return service
 }

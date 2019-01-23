@@ -36,7 +36,7 @@ func CreateServiceSchema() Service {
 				onSubEvent,
 			},
 		},
-		Mixins: []*moleculer.ServiceSchema(helloWorldSchema),
+		//Mixins: []*Mixin(helloWorldSchema),
 		Created: func() {
 			fmt.Println("math service created !")
 		},

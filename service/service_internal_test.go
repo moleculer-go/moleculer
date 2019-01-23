@@ -120,7 +120,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing actions", func() {
 
-		mergedServiceActions := mergeActions(serviceSchema, moonMixIn)
+		mergedServiceActions := mergeActions(serviceSchema, &moonMixIn)
 
 		Expect(mergedServiceActions.Actions).Should(Equal([]ServiceActionSchema{
 			ServiceActionSchema{
@@ -133,14 +133,11 @@ var _ = test.Describe("MergeActions", func() {
 			},
 		},
 		))
-
-		Expect(mergedServiceAction.Actions).Should(Equal(serviceSchemaMixin.Actions))
-		Expect(mergedServiceAction.Actions).Should(Not(Equal(serviceSchemaOriginal.Actions)))
 	})
 
 	test.It("Should merge and overwrite existing events", func() {
 
-		mergedServiceEvents := mergeEvents(serviceSchema, moonMixIn)
+		mergedServiceEvents := mergeEvents(serviceSchema, &moonMixIn)
 		Expect(mergedServiceEvents.Events).Should(Equal([]ServiceEventSchema{
 			ServiceEventSchema{
 				Name:    "earth.rotates",
@@ -156,7 +153,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing settings", func() {
 
-		mergedServiceSettings := mergeSettings(serviceSchema, moonMixIn)
+		mergedServiceSettings := mergeSettings(serviceSchema, &moonMixIn)
 		Expect(mergedServiceSettings.Settings).Should(Equal(map[string]interface{}{
 			"dinosauros": true,
 			"craters":    true,
@@ -166,7 +163,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing metadata", func() {
 
-		mergedServiceMetadata := mergeMetadata(serviceSchema, moonMixIn)
+		mergedServiceMetadata := mergeMetadata(serviceSchema, &moonMixIn)
 		Expect(mergedServiceMetadata.Metadata).Should(Equal(map[string]interface{}{
 			"star-system": "sun",
 			"resolution":  "high",
@@ -176,7 +173,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing hooks", func() {
 
-		mergedServiceHooks := mergeHooks(serviceSchema, moonMixIn)
+		mergedServiceHooks := mergeHooks(serviceSchema, &moonMixIn)
 		Expect(mergedServiceHooks.Hooks).Should(Equal(map[string]interface{}{
 			"solar-system": "true",
 			"earth":        "true",
