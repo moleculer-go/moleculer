@@ -9,8 +9,8 @@ import (
 type Service = service.ServiceSchema
 type Action = service.ServiceActionSchema
 type Event = service.ServiceEventSchema
+type Mixin = service.MixinSchema
 type Params = common.Params
-
 type Context = common.Context
 
 // returns a valid broker based on environment configuration

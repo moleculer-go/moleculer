@@ -1,35 +1,35 @@
 package service
 
 import (
-	"context"
 	"fmt"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/moleculer-go/moleculer/common"
+	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 )
 
 var logger = log.WithField("Unit Test", true)
 
-var _ = Describe("MergeActions", func() {
+var _ = test.Describe("MergeActions", func() {
 
-	rotateFunc := func(ctx context.Context, params ParamsImpl) interface{} {
+	rotateFunc := func(ctx Context, params Params) interface{} {
 		return "Hellow Leleu ;) I'm rotating ..."
 	}
 
-	rotatesEventFunc := func(ctx context.Context, params ParamsImpl) {
+	rotatesEventFunc := func(ctx Context, params Params) {
 		fmt.Println("spining spining spining")
 	}
 
-	mixinTideFunc := func(ctx context.Context, params ParamsImpl) interface{} {
+	mixinTideFunc := func(ctx Context, params Params) interface{} {
 		return "tide influence in the oceans"
 	}
 
-	mixinRotatesFunc := func(ctx context.Context, params ParamsImpl) {
+	mixinRotatesFunc := func(ctx Context, params Params) {
 		fmt.Println("update tide in relation to the moon")
 	}
 
-	mixinMoonIsCloseFunc := func(ctx context.Context, params ParamsImpl) {
+	mixinMoonIsCloseFunc := func(ctx Context, params Params) {
 		fmt.Println("rise the tide !")
 	}
 
@@ -118,7 +118,7 @@ var _ = Describe("MergeActions", func() {
 		},
 	}
 
-	It("Should merge and overwrite existing actions", func() {
+	test.It("Should merge and overwrite existing actions", func() {
 
 		mergedServiceActions := mergeActions(serviceSchema, moonMixIn)
 
@@ -138,7 +138,7 @@ var _ = Describe("MergeActions", func() {
 		Expect(mergedServiceAction.Actions).Should(Not(Equal(serviceSchemaOriginal.Actions)))
 	})
 
-	It("Should merge and overwrite existing events", func() {
+	test.It("Should merge and overwrite existing events", func() {
 
 		mergedServiceEvents := mergeEvents(serviceSchema, moonMixIn)
 		Expect(mergedServiceEvents.Events).Should(Equal([]ServiceEventSchema{
@@ -154,7 +154,7 @@ var _ = Describe("MergeActions", func() {
 		))
 	})
 
-	It("Should merge and overwrite existing settings", func() {
+	test.It("Should merge and overwrite existing settings", func() {
 
 		mergedServiceSettings := mergeSettings(serviceSchema, moonMixIn)
 		Expect(mergedServiceSettings.Settings).Should(Equal(map[string]interface{}{
@@ -164,7 +164,7 @@ var _ = Describe("MergeActions", func() {
 		))
 	})
 
-	It("Should merge and overwrite existing metadata", func() {
+	test.It("Should merge and overwrite existing metadata", func() {
 
 		mergedServiceMetadata := mergeMetadata(serviceSchema, moonMixIn)
 		Expect(mergedServiceMetadata.Metadata).Should(Equal(map[string]interface{}{
@@ -174,7 +174,7 @@ var _ = Describe("MergeActions", func() {
 		))
 	})
 
-	It("Should merge and overwrite existing hooks", func() {
+	test.It("Should merge and overwrite existing hooks", func() {
 
 		mergedServiceHooks := mergeHooks(serviceSchema, moonMixIn)
 		Expect(mergedServiceHooks.Hooks).Should(Equal(map[string]interface{}{
@@ -184,7 +184,7 @@ var _ = Describe("MergeActions", func() {
 		))
 	})
 
-	It("Should apply mixins collectively", func() {
+	test.It("Should apply mixins collectively", func() {
 
 		mergedService := applyMixins(serviceSchema)
 		Expect(mergedService).Should(Equal(ServiceSchema{

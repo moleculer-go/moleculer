@@ -1,21 +1,20 @@
 package service_test
 
 import (
-	"context"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
 
-	. "github.com/onsi/ginkgo"
+	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	. "github.com/moleculer-go/moleculer"
-	. "github.com/moleculer-go/moleculer/service"
+	"github.com/moleculer-go/moleculer/service"
 )
 
 var logger = log.WithField("Unit Test", true)
 
-var _ = Describe("MergeActions", func() {
+var _ = test.Describe("MergeActions", func() {
 
 	serviceSchema := Service{
 		Name:    "earth",
@@ -29,7 +28,7 @@ var _ = Describe("MergeActions", func() {
 		Actions: []Action{
 			Action{
 				Name: "rotate",
-				Handler: func(ctx context.Context, params Params) interface{} {
+				Handler: func(ctx Context, params Params) interface{} {
 					return "Hellow Leleu ;) I'm rotating ..."
 				},
 			},
@@ -37,7 +36,7 @@ var _ = Describe("MergeActions", func() {
 		Events: []Event{
 			Event{
 				Name: "earth.rotates",
-				Handler: func(ctx context.Context, params Params) {
+				Handler: func(ctx Context, params Params) {
 					fmt.Println("spining spining spining")
 				},
 			},
@@ -54,7 +53,7 @@ var _ = Describe("MergeActions", func() {
 		}, Actions: []Action{
 			Action{
 				Name: "tide",
-				Handler: func(ctx context.Context, params Params) interface{} {
+				Handler: func(ctx Context, params Params) interface{} {
 					return "tide influence in the oceans"
 				},
 			},
@@ -62,26 +61,26 @@ var _ = Describe("MergeActions", func() {
 		Events: []Event{
 			Event{
 				Name: "earth.rotates",
-				Handler: func(ctx context.Context, params Params) {
+				Handler: func(ctx Context, params Params) {
 					fmt.Println("update tide in relation to the moon")
 				},
 			},
 			Event{
 				Name: "moon.isClose",
-				Handler: func(ctx context.Context, params Params) {
+				Handler: func(ctx Context, params Params) {
 					fmt.Println("rise the tide !")
 				},
 			},
 		},
 	}
 
-	It("Should merge and overwrite existing actions", func() {
+	test.It("Should merge and overwrite existing actions", func() {
 
 		//just to avoid the "not used errors"
 		Expect(serviceSchema).Should(Not(BeNil()))
 		Expect(moonMixIn).Should(Not(BeNil()))
 
-		thisService := CreateService(serviceSchema)
+		thisService := service.CreateService(serviceSchema)
 		thisName := thisService.GetName()
 		Expect(thisName).Should(Equal(serviceSchema.Name))
 		Expect(thisName).Should(Not(Equal(moonMixIn.Name)))
