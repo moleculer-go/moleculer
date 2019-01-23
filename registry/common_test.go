@@ -9,8 +9,8 @@ import (
 
 var logger = log.WithField("Unit Test", "Registry Pkg")
 
-func CreateLogger(name string) *log.Entry {
-	return logger.WithField(name, "<Unit Test>")
+func CreateLogger(name string, value string) *log.Entry {
+	return logger.WithField(name, value)
 }
 
 var localNode = CreateNode(DiscoverNodeID())

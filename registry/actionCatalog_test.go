@@ -20,7 +20,7 @@ var _ = test.Describe("Actions Catalog", func() {
 	}
 	bankCreditAction := CreateServiceAction("bank", "credit", handler, actionSchema)
 
-	context := ContextImpl{}
+	context := CreateContext(nil, nil, nil, CreateLogger, nil)
 
 	test.Describe("Invoking Actions ", func() {
 		test.It("Should invoke action on action endpoint", func() {
@@ -38,7 +38,8 @@ var _ = test.Describe("Actions Catalog", func() {
 			actionEnpoint := catalog.NextEndpoint(actionName, strategy)
 			Expect(actionEnpoint).Should(Not(BeNil()))
 
-			resultChannel := actionEnpoint.InvokeAction(context.NewActionContext(actionName, nil))
+			actionContext := context.NewActionContext(actionName, nil)
+			resultChannel := actionEnpoint.InvokeAction(&actionContext)
 			Expect(resultChannel).Should(Not(BeNil()))
 
 			result := <-resultChannel
