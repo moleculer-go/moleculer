@@ -13,6 +13,7 @@ type Params interface {
 	Int64(name string) int64
 	Float(name string) float32
 	Float64(name string) float64
+	Map(name string) Params
 }
 
 type Context interface {
@@ -24,6 +25,8 @@ type Context interface {
 	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context
 	GetActionName() string
 	GetParams() Params
+
+	GetLogger() *log.Entry
 }
 
 type Endpoint interface {

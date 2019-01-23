@@ -45,13 +45,20 @@ func (params ParamsImpl) String(name string) string {
 	return ""
 }
 
+func (params ParamsImpl) Map(name string) Params {
+	if value, ok := (*params.values)[name]; ok {
+		var source *interface{} = &value
+		return CreateParams(source)
+	}
+	return nil
+}
+
 func (params ParamsImpl) Get(name string) string {
 	return params.String(name)
 }
 
 func CreateParams(source *interface{}) Params {
-	//TODO parse source and feed into values
-
 	values := make(map[string]interface{})
+	copyValues(source, &values)
 	return ParamsImpl{source, &values}
 }

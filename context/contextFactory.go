@@ -40,6 +40,8 @@ func (context ContextImpl) NewActionContext(actionName string, params interface{
 		actionDelegate:    context.actionDelegate,
 		emitDelegate:      context.emitDelegate,
 		broadcastDelegate: context.broadcastDelegate,
+		getLogger:         context.getLogger,
+		node:              context.node,
 		actionName:        actionName,
 		params:            params,
 	}
@@ -82,4 +84,11 @@ func (context ContextImpl) GetActionName() string {
 
 func (context ContextImpl) GetParams() Params {
 	return CreateParams(&context.params)
+}
+
+func (context ContextImpl) GetLogger() *log.Entry {
+	if context.actionName != "" {
+		return context.getLogger("action", context.actionName)
+	}
+	return context.getLogger("context", "<root>")
 }
