@@ -120,7 +120,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing actions", func() {
 
-		mergedServiceActions := mergeActions(serviceSchema, &moonMixIn)
+		mergedServiceActions := extendActions(serviceSchema, &moonMixIn)
 
 		Expect(mergedServiceActions.Actions).Should(Equal([]ServiceActionSchema{
 			ServiceActionSchema{
@@ -137,7 +137,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing events", func() {
 
-		mergedServiceEvents := mergeEvents(serviceSchema, &moonMixIn)
+		mergedServiceEvents := concatenateEvents(serviceSchema, &moonMixIn)
 		Expect(mergedServiceEvents.Events).Should(Equal([]ServiceEventSchema{
 			ServiceEventSchema{
 				Name:    "earth.rotates",
@@ -153,7 +153,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing settings", func() {
 
-		mergedServiceSettings := mergeSettings(serviceSchema, &moonMixIn)
+		mergedServiceSettings := extendSettings(serviceSchema, &moonMixIn)
 		Expect(mergedServiceSettings.Settings).Should(Equal(map[string]interface{}{
 			"dinosauros": true,
 			"craters":    true,
@@ -163,7 +163,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing metadata", func() {
 
-		mergedServiceMetadata := mergeMetadata(serviceSchema, &moonMixIn)
+		mergedServiceMetadata := extendMetadata(serviceSchema, &moonMixIn)
 		Expect(mergedServiceMetadata.Metadata).Should(Equal(map[string]interface{}{
 			"star-system": "sun",
 			"resolution":  "high",
@@ -173,7 +173,7 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing hooks", func() {
 
-		mergedServiceHooks := mergeHooks(serviceSchema, &moonMixIn)
+		mergedServiceHooks := extendHooks(serviceSchema, &moonMixIn)
 		Expect(mergedServiceHooks.Hooks).Should(Equal(map[string]interface{}{
 			"solar-system": "true",
 			"earth":        "true",

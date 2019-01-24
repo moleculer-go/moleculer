@@ -112,7 +112,7 @@ func (service *Service) GetEvents() []ServiceEvent {
 	return service.events
 }
 
-func mergeActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	// Copy struct into a slice of interfaces
 	originListSlice := make([]interface{}, len(service.Actions))
 	for i, d := range service.Actions {
@@ -138,7 +138,7 @@ func mergeActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func concatenateEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	// Copy struct into a slice of interfaces
 	originListSlice := make([]interface{}, len(service.Events))
 	for i, d := range service.Events {
@@ -164,7 +164,7 @@ func mergeEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	settings := make(map[string]interface{})
 	for index, setting := range service.Settings {
 		if _, ok := service.Settings[index]; ok {
@@ -181,7 +181,7 @@ func mergeSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	metadata := make(map[string]interface{})
 	for index, value := range service.Metadata {
 		if _, ok := service.Metadata[index]; ok {
@@ -198,7 +198,7 @@ func mergeMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	hooks := make(map[string]interface{})
 	for index, hook := range service.Hooks {
 		if _, ok := service.Hooks[index]; ok {
@@ -215,13 +215,47 @@ func mergeHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
+func mergeNames(service ServiceSchema, mixin *MixinSchema) ServiceSchema         { return service }
+func mergeVersions(service ServiceSchema, mixin *MixinSchema) ServiceSchema      { return service }
+func mergeMethods(service ServiceSchema, mixin *MixinSchema) ServiceSchema       { return service }
+func mergeMixins(service ServiceSchema, mixin *MixinSchema) ServiceSchema        { return service }
+func mergeDependencies(service ServiceSchema, mixin *MixinSchema) ServiceSchema  { return service }
+func concatenateCreated(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+func concatenateStarted(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+func concatenateStopped(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+
+/*
+Mixin Strategy:
+(done)settings:      	Extend with defaultsDeep.
+(done)metadata:   	Extend with defaultsDeep.
+(broken)actions:    	Extend with defaultsDeep. You can disable an action from mixin if you set to false in your service.
+(done)hooks:      	Extend with defaultsDeep.
+(broken)events:     	Concatenate listeners.
+TODO:
+name:           Merge & overwrite.
+version:    	Merge & overwrite.
+methods:       	Merge & overwrite.
+mixins:	        Merge & overwrite.
+dependencies:   Merge & overwrite.
+created:    	Concatenate listeners.
+started:    	Concatenate listeners.
+stopped:    	Concatenate listeners.
+*/
+
 func applyMixins(service ServiceSchema) ServiceSchema {
 	for _, mixin := range service.Mixins {
-		service = mergeActions(service, &mixin)
-		service = mergeEvents(service, &mixin)
-		service = mergeSettings(service, &mixin)
-		service = mergeMetadata(service, &mixin)
-		service = mergeHooks(service, &mixin)
+		service = extendActions(service, &mixin)
+		service = extendSettings(service, &mixin)
+		service = extendMetadata(service, &mixin)
+		service = extendHooks(service, &mixin)
+		service = mergeNames(service, &mixin)
+		service = mergeVersions(service, &mixin)
+		service = mergeMethods(service, &mixin)
+		service = mergeMixins(service, &mixin)
+		service = mergeDependencies(service, &mixin)
+		service = concatenateCreated(service, &mixin)
+		service = concatenateStarted(service, &mixin)
+		service = concatenateStopped(service, &mixin)
 	}
 	return service
 }
