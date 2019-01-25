@@ -155,15 +155,6 @@ type contextBroker struct {
 	//TODO add relevante broker info here
 }
 
-// TODO -> move to context factory
-// func CreateBrokerContext(broker *ServiceBroker, actionName string, params interface{}) Context {
-// 	parent := broker.callContext
-// 	if parent == nil {
-// 		parent = context.WithValue(context.Background(), ContextBroker, broker.contextBroker)
-// 	}
-// 	return context.WithValue(parent, ContextAction, contextAction{actionName, params})
-// }
-
 func (broker *ServiceBroker) emitWithContext(context *Context, groups ...string) {
 }
 
