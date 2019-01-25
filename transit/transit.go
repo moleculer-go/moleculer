@@ -29,38 +29,34 @@ type Transport interface {
 // }
 
 type Transit struct {
-	transport *Transport
-	isReady   bool
+	transport  *Transport
+	serializer *Serializer
+	isReady    bool
 }
 
-func CreateTransit() *Transit {
-	transit := Transit{}
-	transit.isReady = false
+func CreateTransit(serializer *Serializer) *Transit {
+	transit := Transit{
+		serializer: serializer,
+		isReady:    false,
+	}
 	return &transit
-}
-
-func CreateSerializer() Serializer {
-	jsonSerializer := CreateJSONSerializer()
-	return jsonSerializer
 }
 
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
-func CreateTransport() *Transport {
+func CreateTransport(serializer *Serializer) *Transport {
 	//TODO: move this to config and params
 	prefix := "MOL"
 	url := "stan://localhost:4222"
 	clusterID := "test-cluster"
 	nodeID := "xyz"
 
-	serializer := CreateSerializer()
-
 	options := StanTransporterOptions{
 		prefix,
 		url,
 		clusterID,
 		nodeID,
-		&serializer,
+		serializer,
 	}
 
 	var transport Transport = CreateStanTransporter(options)
@@ -73,7 +69,7 @@ func (transit *Transit) Connect() chan bool {
 		endChan <- true
 		return endChan
 	}
-	transit.transport = CreateTransport()
+	transit.transport = CreateTransport(transit.serializer)
 	return (*transit.transport).Connect()
 }
 

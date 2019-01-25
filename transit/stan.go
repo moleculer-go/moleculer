@@ -48,8 +48,8 @@ func stanTopicName(transporter *StanTransporter, command string, nodeID string) 
 	return fmt.Sprint(transporter.prefix, ".", command)
 }
 
-func createTransitMessage(msg *stan.Msg) TransitMessage {
-	return nil
+func (transporter StanTransporter) createTransitMessage(msg *stan.Msg) TransitMessage {
+	return (*transporter.serializer).BytesToMessage(msg.Data)
 }
 
 func (transporter StanTransporter) MakeBalancedSubscriptions() {
@@ -99,7 +99,7 @@ func (transporter StanTransporter) Subscribe(command string, nodeID string, hand
 	fmt.Printf("\nSubscribe() - topic: %s", topic)
 	sub, error := connection.Subscribe(topic, func(msg *stan.Msg) {
 		fmt.Printf("\n(Subscribe) Received a message: %s\n", string(msg.Data))
-		handler(createTransitMessage(msg))
+		handler(transporter.createTransitMessage(msg))
 	})
 	if error != nil {
 		fmt.Print("Subscribe() - Error: ", error)
@@ -111,5 +111,5 @@ func (transporter StanTransporter) Subscribe(command string, nodeID string, hand
 
 func (transporter StanTransporter) Publish(command, nodeID string, message TransitMessage) {
 	topic := stanTopicName(&transporter, command, nodeID)
-	(*transporter.getConnection()).Publish(topic, message.Bytes())
+	(*transporter.getConnection()).Publish(topic, []byte(message.String()))
 }

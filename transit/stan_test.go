@@ -13,7 +13,7 @@ import (
 var _ = test.Describe("Transit", func() {
 
 	context := CreateBrokerContext(nil, nil, nil, CreateLogger, nil)
-	serializer := CreateSerializer()
+	var serializer Serializer = CreateJSONSerializer()
 	url := "stan://localhost:4222"
 	options := StanTransporterOptions{
 		"MOL",
@@ -24,7 +24,6 @@ var _ = test.Describe("Transit", func() {
 	}
 
 	test.It("Should connect, subscribe, publish and disconnect", func() {
-
 		params := map[string]string{
 			"name":     "John",
 			"lastName": "Snow",
@@ -41,7 +40,9 @@ var _ = test.Describe("Transit", func() {
 
 			context := serializer.MessageToContext(message)
 			Expect(context.GetActionName()).Should(Equal(actionName))
-			Expect(context.GetParams()).Should(Equal(params))
+			contextParams := context.GetParams()
+			Expect(contextParams.String("name")).Should(Equal("John"))
+			Expect(contextParams.String("lastName")).Should(Equal("Snow"))
 
 			received <- true
 		})

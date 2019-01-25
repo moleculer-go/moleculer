@@ -15,6 +15,7 @@ type TransitMessage interface {
 	//TODO add the reminaing from Result type from GJSON (https://github.com/tidwall/gjson)
 }
 type Serializer interface {
+	BytesToMessage(bytes []byte) TransitMessage
 	ContextToMessage(context Context) TransitMessage
 	MessageToContext(TransitMessage) Context
 }

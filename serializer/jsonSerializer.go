@@ -46,6 +46,12 @@ func mapToContext(contextMap map[string]interface{}) Context {
 	return context
 }
 
+func (serializer JSONSerializer) BytesToMessage(bytes []byte) TransitMessage {
+	result := gjson.ParseBytes(bytes)
+	message := ResultWrapper{&result}
+	return message
+}
+
 func (serializer JSONSerializer) MessageToContext(message TransitMessage) Context {
 	contextMap := message.AsMap()
 	context := mapToContext(contextMap)
