@@ -26,6 +26,8 @@ func CreateActionCatalog() *ActionCatalog {
 
 func invokeRemoteAction(ctx *Context, actionEntry *ActionEntry) chan interface{} {
 	//TODO
+	// JSON context, params, meta
+
 	return nil
 }
 

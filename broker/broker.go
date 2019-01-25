@@ -117,7 +117,7 @@ func (broker *ServiceBroker) Start() {
 
 	broker.middlewares.CallHandlers("starting", broker)
 
-	broker.transit.Connect()
+	<-broker.transit.Connect()
 
 	for _, service := range broker.services {
 		startService(broker, service)
@@ -126,7 +126,7 @@ func (broker *ServiceBroker) Start() {
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
 
-	broker.transit.Ready()
+	<-broker.transit.Ready()
 
 	broker.middlewares.CallHandlers("started", broker)
 
@@ -150,7 +150,7 @@ type contextBroker struct {
 }
 
 // TODO -> move to context factory
-// func createContext(broker *ServiceBroker, actionName string, params interface{}) Context {
+// func CreateBrokerContext(broker *ServiceBroker, actionName string, params interface{}) Context {
 // 	parent := broker.callContext
 // 	if parent == nil {
 // 		parent = context.WithValue(context.Background(), ContextBroker, broker.contextBroker)
@@ -223,7 +223,7 @@ func (broker *ServiceBroker) init() {
 		broker.IsStarted,
 	}
 	broker.registry = CreateRegistry(broker.GetInfo())
-	broker.rootContext = CreateContext(
+	broker.rootContext = CreateBrokerContext(
 		broker.callWithContext,
 		broker.emitWithContext,
 		broker.broadcastWithContext,
