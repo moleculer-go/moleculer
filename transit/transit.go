@@ -4,6 +4,7 @@ import (
 	"time"
 
 	. "github.com/moleculer-go/moleculer/serializer"
+	. "github.com/moleculer-go/moleculer/util"
 )
 
 // type packetTypeKey int
@@ -49,7 +50,7 @@ func CreateTransport(serializer *Serializer) *Transport {
 	prefix := "MOL"
 	url := "stan://localhost:4222"
 	clusterID := "test-cluster"
-	nodeID := "xyz"
+	nodeID := RandomString(5)
 
 	options := StanTransporterOptions{
 		prefix,
@@ -64,13 +65,18 @@ func CreateTransport(serializer *Serializer) *Transport {
 }
 
 func (transit *Transit) Connect() chan bool {
+	endChan := make(chan bool)
 	if transit.isReady {
-		endChan := make(chan bool)
 		endChan <- true
 		return endChan
 	}
 	transit.transport = CreateTransport(transit.serializer)
-	return (*transit.transport).Connect()
+	go func() {
+		connected := <-(*transit.transport).Connect()
+		transit.isReady = connected
+		endChan <- connected
+	}()
+	return endChan
 }
 
 func (transit *Transit) Ready() chan bool {

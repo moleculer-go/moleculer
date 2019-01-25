@@ -66,7 +66,7 @@ func (transporter *StanTransporter) setConnection(connection *stan.Conn) {
 func (transporter StanTransporter) Connect() chan bool {
 	endChan := make(chan bool)
 	go func() {
-		fmt.Println("Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID)
+		fmt.Println("Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
 		connection, error := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
 		if error != nil {
 			fmt.Print("\nConnect() - Error: ", error)
