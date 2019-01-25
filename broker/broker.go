@@ -117,16 +117,22 @@ func (broker *ServiceBroker) Start() {
 
 	broker.middlewares.CallHandlers("starting", broker)
 
-	broker.transit.Connect()
+	<-broker.transit.Connect()
+
+	broker.logger.Debug("Broker -> transit connected !")
 
 	for _, service := range broker.services {
 		startService(broker, service)
 	}
 
+	broker.logger.Debug("Broker -> services started !")
+
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
 
-	broker.transit.Ready()
+	<-broker.transit.Ready()
+
+	broker.logger.Debug("Broker -> transit is ready !")
 
 	broker.middlewares.CallHandlers("started", broker)
 
@@ -148,15 +154,6 @@ type contextAction struct {
 type contextBroker struct {
 	//TODO add relevante broker info here
 }
-
-// TODO -> move to context factory
-// func createContext(broker *ServiceBroker, actionName string, params interface{}) Context {
-// 	parent := broker.callContext
-// 	if parent == nil {
-// 		parent = context.WithValue(context.Background(), ContextBroker, broker.contextBroker)
-// 	}
-// 	return context.WithValue(parent, ContextAction, contextAction{actionName, params})
-// }
 
 func (broker *ServiceBroker) emitWithContext(context *Context, groups ...string) {
 }
@@ -212,6 +209,9 @@ func (broker *ServiceBroker) GetLocalNode() *Node {
 }
 
 func (broker *ServiceBroker) init() {
+	//TODO move to wher we apply all settings
+	log.SetLevel(log.DebugLevel)
+
 	broker.logger = setupLogger()
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
@@ -222,8 +222,10 @@ func (broker *ServiceBroker) init() {
 		broker.GetLocalBus,
 		broker.IsStarted,
 	}
+	var serializer Serializer = CreateJSONSerializer()
+	broker.transit = CreateTransit(&serializer)
 	broker.registry = CreateRegistry(broker.GetInfo())
-	broker.rootContext = CreateContext(
+	broker.rootContext = CreateBrokerContext(
 		broker.callWithContext,
 		broker.emitWithContext,
 		broker.broadcastWithContext,

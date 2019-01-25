@@ -12,6 +12,7 @@ type eventDelegateFunc func(context *Context, groups ...string)
 type getLoggerFunction func(name string, value string) *log.Entry
 
 type ContextImpl struct {
+	self              *ContextImpl
 	actionDelegate    actionDelegateFunc
 	emitDelegate      eventDelegateFunc
 	broadcastDelegate eventDelegateFunc
@@ -21,37 +22,104 @@ type ContextImpl struct {
 	eventName         string
 	getLogger         getLoggerFunction
 	params            interface{}
+	id                string
+	meta              map[string]interface{}
+	timeout           int
+	level             int
+	sendMetrics       bool
+	requestID         string
 }
 
-func CreateContext(actionDelegate actionDelegateFunc, emitDelegate eventDelegateFunc, broadcastDelegate eventDelegateFunc, getLogger getLoggerFunction, node *Node) Context {
+func CreateBrokerContext(actionDelegate actionDelegateFunc, emitDelegate eventDelegateFunc, broadcastDelegate eventDelegateFunc, getLogger getLoggerFunction, node *Node) Context {
 	context := ContextImpl{
 		actionDelegate:    actionDelegate,
 		emitDelegate:      emitDelegate,
 		broadcastDelegate: broadcastDelegate,
 		getLogger:         getLogger,
 		node:              node,
+		level:             1,
+		requestID:         "",
 	}
+	context.self = &context
 	return context
 }
 
 // NewActionContext : create a new context for a specific action call
 func (context ContextImpl) NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context {
+	parentContext := context
 	actionContext := ContextImpl{
-		actionDelegate:    context.actionDelegate,
-		emitDelegate:      context.emitDelegate,
-		broadcastDelegate: context.broadcastDelegate,
-		getLogger:         context.getLogger,
-		node:              context.node,
+		actionDelegate:    parentContext.actionDelegate,
+		emitDelegate:      parentContext.emitDelegate,
+		broadcastDelegate: parentContext.broadcastDelegate,
+		getLogger:         parentContext.getLogger,
+		node:              parentContext.node,
 		actionName:        actionName,
 		params:            params,
+		level:             parentContext.level + 1,
+		sendMetrics:       parentContext.sendMetrics,
 	}
-	actionContext.parent = &context
+	if parentContext.requestID != "" {
+		actionContext.requestID = parentContext.requestID
+	}
+	actionContext.self = &actionContext
+	actionContext.parent = &parentContext
 	return actionContext
 }
 
 // Max calling level check to avoid calling loops
 func checkMaxCalls(context *ContextImpl) {
 
+}
+
+func CreateContext(id, actionName string, params interface{}, meta map[string]interface{}, level int, sendMetrics bool, timeout int, parentID, requestID string) Context {
+
+	parentContext := ContextImpl{
+		id: parentID,
+	}
+
+	actionContext := ContextImpl{
+		// actionDelegate:    parentContext.actionDelegate,
+		// emitDelegate:      parentContext.emitDelegate,
+		// broadcastDelegate: parentContext.broadcastDelegate,
+		// getLogger:         parentContext.getLogger,
+		// node:              parentContext.node,
+
+		id:          id,
+		actionName:  actionName,
+		params:      params,
+		meta:        meta,
+		timeout:     timeout,
+		level:       level,
+		sendMetrics: sendMetrics,
+		requestID:   requestID,
+	}
+
+	actionContext.self = &actionContext
+	actionContext.parent = &parentContext
+	return actionContext
+}
+
+// AsMap : export context info in a map[string]
+func (context ContextImpl) AsMap() map[string]interface{} {
+	mapResult := make(map[string]interface{})
+
+	mapResult["id"] = context.id
+	mapResult["action"] = context.actionName
+	mapResult["params"] = context.params
+	mapResult["meta"] = context.meta
+	mapResult["timeout"] = context.timeout
+	mapResult["level"] = context.level
+	mapResult["metrics"] = context.sendMetrics
+	if context.parent != nil {
+		mapResult["parentID"] = context.parent.id
+	}
+	if context.requestID != "" {
+		mapResult["requestID"] = context.requestID
+	}
+	//TODO : check how to support streaming params in go
+	mapResult["stream"] = false
+
+	return mapResult
 }
 
 // InvokeAction : check max calls and call broker action delegate

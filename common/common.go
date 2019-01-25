@@ -17,14 +17,21 @@ type Params interface {
 }
 
 type Context interface {
-	InvokeAction(opts ...OptionsFunc) chan interface{}
 
+	//Common used context methods:
 	Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{}
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
+
 	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context
+
 	GetActionName() string
 	GetParams() Params
+
+	//export context info in a map[string]
+	AsMap() map[string]interface{}
+
+	InvokeAction(opts ...OptionsFunc) chan interface{}
 
 	GetLogger() *log.Entry
 }
