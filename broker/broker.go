@@ -117,7 +117,7 @@ func (broker *ServiceBroker) Start() {
 
 	broker.middlewares.CallHandlers("starting", broker)
 
-	<-broker.transit.Connect()
+	<-(*broker.transit).Connect()
 
 	broker.logger.Debug("Broker -> transit connected !")
 
@@ -130,7 +130,7 @@ func (broker *ServiceBroker) Start() {
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
 
-	<-broker.transit.Ready()
+	<-(*broker.transit).Ready()
 
 	broker.logger.Debug("Broker -> transit is ready !")
 
@@ -175,6 +175,8 @@ func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFu
 	}
 
 	broker.logger.Debug("Broker - calling actionName: ", actionName)
+	node := CreateNode(endpoint.GetNodeID())
+	(*context).SetNode(&node)
 	return endpoint.InvokeAction(context)
 }
 
@@ -220,17 +222,22 @@ func (broker *ServiceBroker) init() {
 		broker.GetLocalNode,
 		broker.GetLogger,
 		broker.GetLocalBus,
+		broker.GetTransit,
 		broker.IsStarted,
 	}
 	var serializer Serializer = CreateJSONSerializer()
-	broker.transit = CreateTransit(&serializer)
+	broker.transit = CreateTransit(&serializer, &broker.localNode)
 	broker.registry = CreateRegistry(broker.GetInfo())
 	broker.rootContext = CreateBrokerContext(
 		broker.callWithContext,
 		broker.emitWithContext,
 		broker.broadcastWithContext,
 		broker.GetLogger,
-		broker.registry.GetLocalNode())
+		&broker.localNode)
+}
+
+func (broker *ServiceBroker) GetTransit() *Transit {
+	return broker.transit
 }
 
 func (broker *ServiceBroker) setupLocalBus() {

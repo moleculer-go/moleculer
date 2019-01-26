@@ -80,4 +80,8 @@ var _ = test.Describe("Broker", func() {
 		Expect(result).Should(Equal(actionResult))
 	})
 
+	test.It("Should make a remove call and return results", func() {
+		//TODO
+	})
+
 })
