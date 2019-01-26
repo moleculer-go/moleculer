@@ -21,7 +21,7 @@ func CreateRegistry(broker *BrokerInfo) *ServiceRegistry {
 	registry := &ServiceRegistry{}
 	registry.logger = broker.GetLogger("registry", "Service Registry")
 	registry.broker = broker
-	registry.actions = CreateActionCatalog()
+	registry.actions = CreateActionCatalog(broker.GetTransit)
 	registry.services = CreateServiceCatalog()
 	registry.nodes = CreateNodesCatalog()
 	registry.localNode = (*broker.GetLocalNode())

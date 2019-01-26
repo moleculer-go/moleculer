@@ -49,7 +49,7 @@ func stanTopicName(transporter *StanTransporter, command string, nodeID string) 
 }
 
 func (transporter StanTransporter) createTransitMessage(msg *stan.Msg) TransitMessage {
-	return (*transporter.serializer).BytesToMessage(msg.Data)
+	return (*transporter.serializer).BytesToMessage(&msg.Data)
 }
 
 func (transporter StanTransporter) MakeBalancedSubscriptions() {
@@ -112,4 +112,11 @@ func (transporter StanTransporter) Subscribe(command string, nodeID string, hand
 func (transporter StanTransporter) Publish(command, nodeID string, message TransitMessage) {
 	topic := stanTopicName(&transporter, command, nodeID)
 	(*transporter.getConnection()).Publish(topic, []byte(message.String()))
+}
+
+func (transporter StanTransporter) Request(message TransitMessage) chan interface{} {
+	resultChan := make(chan interface{})
+	//PACKET_REQUEST 		= "REQ";
+
+	return resultChan
 }

@@ -46,20 +46,30 @@ func mapToContext(contextMap map[string]interface{}) Context {
 	return context
 }
 
-func (serializer JSONSerializer) BytesToMessage(bytes []byte) TransitMessage {
-	result := gjson.ParseBytes(bytes)
+func (serializer JSONSerializer) BytesToMessage(bytes *[]byte) TransitMessage {
+	result := gjson.ParseBytes(*bytes)
 	message := ResultWrapper{&result}
 	return message
 }
 
-func (serializer JSONSerializer) MessageToContext(message TransitMessage) Context {
-	contextMap := message.AsMap()
+func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) TransitMessage {
+	json, err := sjson.Set("{root:false}", "root", mapValue)
+	if err != nil {
+		panic(err)
+	}
+	result := gjson.Get(json, "root")
+	message := ResultWrapper{&result}
+	return message
+}
+
+func (serializer JSONSerializer) MessageToContext(message *TransitMessage) Context {
+	contextMap := (*message).AsMap()
 	context := mapToContext(contextMap)
 	return context
 }
 
-func (serializer JSONSerializer) ContextToMessage(context Context) TransitMessage {
-	contextMap := context.AsMap()
+func (serializer JSONSerializer) ContextToMessage(context *Context) TransitMessage {
+	contextMap := (*context).AsMap()
 	json, err := sjson.Set("{root:false}", "root", contextMap)
 	if err != nil {
 		panic(err)

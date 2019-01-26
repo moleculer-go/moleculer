@@ -6,36 +6,48 @@ import (
 )
 
 type ActionEntry struct {
-	node    *Node
-	action  *ServiceAction
-	isLocal bool
+	node               *Node
+	action             *ServiceAction
+	isLocal            bool
+	getTransitDelegate GetTransitFunction
 }
 
 type actionsMap map[string][]*ActionEntry
 
 type ActionCatalog struct {
-	actionsByName actionsMap
-	actionsByNode map[string]actionsMap
+	actionsByName      actionsMap
+	actionsByNode      map[string]actionsMap
+	getTransitDelegate GetTransitFunction
 }
 
-func CreateActionCatalog() *ActionCatalog {
+func CreateActionCatalog(getTransitDelegate GetTransitFunction) *ActionCatalog {
 	actionsByName := make(actionsMap)
 	actionsByNode := make(map[string]actionsMap)
-	return &ActionCatalog{actionsByName, actionsByNode}
+	return &ActionCatalog{actionsByName, actionsByNode, getTransitDelegate}
 }
 
-func invokeRemoteAction(ctx *Context, actionEntry *ActionEntry) chan interface{} {
-	//TODO
-	// JSON context, params, meta
+func (actionEntry *ActionEntry) invokeRemoteAction(context *Context) chan interface{} {
+	result := make(chan interface{})
+	logger := (*context).GetLogger().WithField("actionCatalog", "invokeRemoteAction")
+	logger.Debug("Before Invoking action: ", (*context).GetActionName())
 
-	return nil
+	go func() {
+		transit := actionEntry.getTransitDelegate()
+		actionResult := <-(*transit).Request(context)
+
+		logger.Debug("action: ", (*context).GetActionName(),
+			" results: ", actionResult)
+		result <- actionResult
+	}()
+
+	return result
 }
 
-func invokeLocalAction(context *Context, actionEntry *ActionEntry) chan interface{} {
+func (actionEntry *ActionEntry) invokeLocalAction(context *Context) chan interface{} {
 	result := make(chan interface{})
 
 	logger := (*context).GetLogger().WithField("actionCatalog", "invokeLocalAction")
-	logger.Debug("Before Invoking action: ", (*actionEntry).action.GetFullName())
+	logger.Debug("Before Invoking action: ", (*context).GetActionName())
 
 	//Apply before middlewares here ? or at the broker level ?
 
@@ -43,7 +55,7 @@ func invokeLocalAction(context *Context, actionEntry *ActionEntry) chan interfac
 	go func() {
 		handler := actionEntry.action.GetHandler()
 		actionResult := handler(*context, (*context).GetParams())
-		logger.Debug("action: ", (*actionEntry).action.GetFullName(),
+		logger.Debug("action: ", (*context).GetActionName(),
 			" results: ", actionResult)
 		result <- actionResult
 	}()
@@ -53,11 +65,15 @@ func invokeLocalAction(context *Context, actionEntry *ActionEntry) chan interfac
 	return result
 }
 
+func (actionEntry *ActionEntry) GetNodeID() string {
+	return (*actionEntry.node).GetID()
+}
+
 func (actionEntry *ActionEntry) InvokeAction(ctx *Context) chan interface{} {
 	if actionEntry.isLocal {
-		return invokeLocalAction(ctx, actionEntry)
+		return actionEntry.invokeLocalAction(ctx)
 	}
-	return invokeRemoteAction(ctx, actionEntry)
+	return actionEntry.invokeRemoteAction(ctx)
 }
 
 func (actionEntry *ActionEntry) IsLocal() bool {
@@ -65,7 +81,7 @@ func (actionEntry *ActionEntry) IsLocal() bool {
 }
 
 func (actionCatalog *ActionCatalog) Add(node *Node, action ServiceAction, local bool) {
-	entry := &ActionEntry{node, &action, local}
+	entry := &ActionEntry{node, &action, local, actionCatalog.getTransitDelegate}
 
 	name := action.GetFullName()
 	actionCatalog.actionsByName[name] = append(

@@ -33,11 +33,17 @@ type Context interface {
 
 	InvokeAction(opts ...OptionsFunc) chan interface{}
 
+	SetNode(node *Node)
+	GetNode() *Node
+	GetID() string
+	GetMeta() map[string]interface{}
+
 	GetLogger() *log.Entry
 }
 
 type Endpoint interface {
 	InvokeAction(context *Context) chan interface{}
+	GetNodeID() string
 	IsLocal() bool
 }
 
@@ -71,14 +77,23 @@ func WrapOptions(opts []OptionsFunc) OptionsFunc {
 	}
 }
 
+type Transit interface {
+	IsReady() bool
+	Request(*Context) chan interface{}
+	Connect() chan bool
+	Ready() chan bool
+}
+
 type getLoggerFunction func(name string, value string) *log.Entry
 type getLocalBusFunction func() *Emitter
 type isStartedFunction func() bool
 type getLocalNodeFunction func() *Node
+type GetTransitFunction func() *Transit
 type BrokerInfo struct {
 	GetLocalNode getLocalNodeFunction
 	GetLogger    getLoggerFunction
 	GetLocalBus  getLocalBusFunction
+	GetTransit   GetTransitFunction
 	IsStarted    isStartedFunction
 }
 

@@ -3,6 +3,7 @@ package middleware
 import (
 	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/params"
+	. "github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -46,8 +47,9 @@ func CreateBrokerContext(actionDelegate actionDelegateFunc, emitDelegate eventDe
 
 // NewActionContext : create a new context for a specific action call
 func (context ContextImpl) NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context {
-	parentContext := context
+	parentContext := context.self
 	actionContext := ContextImpl{
+		id:                RandomString(12),
 		actionDelegate:    parentContext.actionDelegate,
 		emitDelegate:      parentContext.emitDelegate,
 		broadcastDelegate: parentContext.broadcastDelegate,
@@ -62,7 +64,7 @@ func (context ContextImpl) NewActionContext(actionName string, params interface{
 		actionContext.requestID = parentContext.requestID
 	}
 	actionContext.self = &actionContext
-	actionContext.parent = &parentContext
+	actionContext.parent = parentContext
 	return actionContext
 }
 
@@ -103,18 +105,18 @@ func CreateContext(id, actionName string, params interface{}, meta map[string]in
 func (context ContextImpl) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
 
-	mapResult["id"] = context.id
-	mapResult["action"] = context.actionName
-	mapResult["params"] = context.params
-	mapResult["meta"] = context.meta
-	mapResult["timeout"] = context.timeout
-	mapResult["level"] = context.level
-	mapResult["metrics"] = context.sendMetrics
-	if context.parent != nil {
-		mapResult["parentID"] = context.parent.id
+	mapResult["id"] = context.self.id
+	mapResult["action"] = context.self.actionName
+	mapResult["params"] = context.self.params
+	mapResult["meta"] = context.self.meta
+	mapResult["timeout"] = context.self.timeout
+	mapResult["level"] = context.self.level
+	mapResult["metrics"] = context.self.sendMetrics
+	if context.self.parent != nil {
+		mapResult["parentID"] = context.self.parent.id
 	}
-	if context.requestID != "" {
-		mapResult["requestID"] = context.requestID
+	if context.self.requestID != "" {
+		mapResult["requestID"] = context.self.requestID
 	}
 	//TODO : check how to support streaming params in go
 	mapResult["stream"] = false
@@ -126,13 +128,13 @@ func (context ContextImpl) AsMap() map[string]interface{} {
 func (context ContextImpl) InvokeAction(opts ...OptionsFunc) chan interface{} {
 	checkMaxCalls(&context)
 	var contextInterface Context = context
-	return context.actionDelegate(&contextInterface, WrapOptions(opts))
+	return context.self.actionDelegate(&contextInterface, WrapOptions(opts))
 }
 
 // Call : main entry point to call actions.
 // chained action invocation
 func (context ContextImpl) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
-	actionContext := context.NewActionContext(actionName, params, WrapOptions(opts))
+	actionContext := context.self.NewActionContext(actionName, params, WrapOptions(opts))
 	return actionContext.InvokeAction(WrapOptions(opts))
 }
 
@@ -147,16 +149,32 @@ func (context ContextImpl) Broadcast(eventName string, params interface{}, group
 }
 
 func (context ContextImpl) GetActionName() string {
-	return context.actionName
+	return context.self.actionName
 }
 
 func (context ContextImpl) GetParams() Params {
-	return CreateParams(&context.params)
+	return CreateParams(&context.self.params)
+}
+
+func (context ContextImpl) SetNode(node *Node) {
+	context.self.node = node
+}
+
+func (context ContextImpl) GetNode() *Node {
+	return context.self.node
+}
+
+func (context ContextImpl) GetID() string {
+	return context.self.id
+}
+
+func (context ContextImpl) GetMeta() map[string]interface{} {
+	return context.self.meta
 }
 
 func (context ContextImpl) GetLogger() *log.Entry {
-	if context.actionName != "" {
-		return context.getLogger("action", context.actionName)
+	if context.self.actionName != "" {
+		return context.self.getLogger("action", context.self.actionName)
 	}
-	return context.getLogger("context", "<root>")
+	return context.self.getLogger("context", "<root>")
 }
