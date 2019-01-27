@@ -22,6 +22,7 @@ type NodeInfo struct {
 	cpuSequence       int64
 	lastHeartBeatTime int64
 	offlineSince      int64
+	isLocal           bool
 }
 
 func CreateNode(id string) Node {
@@ -32,6 +33,17 @@ func CreateNode(id string) Node {
 
 func (node NodeInfo) GetID() string {
 	return node.id
+}
+func (node NodeInfo) IsExpired(timeout time.Duration) bool {
+	return node.self.isExpiredImpl(timeout)
+}
+
+func (node *NodeInfo) isExpiredImpl(timeout time.Duration) bool {
+	if !node.isAvailable || node.isLocal {
+		return false
+	}
+	diff := time.Now().Unix() - node.lastHeartBeatTime
+	return diff > int64(timeout.Seconds())
 }
 
 func (node *NodeInfo) heartBeatImp(heartbeat map[string]interface{}) {
@@ -52,9 +64,14 @@ func (node NodeInfo) IsAvailable() bool {
 	return node.isAvailable
 }
 
+func (node NodeInfo) IsLocal() bool {
+	return node.isLocal
+}
+
 //TODO populate the fields services, cliente, hostname and etc...
 func (node NodeInfo) ExportAsMap() map[string]interface{} {
 	resultMap := make(map[string]interface{})
+	resultMap["id"] = node.id
 	resultMap["services"] = node.services
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname

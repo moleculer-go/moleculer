@@ -1,6 +1,7 @@
 package transit
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -35,8 +36,21 @@ func CreateTransit(broker *BrokerInfo) *Transit {
 		registryMessageHandler: broker.RegistryMessageHandler,
 	}
 	transitImpl.self = &transitImpl
+
+	broker.GetLocalBus().On("$node.disconnected", func(values ...interface{}) {
+		var node *Node = values[0].(*Node)
+		transitImpl.self.nodeDisconnected(node)
+	})
+
 	var transit Transit = transitImpl
 	return &transit
+}
+
+func (transit *TransitImpl) nodeDisconnected(node *Node) {
+	nodeID := (*node).GetID()
+	pending := transit.pendingRequests[nodeID]
+	pending.resultChan <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
+	delete(transit.pendingRequests, nodeID)
 }
 
 // CreateTransport : based on config it will load the transporter
@@ -77,7 +91,25 @@ func (transit TransitImpl) DiscoverNodes() {
 	transit.DiscoverNode("")
 }
 
+func (transit TransitImpl) SendHeartbeat() {
+	transit.self.sendHeartbeatImpl()
+}
+
+func (transit *TransitImpl) sendHeartbeatImpl() {
+	node := (*transit.broker.GetLocalNode()).ExportAsMap()
+	payload := map[string]interface{}{
+		"sender": node["id"],
+		"cpu":    node["cpu"],
+		"cpuSeq": node["cpuSeq"],
+	}
+	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	(*transit.transport).Publish("HEARTBEAT", "", message)
+}
+
 func (transit TransitImpl) DiscoverNode(nodeID string) {
+	transit.self.discoverNodeImpl(nodeID)
+}
+func (transit TransitImpl) discoverNodeImpl(nodeID string) {
 	payload := make(map[string]interface{})
 	payload["sender"] = (*transit.broker.GetLocalNode()).GetID()
 	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)

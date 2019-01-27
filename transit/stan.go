@@ -43,7 +43,7 @@ func CreateStanTransporter(options StanTransporterOptions) StanTransporter {
 // stanTopicName : return the topic name given the command and nodeID
 func stanTopicName(transporter *StanTransporter, command string, nodeID string) string {
 	if nodeID != "" {
-		return fmt.Sprint(transporter.prefix, ".", command, ":", nodeID)
+		return fmt.Sprint(transporter.prefix, ".", command, ".", nodeID)
 	}
 	return fmt.Sprint(transporter.prefix, ".", command)
 }

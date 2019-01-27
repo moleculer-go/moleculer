@@ -2,6 +2,8 @@
 package common
 
 import (
+	"time"
+
 	. "github.com/moleculer-go/goemitter"
 	log "github.com/sirupsen/logrus"
 )
@@ -83,6 +85,7 @@ type Transit interface {
 	Connect() chan bool
 	Ready() chan bool
 	DiscoverNode(nodeID string)
+	SendHeartbeat()
 }
 
 type TransitMessage interface {
@@ -125,4 +128,5 @@ type Node interface {
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
 	HeartBeat(heartbeat map[string]interface{})
+	IsExpired(timeout time.Duration) bool
 }
