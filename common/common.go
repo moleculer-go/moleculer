@@ -82,6 +82,24 @@ type Transit interface {
 	Request(*Context) chan interface{}
 	Connect() chan bool
 	Ready() chan bool
+	DiscoverNode(nodeID string)
+}
+
+type TransitMessage interface {
+	AsMap() map[string]interface{}
+	Exists() bool
+	Value() interface{}
+	Int() int64
+	Float() float64
+	String() string
+	Get(path string) TransitMessage
+	//TODO add the reminaing from Result type from GJSON (https://github.com/tidwall/gjson)
+}
+type Serializer interface {
+	BytesToMessage(bytes *[]byte) TransitMessage
+	ContextToMessage(context *Context) TransitMessage
+	MessageToContext(*TransitMessage) Context
+	MapToMessage(mapValue *map[string]interface{}) TransitMessage
 }
 
 type getLoggerFunction func(name string, value string) *log.Entry
@@ -89,16 +107,22 @@ type getLocalBusFunction func() *Emitter
 type isStartedFunction func() bool
 type getLocalNodeFunction func() *Node
 type GetTransitFunction func() *Transit
-type BrokerInfo struct {
-	GetLocalNode getLocalNodeFunction
-	GetLogger    getLoggerFunction
-	GetLocalBus  getLocalBusFunction
-	GetTransit   GetTransitFunction
-	IsStarted    isStartedFunction
-}
+type GetSerializerFunction func() *Serializer
+type RegistryMessageHandlerFunction func(command string, message *TransitMessage)
 
+type BrokerInfo struct {
+	GetLocalNode           getLocalNodeFunction
+	GetLogger              getLoggerFunction
+	GetLocalBus            getLocalBusFunction
+	GetTransit             GetTransitFunction
+	IsStarted              isStartedFunction
+	GetSerializer          GetSerializerFunction
+	RegistryMessageHandler RegistryMessageHandlerFunction
+}
 type Node interface {
 	GetID() string
 	IncreaseSequence()
-	//GetHostname() string
+	ExportAsMap() map[string]interface{}
+	IsAvailable() bool
+	HeartBeat(heartbeat map[string]interface{})
 }

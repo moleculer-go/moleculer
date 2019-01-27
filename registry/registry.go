@@ -1,20 +1,26 @@
 package registry
 
 import (
+	"errors"
+	"fmt"
+
 	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/service"
 	log "github.com/sirupsen/logrus"
 )
 
+type messageHandlerFunction func(message *TransitMessage)
+
 type ServiceRegistry struct {
 	logger *log.Entry
 
-	nodes     *NodeCatalog
-	localNode Node
-	services  *ServiceCatalog
-	actions   *ActionCatalog
-	events    *EventCatalog
-	broker    *BrokerInfo
+	nodes          *NodeCatalog
+	localNode      *Node
+	services       *ServiceCatalog
+	actions        *ActionCatalog
+	events         *EventCatalog
+	broker         *BrokerInfo
+	messageHandler *map[string]messageHandlerFunction
 }
 
 func CreateRegistry(broker *BrokerInfo) *ServiceRegistry {
@@ -24,7 +30,12 @@ func CreateRegistry(broker *BrokerInfo) *ServiceRegistry {
 	registry.actions = CreateActionCatalog(broker.GetTransit)
 	registry.services = CreateServiceCatalog()
 	registry.nodes = CreateNodesCatalog()
-	registry.localNode = (*broker.GetLocalNode())
+	registry.localNode = broker.GetLocalNode()
+	registry.messageHandler = &map[string]messageHandlerFunction{
+		"HEARTBEAT":  registry.heartbeatMessageReceived,
+		"DISCONNECT": registry.disconnectMessageReceived,
+		"INFO":       registry.infoMessageReceived,
+	}
 
 	registry.logger.Infof("Service Registry created for broker: %s", (*broker.GetLocalNode()).GetID())
 
@@ -39,7 +50,40 @@ func CreateRegistry(broker *BrokerInfo) *ServiceRegistry {
 }
 
 func (registry *ServiceRegistry) GetLocalNode() *Node {
-	return &registry.localNode
+	return registry.localNode
+}
+
+// Start : start the registry background processes.
+func (registry *ServiceRegistry) Start() {
+	//start a timer here for:
+	//heartbeat
+	//check dead and disconected nodes
+	// ??
+}
+
+func (registry *ServiceRegistry) heartbeatMessageReceived(message *TransitMessage) {
+	heartbeat := (*message).AsMap()
+	succesful := (*registry.nodes).HeartBeat(heartbeat)
+	if !succesful {
+		sender := heartbeat["sender"].(string)
+		(*registry.broker.GetTransit()).DiscoverNode(sender)
+	}
+}
+
+func (registry *ServiceRegistry) disconnectMessageReceived(message *TransitMessage) {
+	(*registry.nodes).Disconnect((*message).AsMap())
+}
+
+func (registry *ServiceRegistry) infoMessageReceived(message *TransitMessage) {
+	(*registry.nodes).Info((*message).AsMap())
+}
+
+func (registry *ServiceRegistry) HandleTransitMessage(command string, message *TransitMessage) {
+	handler := (*registry.messageHandler)[command]
+	if handler == nil {
+		panic(errors.New(fmt.Sprintf("Registry - HandleTransitMessage() invalid command: %s", command)))
+	}
+	handler(message)
 }
 
 // func (registry *ServiceRegistry) registerEvent(serviceEvent *ServiceEvent) {
@@ -56,14 +100,14 @@ func (registry *ServiceRegistry) GetLocalNode() *Node {
 // AddLocalService : add a local service to the registry
 // it will create endpoints for all service actions.
 func (registry *ServiceRegistry) AddLocalService(service *Service) {
-	if registry.services.Has(service.GetName(), service.GetVersion(), registry.localNode.GetID()) {
+	if registry.services.Has(service.GetName(), service.GetVersion(), (*registry.localNode).GetID()) {
 		return
 	}
 
 	registry.services.Add(registry.localNode, service)
 
 	for _, action := range service.GetActions() {
-		registry.actions.Add(&registry.localNode, action, true)
+		registry.actions.Add(registry.localNode, action, true)
 	}
 
 	// for _, event := range service.GetEvents() {

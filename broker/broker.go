@@ -53,6 +53,8 @@ type ServiceBroker struct {
 	info *BrokerInfo
 
 	localNode Node
+
+	registryMessageHandler RegistryMessageHandlerFunction
 }
 
 // GetLocalBus : return the service broker local bus (Event Emitter)
@@ -126,6 +128,10 @@ func (broker *ServiceBroker) Start() {
 	}
 
 	broker.logger.Debug("Broker -> services started !")
+
+	broker.registry.Start()
+
+	broker.logger.Debug("Broker -> registry started !")
 
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
@@ -214,20 +220,29 @@ func (broker *ServiceBroker) init() {
 	//TODO move to wher we apply all settings
 	log.SetLevel(log.DebugLevel)
 
+	var serializer Serializer = CreateJSONSerializer()
 	broker.logger = setupLogger()
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
 	broker.localNode = CreateNode(DiscoverNodeID())
+	broker.registryMessageHandler = func(command string, message *TransitMessage) {
+		broker.registry.HandleTransitMessage(command, message)
+	}
 	broker.info = &BrokerInfo{
 		broker.GetLocalNode,
 		broker.GetLogger,
 		broker.GetLocalBus,
 		broker.GetTransit,
 		broker.IsStarted,
+		func() *Serializer {
+			return &serializer
+		},
+		broker.registryMessageHandler,
 	}
-	var serializer Serializer = CreateJSONSerializer()
-	broker.transit = CreateTransit(&serializer, &broker.localNode)
+
 	broker.registry = CreateRegistry(broker.GetInfo())
+
+	broker.transit = CreateTransit(broker.GetInfo())
 	broker.rootContext = CreateBrokerContext(
 		broker.callWithContext,
 		broker.emitWithContext,

@@ -7,17 +7,12 @@ import (
 	. "github.com/moleculer-go/moleculer/service"
 )
 
-type ServiceEntry struct {
-	service *Service
-	node    Node //not sure is required
-}
-
 type ServiceCatalog struct {
-	services map[string]*ServiceEntry
+	services map[string]*Service
 }
 
 func CreateServiceCatalog() *ServiceCatalog {
-	services := make(map[string]*ServiceEntry)
+	services := make(map[string]*Service)
 	return &ServiceCatalog{services}
 }
 
@@ -38,15 +33,15 @@ func (serviceCatalog *ServiceCatalog) Has(name string, version string, nodeID st
 }
 
 // Get : Return the service for the given name, version and nodeID if it exists in the catalog.
-func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID string) *ServiceEntry {
+func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID string) *Service {
 	key := createKey(name, version, nodeID)
 	service := serviceCatalog.services[key]
 	return service
 }
 
 // Add : add a service to the catalog.
-func (serviceCatalog *ServiceCatalog) Add(node Node, service *Service) {
-	nodeID := node.GetID()
+func (serviceCatalog *ServiceCatalog) Add(node *Node, service *Service) {
+	nodeID := (*node).GetID()
 	key := createKey(service.GetName(), service.GetVersion(), nodeID)
-	serviceCatalog.services[key] = &ServiceEntry{service, node}
+	serviceCatalog.services[key] = service
 }

@@ -3,7 +3,7 @@ package transit
 import (
 	"fmt"
 
-	. "github.com/moleculer-go/moleculer/serializer"
+	. "github.com/moleculer-go/moleculer/common"
 	stan "github.com/nats-io/go-nats-streaming"
 )
 
