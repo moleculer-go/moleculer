@@ -16,10 +16,11 @@ before_install:
   - go get -v github.com/mattn/goveralls
 
 before_script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then "curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash" ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then "curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash" ; fi
 
 script:
   - go test -v ./...
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then $GOPATH/bin/goveralls -service=travis-ci          ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then fossa init          ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then fossa analyze          ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then $GOPATH/bin/goveralls -service=travis-ci          ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then fossa init          ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then fossa analyze          ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then fossa test          ; fi
