@@ -129,4 +129,5 @@ type Node interface {
 	IsAvailable() bool
 	HeartBeat(heartbeat map[string]interface{})
 	IsExpired(timeout time.Duration) bool
+	Update(info map[string]interface{}) bool
 }

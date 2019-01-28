@@ -82,13 +82,17 @@ func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
 
 }
 
+func (registry *ServiceRegistry) disconnectNode(node *Node) {
+	nodeID := (*node).GetID()
+	registry.removeServicesByNodeID(nodeID)
+	registry.broker.GetLocalBus().EmitAsync("$node.disconnected", []interface{}{node})
+	registry.logger.Warnf("Node %s disconnected ", nodeID)
+}
+
 func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 	expiredNodes := registry.nodes.expiredNodes(registry.heartbeatTimeout)
 	for _, node := range expiredNodes {
-		nodeID := (*node).GetID()
-		registry.removeServicesByNodeID(nodeID)
-		registry.broker.GetLocalBus().EmitAsync("$node.disconnected", []interface{}{node})
-		registry.logger.Warnf("Node %s disconnected ", nodeID)
+		registry.disconnectNode(node)
 	}
 }
 
@@ -126,11 +130,25 @@ func (registry *ServiceRegistry) heartbeatMessageReceived(message *TransitMessag
 }
 
 func (registry *ServiceRegistry) disconnectMessageReceived(message *TransitMessage) {
-	(*registry.nodes).Disconnect((*message).AsMap())
+	node, exists := registry.nodes.getNode((*message).Get("sender").String())
+	if exists {
+		registry.disconnectNode(node)
+	}
 }
 
 func (registry *ServiceRegistry) infoMessageReceived(message *TransitMessage) {
-	(*registry.nodes).Info((*message).AsMap())
+	mapMsg := (*message).AsMap()
+	exists, reconnected := (*registry.nodes).Info(mapMsg)
+	//TODO: update service info here
+
+	param := []interface{}{(*message).Get("sender").Value()}
+	eventName := "$node.connected"
+	if exists {
+		eventName = "$node.updated"
+	} else if reconnected {
+		eventName = "$node.reconnected"
+	}
+	(*registry.broker.GetLocalBus()).EmitAsync(eventName, param)
 }
 
 func (registry *ServiceRegistry) HandleTransitMessage(command string, message *TransitMessage) {
