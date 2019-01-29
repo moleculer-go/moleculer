@@ -56,7 +56,10 @@ var _ = Describe("Registry", func() {
 		It("Should call action from brokerA to brokerB and retun results", func() {
 
 			brokerA := createBrokerA()
+			Expect((*brokerA.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerA"))
+
 			brokerB := createBrokerB()
+			Expect((*brokerB.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerB"))
 
 			brokerA.Start()
 

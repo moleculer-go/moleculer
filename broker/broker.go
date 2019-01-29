@@ -39,6 +39,7 @@ func DiscoverNodeID() string {
 func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerConfig {
 
 	if len(userConfig) > 0 {
+
 		config := userConfig[0]
 		if config.LogLevel != "" {
 			baseConfig.LogLevel = config.LogLevel
@@ -49,7 +50,6 @@ func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerCon
 		if config.DiscoverNodeID != nil {
 			baseConfig.DiscoverNodeID = config.DiscoverNodeID
 		}
-
 	}
 
 	return baseConfig
@@ -277,7 +277,7 @@ func (broker *ServiceBroker) init() {
 	broker.logger = broker.createBrokerLogger()
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
-	broker.localNode = CreateNode(DiscoverNodeID())
+	broker.localNode = CreateNode(broker.config.DiscoverNodeID())
 	broker.registryMessageHandler = func(command string, message *TransitMessage) {
 		broker.registry.HandleTransitMessage(command, message)
 	}
@@ -319,10 +319,11 @@ func (broker *ServiceBroker) setupLocalBus() {
 // FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
 func FromConfig(userConfig []*BrokerConfig) *ServiceBroker {
+
 	config := mergeConfigs(defaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
 
-	broker.logger.Info("Broker - brokerFromConfig() ")
+	broker.logger.Info("Broker - FromConfig() ")
 	return &broker
 }
