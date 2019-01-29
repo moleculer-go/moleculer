@@ -40,8 +40,74 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 }
 
 // Add : add a service to the catalog.
-func (serviceCatalog *ServiceCatalog) Add(node *Node, service *Service) {
-	nodeID := (*node).GetID()
+func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *Service) {
 	key := createKey(service.GetName(), service.GetVersion(), nodeID)
 	serviceCatalog.services[key] = service
+}
+
+func serviceActionExists(name string, actions []ServiceAction) bool {
+	for _, action := range actions {
+		if action.GetFullName() == name {
+			return true
+		}
+	}
+	return false
+}
+
+func actionMapExists(name string, actions []map[string]interface{}) bool {
+	for _, action := range actions {
+		if action["name"].(string) == name {
+			return true
+		}
+	}
+	return false
+}
+
+// updateActions takes the remote service definition and the current service definition and calculates what actions are new, updated or removed.
+// add new actions to the service and return new, updated and deleted actions.
+func (serviceCatalog *ServiceCatalog) updateActions(service map[string]interface{}, current *Service) ([]map[string]interface{}, []ServiceAction, []ServiceAction) {
+	var updatedActions []map[string]interface{}
+	var newActions, deletedActions []ServiceAction
+
+	actions := service["actions"].([]map[string]interface{})
+	for _, action := range actions {
+		name := action["name"].(string)
+		if serviceActionExists(name, current.GetActions()) {
+			updatedActions = append(updatedActions, action)
+		} else {
+			serviceAction := current.AddActionMap(action)
+			newActions = append(newActions, *serviceAction)
+		}
+	}
+	for _, action := range current.GetActions() {
+		name := action.GetFullName()
+		if !actionMapExists(name, actions) {
+			deletedActions = append(deletedActions, action)
+			current.RemoveAction(name)
+		}
+	}
+	return updatedActions, newActions, deletedActions
+}
+
+// updateRemote : update remote service info and return what actions are new, updated and deleted
+func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) ([]map[string]interface{}, []ServiceAction, []ServiceAction) {
+	var updatedActions []map[string]interface{}
+	var newActions, deletedActions []ServiceAction
+
+	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
+	current, serviceExists := serviceCatalog.services[key]
+
+	if serviceExists {
+		current.UpdateFromMap(serviceInfo)
+		return serviceCatalog.updateActions(serviceInfo, current)
+	}
+
+	service := CreateServiceFromMap(serviceInfo)
+	serviceCatalog.Add(nodeID, service)
+
+	newActions = service.GetActions()
+	updatedActions = make([]map[string]interface{}, 0)
+	deletedActions = make([]ServiceAction, 0)
+	return updatedActions, newActions, deletedActions
+
 }

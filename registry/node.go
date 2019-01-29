@@ -114,6 +114,10 @@ func (node NodeInfo) HeartBeat(heartbeat map[string]interface{}) {
 	node.self.heartBeatImp(heartbeat)
 }
 
+func (node NodeInfo) AddServices(service map[string]interface{}) {
+	node.services = append(node.services, service)
+}
+
 func (node NodeInfo) IsAvailable() bool {
 	return node.isAvailable
 }

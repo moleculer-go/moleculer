@@ -39,7 +39,7 @@ func CreateRegistry(broker *BrokerInfo) *ServiceRegistry {
 	registry.messageHandler = &map[string]messageHandlerFunction{
 		"HEARTBEAT":  registry.heartbeatMessageReceived,
 		"DISCONNECT": registry.disconnectMessageReceived,
-		"INFO":       registry.infoMessageReceived,
+		"INFO":       registry.nodeInfoMessageReceived,
 	}
 
 	registry.logger.Infof("Service Registry created for broker: %s", (*broker.GetLocalNode()).GetID())
@@ -108,11 +108,11 @@ func (registry *ServiceRegistry) checkOfflineNodes() {
 // loopWhileAlive : can the delegate runction in the given frequency and stop whe  the registry is stoping
 func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegate func()) {
 	for {
-		delegate()
-		time.Sleep(frequency)
 		if registry.stoping {
 			break
 		}
+		delegate()
+		time.Sleep(frequency)
 	}
 }
 
@@ -136,21 +136,49 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message *TransitMessa
 	}
 }
 
-func (registry *ServiceRegistry) infoMessageReceived(message *TransitMessage) {
-	mapMsg := (*message).AsMap()
-	exists, reconnected := (*registry.nodes).Info(mapMsg)
-	//TODO: update service info here
+// nodeInfoMessageReceived process the node info message.
+func (registry *ServiceRegistry) nodeInfoMessageReceived(message *TransitMessage) {
+	nodeInfo := (*message).AsMap()
+	services := nodeInfo["services"].([]map[string]interface{})
+	nodeID := nodeInfo["sender"].(string)
 
-	param := []interface{}{(*message).Get("sender").Value()}
+	exists, reconnected := (*registry.nodes).Info(nodeInfo)
+
+	for _, serviceInfo := range services {
+		updatedActions, newActions, deletedActions := (*registry.services).updateRemote(nodeID, serviceInfo)
+
+		for _, newAction := range newActions {
+			serviceAction := CreateServiceAction(
+				serviceInfo["name"].(string),
+				newAction.GetName(),
+				nil,
+				ActionSchema{})
+			registry.actions.Add(nodeID, serviceAction, false)
+		}
+
+		for _, updates := range updatedActions {
+			fullname := updates["name"].(string)
+			registry.actions.Update(nodeID, fullname, updates)
+		}
+
+		for _, deleted := range deletedActions {
+			fullname := deleted.GetFullName()
+			registry.actions.Remove(nodeID, fullname)
+		}
+	}
+
+	eventParam := []interface{}{nodeID}
 	eventName := "$node.connected"
 	if exists {
 		eventName = "$node.updated"
 	} else if reconnected {
 		eventName = "$node.reconnected"
 	}
-	(*registry.broker.GetLocalBus()).EmitAsync(eventName, param)
+	(*registry.broker.GetLocalBus()).EmitAsync(eventName, eventParam)
 }
 
+// HandleTransitMessage generic handle for all transit messages relevant to registry
+//TODO : remove this and use broker local bus instead !
 func (registry *ServiceRegistry) HandleTransitMessage(command string, message *TransitMessage) {
 	handler := (*registry.messageHandler)[command]
 	if handler == nil {
@@ -159,17 +187,6 @@ func (registry *ServiceRegistry) HandleTransitMessage(command string, message *T
 	handler(message)
 }
 
-// func (registry *ServiceRegistry) registerEvent(serviceEvent *ServiceEvent) {
-
-// }
-
-// func (broker *ServiceBroker) setupActionMiddlewares(service *Service) {
-// 	for _, action := range service.GetActions() {
-// 		action.ReplaceHandler(broker.middlewares.WrapHandler(
-// 			"localAction", action.GetHandler(), action))
-// 	}
-// }
-
 // AddLocalService : add a local service to the registry
 // it will create endpoints for all service actions.
 func (registry *ServiceRegistry) AddLocalService(service *Service) {
@@ -177,32 +194,33 @@ func (registry *ServiceRegistry) AddLocalService(service *Service) {
 		return
 	}
 
-	registry.services.Add(registry.localNode, service)
+	nodeID := (*registry.localNode).GetID()
+
+	registry.services.Add(nodeID, service)
 
 	for _, action := range service.GetActions() {
-		registry.actions.Add(registry.localNode, action, true)
+		registry.actions.Add(nodeID, action, true)
 	}
 
 	// for _, event := range service.GetEvents() {
 	// 	registry.registerEvent(&event)
 	// }
 
-	//WHy we need it there?
-	//registry.localNode.AddService(service)
+	(*registry.localNode).AddServices(service.AsMap())
 
-	//registry.regenerateLocalRawInfo(registry.broker.IsStarted())
-
-	registry.logger.Infof("Registry - %s service is registered.", service.GetName())
+	registry.logger.Infof("Registry - %s service is registered.", service.GetFullName())
 
 	registry.broker.GetLocalBus().EmitAsync(
 		"$registry.service.added",
 		[]interface{}{service.Summary()})
 }
 
-func (registry *ServiceRegistry) NextActionEndpoint(actionName string, strategy Strategy, params interface{}, opts ...OptionsFunc) Endpoint {
+// NextActionEndpoint it will find and return the Endpoint for the the given actionName.
+// If multiple endpoints are found it will use the strategy to decide which one to use.
+func (registry *ServiceRegistry) NextActionEndpoint(actionName string, strategy Strategy, opts ...OptionsFunc) Endpoint {
 	nodeID := GetStringOption("nodeID", opts)
 	if nodeID != "" {
-		return registry.actions.NextEndpointFromNode(actionName, strategy, nodeID, WrapOptions(opts))
+		return registry.actions.NextEndpointFromNode(actionName, nodeID, WrapOptions(opts))
 	}
 	return registry.actions.NextEndpoint(actionName, strategy, WrapOptions(opts))
 }

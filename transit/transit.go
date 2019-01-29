@@ -188,8 +188,8 @@ func (transit *TransitImpl) sendNodeInfo(targetNodeID string) {
 
 func (transit *TransitImpl) discoverHandler() TransportHandler {
 	return func(message TransitMessage) {
-		nodeID := message.Get("sender").String()
-		transit.sendNodeInfo(nodeID)
+		sender := message.Get("sender").String()
+		transit.sendNodeInfo(sender)
 	}
 }
 

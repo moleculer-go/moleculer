@@ -53,6 +53,7 @@ type ServiceSchema struct {
 }
 
 type Service struct {
+	fullname string
 	name     string
 	version  string
 	settings map[string]interface{}
@@ -72,12 +73,20 @@ func (serviceAction *ServiceAction) GetHandler() ActionHandler {
 	return serviceAction.handler
 }
 
+func (serviceAction *ServiceAction) GetName() string {
+	return serviceAction.name
+}
+
 func (serviceAction *ServiceAction) GetFullName() string {
 	return serviceAction.fullname
 }
 
 func (service *Service) GetName() string {
 	return service.name
+}
+
+func (service *Service) GetFullName() string {
+	return service.fullname
 }
 
 func (service *Service) GetVersion() string {
@@ -152,14 +161,111 @@ func CreateServiceAction(serviceName string, actionName string, handler ActionHa
 	}
 }
 
-func copyProperties(service *Service, schema *ServiceSchema) {
-	service.name = joinVersionToName(schema.Name, schema.Version)
+func (service *Service) AsMap() map[string]interface{} {
+	serviceInfo := make(map[string]interface{})
+
+	serviceInfo["name"] = service.name
+	serviceInfo["version"] = service.version
+
+	serviceInfo["settings"] = service.settings
+	serviceInfo["metadata"] = service.metadata
+
+	var actions []map[string]interface{}
+	for _, serviceAction := range service.actions {
+		actionInfo := make(map[string]interface{})
+		actionInfo["name"] = serviceAction.name
+		actionInfo["schema"] = actionSchemaAsMap(&serviceAction.schema)
+		actions = append(actions, actionInfo)
+	}
+	serviceInfo["actions"] = actions
+
+	var events []map[string]interface{}
+	for _, serviceEvent := range service.events {
+		eventInfo := make(map[string]interface{})
+		eventInfo["name"] = serviceEvent.name
+		events = append(events, eventInfo)
+	}
+	serviceInfo["events"] = events
+
+	return serviceInfo
+}
+
+func actionSchemaFromMap(schemaInfo map[string]interface{}) ActionSchema {
+	//TODO
+	return ActionSchema{}
+}
+
+func actionSchemaAsMap(actionSchema *ActionSchema) map[string]interface{} {
+	//TODO
+	return nil
+}
+
+func (service *Service) AddActionMap(actionInfo map[string]interface{}) *ServiceAction {
+	action := CreateServiceAction(
+		service.fullname,
+		actionInfo["name"].(string),
+		nil,
+		actionSchemaFromMap(actionInfo["schema"].(map[string]interface{})),
+	)
+	service.actions = append(service.actions, action)
+	return &action
+}
+
+func (service *Service) RemoveAction(fullname string) {
+	var newActions []ServiceAction
+	for _, action := range service.actions {
+		if action.fullname != fullname {
+			newActions = append(newActions, action)
+		}
+	}
+	service.actions = newActions
+}
+
+func (service *Service) AddEventMap(eventInfo map[string]interface{}) *ServiceEvent {
+	serviceEvent := ServiceEvent{
+		eventInfo["name"].(string),
+		nil,
+	}
+	service.events = append(service.events, serviceEvent)
+	return &serviceEvent
+}
+
+func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
+	service.settings = serviceInfo["settings"].(map[string]interface{})
+	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+}
+
+// populateFromMap populate a service with data from a map[string]interface{}.
+func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
+	service.version = serviceInfo["version"].(string)
+	service.name = serviceInfo["name"].(string)
+	service.fullname = joinVersionToName(
+		service.name,
+		service.version)
+
+	service.settings = serviceInfo["settings"].(map[string]interface{})
+	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+	actions := serviceInfo["actions"].([]map[string]interface{})
+	for _, actionInfo := range actions {
+		service.AddActionMap(actionInfo)
+	}
+
+	events := serviceInfo["events"].([]map[string]interface{})
+	for _, eventInfo := range events {
+		service.AddEventMap(eventInfo)
+	}
+}
+
+// populateFromSchema populate a service with data from a ServiceSchema.
+func populateFromSchema(service *Service, schema *ServiceSchema) {
+	service.name = schema.Name
 	service.version = schema.Version
+	service.fullname = joinVersionToName(service.name, service.version)
 	service.settings = schema.Settings
 	service.metadata = schema.Metadata
 	for _, actionSchema := range schema.Actions {
 		service.actions = append(service.actions, CreateServiceAction(
-			service.name,
+			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
 			actionSchema.Schema,
@@ -189,13 +295,23 @@ func CreateService(schema ServiceSchema) *Service {
 		schema = applyMixins(schema)
 	}
 	service := &Service{}
-	copyProperties(service, &schema)
+	populateFromSchema(service, &schema)
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
 	}
 	return service
 }
 
+func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
+	service := &Service{}
+	populateFromMap(service, serviceInfo)
+	if service.name == "" {
+		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
+	}
+	return service
+}
+
+// Start called by the broker when the service is starting.
 func (service *Service) Start() {
 
 }

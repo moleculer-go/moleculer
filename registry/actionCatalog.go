@@ -6,7 +6,7 @@ import (
 )
 
 type ActionEntry struct {
-	node               *Node
+	nodeID             string
 	action             *ServiceAction
 	isLocal            bool
 	getTransitDelegate GetTransitFunction
@@ -16,14 +16,12 @@ type actionsMap map[string][]*ActionEntry
 
 type ActionCatalog struct {
 	actionsByName      actionsMap
-	actionsByNode      map[string]actionsMap
 	getTransitDelegate GetTransitFunction
 }
 
 func CreateActionCatalog(getTransitDelegate GetTransitFunction) *ActionCatalog {
 	actionsByName := make(actionsMap)
-	actionsByNode := make(map[string]actionsMap)
-	return &ActionCatalog{actionsByName, actionsByNode, getTransitDelegate}
+	return &ActionCatalog{actionsByName, getTransitDelegate}
 }
 
 func (actionEntry *ActionEntry) invokeRemoteAction(context *Context) chan interface{} {
@@ -66,7 +64,7 @@ func (actionEntry *ActionEntry) invokeLocalAction(context *Context) chan interfa
 }
 
 func (actionEntry *ActionEntry) GetNodeID() string {
-	return (*actionEntry.node).GetID()
+	return actionEntry.nodeID
 }
 
 func (actionEntry *ActionEntry) InvokeAction(ctx *Context) chan interface{} {
@@ -80,19 +78,27 @@ func (actionEntry *ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal
 }
 
-func (actionCatalog *ActionCatalog) Add(node *Node, action ServiceAction, local bool) {
-	entry := &ActionEntry{node, &action, local, actionCatalog.getTransitDelegate}
+func (actionCatalog *ActionCatalog) Add(nodeID string, action ServiceAction, local bool) {
+	entry := &ActionEntry{nodeID, &action, local, actionCatalog.getTransitDelegate}
 
 	name := action.GetFullName()
 	actionCatalog.actionsByName[name] = append(
 		actionCatalog.actionsByName[name], entry)
+}
 
-	nodeID := (*node).GetID()
-	if actionCatalog.actionsByNode[nodeID] == nil {
-		actionCatalog.actionsByNode[nodeID] = make(actionsMap)
+func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updates map[string]interface{}) {
+	//TODO .. the only thing that can be udpated is the Action Schema (validation) and that does not exist yet
+}
+
+func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
+	var newList []*ActionEntry
+	actions := actionCatalog.actionsByName[name]
+	for _, action := range actions {
+		if action.nodeID != nodeID {
+			newList = append(newList, action)
+		}
 	}
-	actionCatalog.actionsByNode[nodeID][name] = append(
-		actionCatalog.actionsByNode[nodeID][name], entry)
+	actionCatalog.actionsByName[name] = newList
 }
 
 func actionsToEndPoints(actions []*ActionEntry) []Endpoint {
@@ -104,10 +110,14 @@ func actionsToEndPoints(actions []*ActionEntry) []Endpoint {
 	return result
 }
 
-func (actionCatalog *ActionCatalog) NextEndpointFromNode(actionName string, strategy Strategy, nodeID string, opts ...OptionsFunc) Endpoint {
-	mapOfActions := actionCatalog.actionsByNode[nodeID]
-	actions := mapOfActions[actionName]
-	return strategy.SelectEndpoint(actionsToEndPoints(actions))
+func (actionCatalog *ActionCatalog) NextEndpointFromNode(actionName string, nodeID string, opts ...OptionsFunc) Endpoint {
+	actions := actionCatalog.actionsByName[actionName]
+	for _, action := range actions {
+		if action.nodeID == nodeID {
+			return action
+		}
+	}
+	return nil
 }
 
 func (actionCatalog *ActionCatalog) NextEndpoint(actionName string, strategy Strategy, opts ...OptionsFunc) Endpoint {
