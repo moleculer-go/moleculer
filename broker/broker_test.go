@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/moleculer-go/moleculer"
-	. "github.com/moleculer-go/moleculer/broker"
 )
 
 var _ = test.Describe("Broker", func() {
@@ -27,7 +26,7 @@ var _ = test.Describe("Broker", func() {
 			},
 		}
 
-		broker := FromConfig()
+		broker := BrokerFromConfig()
 		broker.AddService(service)
 		broker.Start()
 
@@ -69,7 +68,7 @@ var _ = test.Describe("Broker", func() {
 			},
 		}
 
-		broker := FromConfig()
+		broker := BrokerFromConfig()
 		broker.AddService(service)
 		broker.Start()
 

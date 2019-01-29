@@ -3,6 +3,7 @@ package broker
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	. "github.com/moleculer-go/goemitter"
 	. "github.com/moleculer-go/moleculer/cacher"
@@ -17,7 +18,41 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type brokerConfig struct {
+type BrokerConfig struct {
+	LogLevel       string
+	LogFormat      string
+	DiscoverNodeID func() string
+}
+
+var defaultConfig = BrokerConfig{
+	LogLevel:       "INFO",
+	LogFormat:      "TEXT",
+	DiscoverNodeID: DiscoverNodeID,
+}
+
+// DiscoverNodeID - should return the node id for this machine
+func DiscoverNodeID() string {
+	// TODO: Check moleculer JS algo for this..
+	return "fixed-node-value"
+}
+
+func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerConfig {
+
+	if len(userConfig) > 0 {
+		config := userConfig[0]
+		if config.LogLevel != "" {
+			baseConfig.LogLevel = config.LogLevel
+		}
+		if config.LogFormat != "" {
+			baseConfig.LogFormat = config.LogFormat
+		}
+		if config.DiscoverNodeID != nil {
+			baseConfig.DiscoverNodeID = config.DiscoverNodeID
+		}
+
+	}
+
+	return baseConfig
 }
 
 type ServiceBroker struct {
@@ -46,7 +81,7 @@ type ServiceBroker struct {
 
 	rootContext Context
 
-	config brokerConfig
+	config BrokerConfig
 
 	strategy Strategy
 
@@ -95,11 +130,32 @@ func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interfac
 	//TODO
 }
 
-func setupLogger() *log.Entry {
-	//log.SetFormatter(&log.JSONFormatter{})
+func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
+
+	if strings.ToUpper(broker.config.LogFormat) == "JSON" {
+		log.SetFormatter(&log.JSONFormatter{})
+	} else {
+		log.SetFormatter(&log.TextFormatter{})
+	}
+
+	if strings.ToUpper(broker.config.LogLevel) == "WARN" {
+		log.SetLevel(log.WarnLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "DEBUG" {
+		log.SetLevel(log.DebugLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "TRACE" {
+		log.SetLevel(log.TraceLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "ERROR" {
+		log.SetLevel(log.ErrorLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "FATAL" {
+		log.SetLevel(log.FatalLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+
 	brokerLogger := log.WithFields(log.Fields{
 		"broker": "yes",
 	})
+
 	return brokerLogger
 }
 
@@ -173,7 +229,7 @@ func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFu
 	params := (*context).GetParams()
 	broker.logger.Debug("Broker - callWithContext() actionName: ", actionName, " params: ", params, " opts: ", opts)
 
-	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
+	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, WrapOptions(opts))
 	if endpoint == nil {
 		msg := fmt.Sprintf("Broker - endpoint not found for actionName: %s", actionName)
 		broker.logger.Error(msg)
@@ -217,11 +273,8 @@ func (broker *ServiceBroker) GetLocalNode() *Node {
 }
 
 func (broker *ServiceBroker) init() {
-	//TODO move to wher we apply all settings
-	log.SetLevel(log.DebugLevel)
-
 	var serializer Serializer = CreateJSONSerializer()
-	broker.logger = setupLogger()
+	broker.logger = broker.createBrokerLogger()
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
 	broker.localNode = CreateNode(DiscoverNodeID())
@@ -263,10 +316,11 @@ func (broker *ServiceBroker) setupLocalBus() {
 	})
 }
 
-// BrokerFromConfig : returns a valid broker based on environment configuration
+// FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
-func FromConfig() *ServiceBroker {
-	broker := ServiceBroker{config: brokerConfig{}}
+func FromConfig(userConfig []*BrokerConfig) *ServiceBroker {
+	config := mergeConfigs(defaultConfig, userConfig)
+	broker := ServiceBroker{config: config}
 	broker.init()
 
 	broker.logger.Info("Broker - brokerFromConfig() ")

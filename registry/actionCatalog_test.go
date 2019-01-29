@@ -26,13 +26,13 @@ var _ = test.Describe("Actions Catalog", func() {
 		test.It("Should invoke action on action endpoint", func() {
 
 			msg := "message from action"
-			catalog := CreateActionCatalog()
+			catalog := CreateActionCatalog(nil)
 			peopleCreate := func(ctx Context, params Params) interface{} {
 				return msg
 			}
 			testAction := CreateServiceAction("people", "create", peopleCreate, actionSchema)
 
-			catalog.Add(&node1, testAction, true)
+			catalog.Add(node1.GetID(), testAction, true)
 
 			actionName := "people.create"
 			actionEnpoint := catalog.NextEndpoint(actionName, strategy)
@@ -52,7 +52,7 @@ var _ = test.Describe("Actions Catalog", func() {
 		//broker := CreateBroker()
 		test.It("Should create a ActionCatalog and should be size 0", func() {
 
-			catalog := CreateActionCatalog()
+			catalog := CreateActionCatalog(nil)
 
 			Expect(catalog).Should(Not(BeNil()))
 
@@ -62,12 +62,12 @@ var _ = test.Describe("Actions Catalog", func() {
 
 		test.It("Should add a local action to Action Catalog", func() {
 
-			catalog := CreateActionCatalog()
+			catalog := CreateActionCatalog(nil)
 
 			nextEndpoint := catalog.NextEndpoint("bank.credit", strategy)
 			Expect(nextEndpoint).Should(BeNil())
 
-			catalog.Add(&node1, bankCreditAction, true)
+			catalog.Add(node1.GetID(), bankCreditAction, true)
 
 			Expect(catalog.Size()).Should(Equal(1))
 
@@ -79,12 +79,12 @@ var _ = test.Describe("Actions Catalog", func() {
 
 		test.It("Should add actions and return using NextEndpoint and NextEndpointFromNode", func() {
 
-			catalog := CreateActionCatalog()
+			catalog := CreateActionCatalog(nil)
 
 			nextEndpoint := catalog.NextEndpoint("bank.credit", strategy)
 			Expect(nextEndpoint).Should(BeNil())
 
-			catalog.Add(&node1, bankCreditAction, true)
+			catalog.Add(node1.GetID(), bankCreditAction, true)
 
 			Expect(catalog.Size()).Should(Equal(1))
 
@@ -95,28 +95,28 @@ var _ = test.Describe("Actions Catalog", func() {
 			nextEndpoint = catalog.NextEndpoint("user.signUp", strategy)
 			Expect(nextEndpoint).Should(BeNil())
 
-			catalog.Add(&node1, CreateServiceAction("user", "signUp", handler, actionSchema), true)
+			catalog.Add(node1.GetID(), CreateServiceAction("user", "signUp", handler, actionSchema), true)
 
 			Expect(catalog.Size()).Should(Equal(2))
 			nextEndpoint = catalog.NextEndpoint("user.signUp", strategy)
 			Expect(nextEndpoint).Should(Not(BeNil()))
 			Expect(nextEndpoint.IsLocal()).Should(Equal(true))
 
-			catalog.Add(&node2, CreateServiceAction("user", "signUp", handler, actionSchema), false)
+			catalog.Add(node2.GetID(), CreateServiceAction("user", "signUp", handler, actionSchema), false)
 			Expect(catalog.Size()).Should(Equal(2))
 
 			//local action on node 1
-			nextEndpoint = catalog.NextEndpointFromNode("user.signUp", strategy, node1.GetID())
+			nextEndpoint = catalog.NextEndpointFromNode("user.signUp", node1.GetID())
 			Expect(nextEndpoint).Should(Not(BeNil()))
 			Expect(nextEndpoint.IsLocal()).Should(Equal(true))
 
 			//remote action on node 2
-			nextEndpoint = catalog.NextEndpointFromNode("user.signUp", strategy, node2.GetID())
+			nextEndpoint = catalog.NextEndpointFromNode("user.signUp", node2.GetID())
 			Expect(nextEndpoint).Should(Not(BeNil()))
 			Expect(nextEndpoint.IsLocal()).Should(Equal(false))
 
 			//invalid node id
-			nextEndpoint = catalog.NextEndpointFromNode("user.signUp", strategy, "invalid node id")
+			nextEndpoint = catalog.NextEndpointFromNode("user.signUp", "invalid node id")
 			Expect(nextEndpoint).Should(BeNil())
 
 		})

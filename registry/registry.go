@@ -98,10 +98,11 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
 	expiredNodes := registry.nodes.expiredNodes(registry.offlineCheckFrequency * 10)
+	timeout := registry.offlineCheckFrequency * 10
 	for _, node := range expiredNodes {
 		nodeID := (*node).GetID()
 		registry.nodes.removeNode(nodeID)
-		registry.logger.Warnf("Removed offline Node: %s node from the registry because it hasn't submitted heartbeat in %d seconds.", expiredNodes)
+		registry.logger.Warnf("Removed offline Node: %s  from the registry because it hasn't submitted heartbeat in %d seconds.", nodeID, timeout)
 	}
 }
 

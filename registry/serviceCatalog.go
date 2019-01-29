@@ -3,7 +3,6 @@ package registry
 import (
 	"fmt"
 
-	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/service"
 )
 

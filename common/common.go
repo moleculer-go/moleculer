@@ -16,6 +16,7 @@ type Params interface {
 	Float(name string) float32
 	Float64(name string) float64
 	Map(name string) Params
+	Value() interface{}
 }
 
 type Context interface {

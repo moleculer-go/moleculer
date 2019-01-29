@@ -63,9 +63,3 @@ func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 	}
 	return exists, reconnected
 }
-
-// DiscoverNodeID - should return the node id for this machine
-func DiscoverNodeID() string {
-	// TODO: Check moleculer JS algo for this..
-	return "fixed-node-value"
-}
