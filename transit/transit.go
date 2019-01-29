@@ -24,30 +24,36 @@ type TransitImpl struct {
 	self                   *TransitImpl
 	transport              *Transport
 	broker                 *BrokerInfo
-	isReady                bool
+	isConnected            bool
 	pendingRequests        map[string]pendingRequest
 	registryMessageHandler RegistryMessageHandlerFunction
+}
+
+func (transit *TransitImpl) onBrokerStarted(values ...interface{}) {
+	if transit.isConnected {
+		transit.broadcastNodeInfo("")
+	}
 }
 
 func CreateTransit(broker *BrokerInfo) *Transit {
 	transitImpl := TransitImpl{
 		broker:                 broker,
-		isReady:                false,
+		isConnected:            false,
 		registryMessageHandler: broker.RegistryMessageHandler,
+		pendingRequests:        make(map[string]pendingRequest),
 	}
 	transitImpl.self = &transitImpl
 
-	broker.GetLocalBus().On("$node.disconnected", func(values ...interface{}) {
-		var node *Node = values[0].(*Node)
-		transitImpl.self.nodeDisconnected(node)
-	})
+	broker.GetLocalBus().On("$node.disconnected", transitImpl.onNodeDisconnected)
+
+	broker.GetLocalBus().On("$broker.started", transitImpl.onBrokerStarted)
 
 	var transit Transit = transitImpl
 	return &transit
 }
 
-func (transit *TransitImpl) nodeDisconnected(node *Node) {
-	nodeID := (*node).GetID()
+func (transit *TransitImpl) onNodeDisconnected(values ...interface{}) {
+	var nodeID string = values[0].(string)
 	pending := transit.pendingRequests[nodeID]
 	pending.resultChan <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
 	delete(transit.pendingRequests, nodeID)
@@ -72,10 +78,6 @@ func CreateTransport(serializer *Serializer) *Transport {
 
 	var transport Transport = CreateStanTransporter(options)
 	return &transport
-}
-
-func (transit TransitImpl) IsReady() bool {
-	return transit.self.isReady
 }
 
 type pendingRequest struct {
@@ -180,8 +182,9 @@ func (transit *TransitImpl) eventHandler() TransportHandler {
 	}
 }
 
-func (transit *TransitImpl) sendNodeInfo(targetNodeID string) {
+func (transit *TransitImpl) broadcastNodeInfo(targetNodeID string) {
 	payload := (*transit.broker.GetLocalNode()).ExportAsMap()
+	payload["sender"] = payload["id"]
 	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
 	(*transit.transport).Publish("INFO", targetNodeID, message)
 }
@@ -189,7 +192,7 @@ func (transit *TransitImpl) sendNodeInfo(targetNodeID string) {
 func (transit *TransitImpl) discoverHandler() TransportHandler {
 	return func(message TransitMessage) {
 		sender := message.Get("sender").String()
-		transit.sendNodeInfo(sender)
+		transit.broadcastNodeInfo(sender)
 	}
 }
 
@@ -243,8 +246,10 @@ func (transit *TransitImpl) subscribe() {
 	nodeID := (*transit.broker.GetLocalNode()).GetID()
 	(*transit.transport).Subscribe("RES", nodeID, transit.reponseHandler())
 	(*transit.transport).Subscribe("REQ", nodeID, transit.requestHandler())
-	(*transit.transport).Subscribe("HEARTBEAT", nodeID, transit.registryDelegateHandler("HEARTBEAT"))
-	(*transit.transport).Subscribe("DISCONNECT", nodeID, transit.registryDelegateHandler("DISCONNECT"))
+
+	(*transit.transport).Subscribe("HEARTBEAT", "", transit.registryDelegateHandler("HEARTBEAT"))
+	(*transit.transport).Subscribe("DISCONNECT", "", transit.registryDelegateHandler("DISCONNECT"))
+	(*transit.transport).Subscribe("INFO", "", transit.registryDelegateHandler("INFO"))
 	(*transit.transport).Subscribe("INFO", nodeID, transit.registryDelegateHandler("INFO"))
 	(*transit.transport).Subscribe("EVENT", nodeID, transit.eventHandler())
 	(*transit.transport).Subscribe("DISCOVER", nodeID, transit.discoverHandler())
@@ -257,30 +262,22 @@ func (transit *TransitImpl) subscribe() {
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
 func (transit TransitImpl) Connect() chan bool {
 	endChan := make(chan bool)
-	if transit.IsReady() {
+	if transit.isConnected {
 		endChan <- true
 		return endChan
 	}
 	transport := CreateTransport(transit.broker.GetSerializer())
 	transit.self.transport = transport
 	go func() {
-		connected := <-(*transport).Connect()
-		transit.self.subscribe()
-		transit.self.isReady = connected
-		endChan <- connected
+		transit.self.isConnected = <-(*transport).Connect()
+		if transit.self.isConnected {
+			transit.self.subscribe()
+		}
+		endChan <- transit.self.isConnected
 	}()
 	return endChan
 }
 
-func (transit TransitImpl) Ready() chan bool {
-	endChan := make(chan bool)
-	go func() {
-		for {
-			if transit.IsReady() {
-				endChan <- true
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
-	return endChan
+func (transit TransitImpl) Ready() {
+
 }

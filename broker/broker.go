@@ -152,8 +152,9 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 		log.SetLevel(log.InfoLevel)
 	}
 
+	nodeID := broker.config.DiscoverNodeID()
 	brokerLogger := log.WithFields(log.Fields{
-		"broker": "yes",
+		"broker": nodeID,
 	})
 
 	return brokerLogger
@@ -192,7 +193,7 @@ func (broker *ServiceBroker) Start() {
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
 
-	<-(*broker.transit).Ready()
+	//*broker.transit).Ready()
 
 	broker.logger.Debug("Broker -> transit is ready !")
 
@@ -273,7 +274,9 @@ func (broker *ServiceBroker) GetLocalNode() *Node {
 }
 
 func (broker *ServiceBroker) init() {
-	var serializer Serializer = CreateJSONSerializer()
+	var serializer Serializer = CreateJSONSerializer(func() *BrokerInfo {
+		return broker.info
+	})
 	broker.logger = broker.createBrokerLogger()
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
@@ -291,6 +294,9 @@ func (broker *ServiceBroker) init() {
 			return &serializer
 		},
 		broker.registryMessageHandler,
+		func() (ActionDelegateFunc, EventDelegateFunc, EventDelegateFunc) {
+			return broker.callWithContext, broker.emitWithContext, broker.broadcastWithContext
+		},
 	}
 
 	broker.registry = CreateRegistry(broker.GetInfo())

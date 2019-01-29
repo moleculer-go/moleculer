@@ -1,6 +1,8 @@
 package registry_test
 
 import (
+	"time"
+
 	"github.com/moleculer-go/moleculer"
 	//. "github.com/moleculer-go/moleculer/registry"
 	. "github.com/onsi/ginkgo"
@@ -73,6 +75,8 @@ var _ = Describe("Registry", func() {
 			}).Should(Panic())
 
 			brokerB.Start()
+
+			time.Sleep(2 * time.Second)
 
 			scanResult := <-brokerA.Call("scanner.scan", scanText)
 			Expect(scanResult).Should(Equal(scanText))

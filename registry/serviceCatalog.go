@@ -53,8 +53,9 @@ func serviceActionExists(name string, actions []ServiceAction) bool {
 	return false
 }
 
-func actionMapExists(name string, actions []map[string]interface{}) bool {
-	for _, action := range actions {
+func actionMapExists(name string, actions []interface{}) bool {
+	for _, item := range actions {
+		action := item.(map[string]interface{})
 		if action["name"].(string) == name {
 			return true
 		}
@@ -68,8 +69,9 @@ func (serviceCatalog *ServiceCatalog) updateActions(service map[string]interface
 	var updatedActions []map[string]interface{}
 	var newActions, deletedActions []ServiceAction
 
-	actions := service["actions"].([]map[string]interface{})
-	for _, action := range actions {
+	actions := service["actions"].([]interface{})
+	for _, item := range actions {
+		action := item.(map[string]interface{})
 		name := action["name"].(string)
 		if serviceActionExists(name, current.GetActions()) {
 			updatedActions = append(updatedActions, action)

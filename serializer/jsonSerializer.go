@@ -8,17 +8,20 @@ import (
 )
 
 type JSONSerializer struct {
+	getBroker brokerInfoFunction
 }
 
 type ResultWrapper struct {
 	result *gjson.Result
 }
 
-func CreateJSONSerializer() JSONSerializer {
-	return JSONSerializer{}
+type brokerInfoFunction func() *BrokerInfo
+
+func CreateJSONSerializer(getBroker brokerInfoFunction) JSONSerializer {
+	return JSONSerializer{getBroker}
 }
 
-func mapToContext(contextMap map[string]interface{}) Context {
+func (serializer JSONSerializer) mapToContext(contextMap map[string]interface{}) Context {
 	id := contextMap["id"].(string)
 	actionName := contextMap["action"].(string)
 	params := contextMap["params"]
@@ -41,7 +44,9 @@ func mapToContext(contextMap map[string]interface{}) Context {
 		requestID = contextMap["requestID"].(string)
 	}
 
-	context := CreateContext(id, actionName, params, meta, level, sendMetrics, timeout, parentID, requestID)
+	context := CreateContext(id, actionName, params, meta, level,
+		sendMetrics, timeout, parentID, requestID,
+		serializer.getBroker())
 
 	return context
 }
@@ -64,7 +69,7 @@ func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) 
 
 func (serializer JSONSerializer) MessageToContext(message *TransitMessage) Context {
 	contextMap := (*message).AsMap()
-	context := mapToContext(contextMap)
+	context := serializer.mapToContext(contextMap)
 	return context
 }
 

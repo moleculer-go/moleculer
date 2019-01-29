@@ -8,20 +8,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type actionDelegateFunc func(context *Context, opts ...OptionsFunc) chan interface{}
-type eventDelegateFunc func(context *Context, groups ...string)
-type getLoggerFunction func(name string, value string) *log.Entry
-
 type ContextImpl struct {
 	self              *ContextImpl
-	actionDelegate    actionDelegateFunc
-	emitDelegate      eventDelegateFunc
-	broadcastDelegate eventDelegateFunc
+	actionDelegate    ActionDelegateFunc
+	emitDelegate      EventDelegateFunc
+	broadcastDelegate EventDelegateFunc
 	node              *Node
 	parent            *ContextImpl
 	actionName        string
 	eventName         string
-	getLogger         getLoggerFunction
+	getLogger         GetLoggerFunction
 	params            interface{}
 	id                string
 	meta              map[string]interface{}
@@ -31,7 +27,7 @@ type ContextImpl struct {
 	requestID         string
 }
 
-func CreateBrokerContext(actionDelegate actionDelegateFunc, emitDelegate eventDelegateFunc, broadcastDelegate eventDelegateFunc, getLogger getLoggerFunction, node *Node) Context {
+func CreateBrokerContext(actionDelegate ActionDelegateFunc, emitDelegate EventDelegateFunc, broadcastDelegate EventDelegateFunc, getLogger GetLoggerFunction, node *Node) Context {
 	context := ContextImpl{
 		actionDelegate:    actionDelegate,
 		emitDelegate:      emitDelegate,
@@ -73,18 +69,20 @@ func checkMaxCalls(context *ContextImpl) {
 
 }
 
-func CreateContext(id, actionName string, params interface{}, meta map[string]interface{}, level int, sendMetrics bool, timeout int, parentID, requestID string) Context {
+func CreateContext(id, actionName string, params interface{}, meta map[string]interface{}, level int, sendMetrics bool, timeout int, parentID, requestID string, broker *BrokerInfo) Context {
 
 	parentContext := ContextImpl{
 		id: parentID,
 	}
 
+	actionDelegate, emitDelegate, broadcastDelegate := broker.GetDelegates()
+
 	actionContext := ContextImpl{
-		// actionDelegate:    parentContext.actionDelegate,
-		// emitDelegate:      parentContext.emitDelegate,
-		// broadcastDelegate: parentContext.broadcastDelegate,
-		// getLogger:         parentContext.getLogger,
-		// node:              parentContext.node,
+		actionDelegate:    actionDelegate,
+		emitDelegate:      emitDelegate,
+		broadcastDelegate: broadcastDelegate,
+		getLogger:         broker.GetLogger,
+		node:              broker.GetLocalNode(),
 
 		id:          id,
 		actionName:  actionName,
@@ -127,7 +125,7 @@ func (context ContextImpl) AsMap() map[string]interface{} {
 // InvokeAction : check max calls and call broker action delegate
 func (context ContextImpl) InvokeAction(opts ...OptionsFunc) chan interface{} {
 	checkMaxCalls(&context)
-	var contextInterface Context = context
+	var contextInterface Context = (*context.self)
 	return context.self.actionDelegate(&contextInterface, WrapOptions(opts))
 }
 

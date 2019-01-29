@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"fmt"
+
 	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/service"
 )
@@ -82,8 +84,13 @@ func (actionCatalog *ActionCatalog) Add(nodeID string, action ServiceAction, loc
 	entry := &ActionEntry{nodeID, &action, local, actionCatalog.getTransitDelegate}
 
 	name := action.GetFullName()
+	fmt.Println("Add() name:", name, "Before actionCatalog.actionsByName: ", actionCatalog.actionsByName)
+
 	actionCatalog.actionsByName[name] = append(
 		actionCatalog.actionsByName[name], entry)
+
+	fmt.Println("Add() name:", name, "After actionCatalog.actionsByName: ", actionCatalog.actionsByName)
+
 }
 
 func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updates map[string]interface{}) {
@@ -121,6 +128,7 @@ func (actionCatalog *ActionCatalog) NextEndpointFromNode(actionName string, node
 }
 
 func (actionCatalog *ActionCatalog) NextEndpoint(actionName string, strategy Strategy, opts ...OptionsFunc) Endpoint {
+	fmt.Println("NextEndpoint() --> actionCatalog.actionsByName: ", actionCatalog.actionsByName)
 	actions := actionCatalog.actionsByName[actionName]
 	return strategy.SelectEndpoint(actionsToEndPoints(actions))
 }

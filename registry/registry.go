@@ -85,7 +85,7 @@ func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
 func (registry *ServiceRegistry) disconnectNode(node *Node) {
 	nodeID := (*node).GetID()
 	registry.removeServicesByNodeID(nodeID)
-	registry.broker.GetLocalBus().EmitAsync("$node.disconnected", []interface{}{node})
+	registry.broker.GetLocalBus().EmitAsync("$node.disconnected", []interface{}{nodeID})
 	registry.logger.Warnf("Node %s disconnected ", nodeID)
 }
 
@@ -140,12 +140,14 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message *TransitMessa
 // nodeInfoMessageReceived process the node info message.
 func (registry *ServiceRegistry) nodeInfoMessageReceived(message *TransitMessage) {
 	nodeInfo := (*message).AsMap()
-	services := nodeInfo["services"].([]map[string]interface{})
+	fmt.Println("nodeInfoMessageReceived nodeInfo: ", nodeInfo)
+	services := nodeInfo["services"].([]interface{})
 	nodeID := nodeInfo["sender"].(string)
 
 	exists, reconnected := (*registry.nodes).Info(nodeInfo)
 
-	for _, serviceInfo := range services {
+	for _, item := range services {
+		serviceInfo := item.(map[string]interface{})
 		updatedActions, newActions, deletedActions := (*registry.services).updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {

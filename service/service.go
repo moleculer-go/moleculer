@@ -170,20 +170,20 @@ func (service *Service) AsMap() map[string]interface{} {
 	serviceInfo["settings"] = service.settings
 	serviceInfo["metadata"] = service.metadata
 
-	var actions []map[string]interface{}
-	for _, serviceAction := range service.actions {
+	actions := make([]map[string]interface{}, len(service.actions))
+	for index, serviceAction := range service.actions {
 		actionInfo := make(map[string]interface{})
 		actionInfo["name"] = serviceAction.name
 		actionInfo["schema"] = actionSchemaAsMap(&serviceAction.schema)
-		actions = append(actions, actionInfo)
+		actions[index] = actionInfo
 	}
 	serviceInfo["actions"] = actions
 
-	var events []map[string]interface{}
-	for _, serviceEvent := range service.events {
+	events := make([]map[string]interface{}, len(service.events))
+	for index, serviceEvent := range service.events {
 		eventInfo := make(map[string]interface{})
 		eventInfo["name"] = serviceEvent.name
-		events = append(events, eventInfo)
+		events[index] = eventInfo
 	}
 	serviceInfo["events"] = events
 
@@ -197,7 +197,8 @@ func actionSchemaFromMap(schemaInfo map[string]interface{}) ActionSchema {
 
 func actionSchemaAsMap(actionSchema *ActionSchema) map[string]interface{} {
 	//TODO
-	return nil
+	schema := make(map[string]interface{})
+	return schema
 }
 
 func (service *Service) AddActionMap(actionInfo map[string]interface{}) *ServiceAction {
@@ -245,13 +246,15 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
-	actions := serviceInfo["actions"].([]map[string]interface{})
-	for _, actionInfo := range actions {
+	actions := serviceInfo["actions"].([]interface{})
+	for _, item := range actions {
+		actionInfo := item.(map[string]interface{})
 		service.AddActionMap(actionInfo)
 	}
 
-	events := serviceInfo["events"].([]map[string]interface{})
-	for _, eventInfo := range events {
+	events := serviceInfo["events"].([]interface{})
+	for _, item := range events {
+		eventInfo := item.(map[string]interface{})
 		service.AddEventMap(eventInfo)
 	}
 }
@@ -261,22 +264,32 @@ func populateFromSchema(service *Service, schema *ServiceSchema) {
 	service.name = schema.Name
 	service.version = schema.Version
 	service.fullname = joinVersionToName(service.name, service.version)
+
 	service.settings = schema.Settings
+	if service.settings == nil {
+		service.settings = make(map[string]interface{})
+	}
 	service.metadata = schema.Metadata
-	for _, actionSchema := range schema.Actions {
-		service.actions = append(service.actions, CreateServiceAction(
+	if service.metadata == nil {
+		service.metadata = make(map[string]interface{})
+	}
+
+	service.actions = make([]ServiceAction, len(schema.Actions))
+	for index, actionSchema := range schema.Actions {
+		service.actions[index] = CreateServiceAction(
 			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
 			actionSchema.Schema,
-		))
+		)
 	}
 
-	for _, eventSchema := range schema.Events {
-		service.events = append(service.events, ServiceEvent{
+	service.events = make([]ServiceEvent, len(schema.Events))
+	for index, eventSchema := range schema.Events {
+		service.events[index] = ServiceEvent{
 			eventSchema.Name,
 			eventSchema.Handler,
-		})
+		}
 	}
 
 	if schema.Created != nil {

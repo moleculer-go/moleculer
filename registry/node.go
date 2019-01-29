@@ -59,7 +59,12 @@ func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
 	node.port = info["port"].(string)
 	node.client = info["client"].(map[string]interface{})
 
-	node.services = info["services"].([]map[string]interface{})
+	items := info["services"].([]interface{})
+	services := make([]map[string]interface{}, len(items))
+	for index, item := range items {
+		services[index] = item.(map[string]interface{})
+	}
+	node.services = services
 
 	node.config = info["config"].(map[string]interface{})
 	node.sequence = info["seq"].(int64)
@@ -69,9 +74,7 @@ func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
 	return reconnected
 }
 
-// ExportAsMap export the node info as a map
-// this map is used to publish the node info to other nodes.
-func (node NodeInfo) ExportAsMap() map[string]interface{} {
+func (node *NodeInfo) exportAsMapImpl() map[string]interface{} {
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
 	resultMap["services"] = node.services
@@ -83,6 +86,12 @@ func (node NodeInfo) ExportAsMap() map[string]interface{} {
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence
 	return resultMap
+}
+
+// ExportAsMap export the node info as a map
+// this map is used to publish the node info to other nodes.
+func (node NodeInfo) ExportAsMap() map[string]interface{} {
+	return node.self.exportAsMapImpl()
 }
 
 func (node NodeInfo) GetID() string {
@@ -114,8 +123,12 @@ func (node NodeInfo) HeartBeat(heartbeat map[string]interface{}) {
 	node.self.heartBeatImp(heartbeat)
 }
 
-func (node NodeInfo) AddServices(service map[string]interface{}) {
+func (node *NodeInfo) addServicesImpl(service map[string]interface{}) {
 	node.services = append(node.services, service)
+}
+
+func (node NodeInfo) AddServices(service map[string]interface{}) {
+	node.self.addServicesImpl(service)
 }
 
 func (node NodeInfo) IsAvailable() bool {
