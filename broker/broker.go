@@ -3,6 +3,7 @@ package broker
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	. "github.com/moleculer-go/goemitter"
@@ -15,6 +16,7 @@ import (
 	. "github.com/moleculer-go/moleculer/service"
 	. "github.com/moleculer-go/moleculer/strategy"
 	. "github.com/moleculer-go/moleculer/transit"
+	. "github.com/moleculer-go/moleculer/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -33,7 +35,12 @@ var defaultConfig = BrokerConfig{
 // DiscoverNodeID - should return the node id for this machine
 func DiscoverNodeID() string {
 	// TODO: Check moleculer JS algo for this..
-	return "fixed-node-value"
+	hostname, err := os.Hostname()
+	if err != nil {
+		fmt.Errorf("Error trying to get the machine hostname - error: %s", err)
+		hostname = ""
+	}
+	return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", RandomString(12))
 }
 
 func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerConfig {

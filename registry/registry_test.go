@@ -111,7 +111,7 @@ var _ = Describe("Registry", func() {
 			Expect(scanResult).Should(Equal(scanText))
 
 			brokerC.Start()
-			time.Sleep(2 * time.Second) //sleep until services are registered
+			time.Sleep(time.Second) //sleep until services are registered
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-brokerC.Call("cpu.compute", contentToCompute)

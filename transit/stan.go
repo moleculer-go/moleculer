@@ -80,7 +80,7 @@ func (transporter StanTransporter) Connect() chan bool {
 		transporter.logger.Debug("Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
 		connection, error := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
 		if error != nil {
-			transporter.logger.Error("\nConnect() - Error: ", error)
+			transporter.logger.Error("\nConnect() - Error: ", error, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
 			panic(error)
 		}
 		transporter.logger.Info("Connect() - connection success!")
