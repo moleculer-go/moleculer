@@ -140,7 +140,6 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message *TransitMessa
 // nodeInfoMessageReceived process the node info message.
 func (registry *ServiceRegistry) nodeInfoMessageReceived(message *TransitMessage) {
 	nodeInfo := (*message).AsMap()
-	fmt.Println("nodeInfoMessageReceived nodeInfo: ", nodeInfo)
 	services := nodeInfo["services"].([]interface{})
 	nodeID := nodeInfo["sender"].(string)
 
@@ -198,6 +197,7 @@ func (registry *ServiceRegistry) AddLocalService(service *Service) {
 	}
 
 	nodeID := (*registry.localNode).GetID()
+	registry.logger.Debug("AddLocalService() nodeID: ", nodeID, " service.fullname: ", service.GetFullName())
 
 	registry.services.Add(nodeID, service)
 
@@ -227,21 +227,3 @@ func (registry *ServiceRegistry) NextActionEndpoint(actionName string, strategy 
 	}
 	return registry.actions.NextEndpoint(actionName, strategy, WrapOptions(opts))
 }
-
-// func (registry *ServiceRegistry) regenerateLocalRawInfo(increaseSequence bool) map[string]interface{} {
-// 	node := registry.localNode
-// 	if increaseSequence {
-// 		node.IncreaseSequence()
-// 	}
-// 	services := registry.services.getLocalNodeServices()
-// 	node.rawInfo = map[string]interface{}{
-// 		"ipList":   node.ipList,
-// 		"hostname": node.hostname,
-// 		"client":   node.client,
-// 		"config":   node.config,
-// 		"port":     node.port,
-// 		"seq":      node.sequence,
-// 		"services": services,
-// 	}
-// 	return node.rawInfo
-// }

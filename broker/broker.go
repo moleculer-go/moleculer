@@ -228,7 +228,7 @@ func (broker *ServiceBroker) broadcastWithContext(context *Context, groups ...st
 func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFunc) chan interface{} {
 	actionName := (*context).GetActionName()
 	params := (*context).GetParams()
-	broker.logger.Debug("Broker - callWithContext() actionName: ", actionName, " params: ", params, " opts: ", opts)
+	broker.logger.Trace("Broker callWithContext() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, WrapOptions(opts))
 	if endpoint == nil {
@@ -237,19 +237,15 @@ func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFu
 		panic(errors.New(msg))
 	}
 
-	broker.logger.Debug("Broker - calling actionName: ", actionName)
-	node := CreateNode(endpoint.GetNodeID())
-	(*context).SetNode(&node)
+	broker.logger.Debug("Broker callWithContext() - actionName: ", actionName, " target nodeID: ", endpoint.GetTargetNodeID())
 	return endpoint.InvokeAction(context)
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
-	broker.logger.Info("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
+	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	actionContext := broker.rootContext.NewActionContext(actionName, params, WrapOptions(opts))
-	broker.logger.Info("Broker - Call() actionContext created!  ")
-
 	return actionContext.InvokeAction(WrapOptions(opts))
 }
 
@@ -274,9 +270,7 @@ func (broker *ServiceBroker) GetLocalNode() *Node {
 }
 
 func (broker *ServiceBroker) init() {
-	var serializer Serializer = CreateJSONSerializer(func() *BrokerInfo {
-		return broker.info
-	})
+	var serializer Serializer = CreateJSONSerializer()
 	broker.logger = broker.createBrokerLogger()
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
@@ -307,7 +301,7 @@ func (broker *ServiceBroker) init() {
 		broker.emitWithContext,
 		broker.broadcastWithContext,
 		broker.GetLogger,
-		&broker.localNode)
+		broker.localNode.GetID())
 }
 
 func (broker *ServiceBroker) GetTransit() *Transit {

@@ -6,7 +6,9 @@ import (
 	"time"
 
 	. "github.com/moleculer-go/moleculer/common"
+	. "github.com/moleculer-go/moleculer/context"
 	. "github.com/moleculer-go/moleculer/util"
+	log "github.com/sirupsen/logrus"
 )
 
 type TransportHandler func(message TransitMessage)
@@ -22,10 +24,11 @@ type Transport interface {
 
 type TransitImpl struct {
 	self                   *TransitImpl
+	logger                 *log.Entry
 	transport              *Transport
 	broker                 *BrokerInfo
 	isConnected            bool
-	pendingRequests        map[string]pendingRequest
+	pendingRequests        *map[string]pendingRequest
 	registryMessageHandler RegistryMessageHandlerFunction
 }
 
@@ -36,11 +39,13 @@ func (transit *TransitImpl) onBrokerStarted(values ...interface{}) {
 }
 
 func CreateTransit(broker *BrokerInfo) *Transit {
+	pendingRequests := make(map[string]pendingRequest)
 	transitImpl := TransitImpl{
 		broker:                 broker,
 		isConnected:            false,
 		registryMessageHandler: broker.RegistryMessageHandler,
-		pendingRequests:        make(map[string]pendingRequest),
+		pendingRequests:        &pendingRequests,
+		logger:                 broker.GetLogger("Transit", ""),
 	}
 	transitImpl.self = &transitImpl
 
@@ -54,9 +59,10 @@ func CreateTransit(broker *BrokerInfo) *Transit {
 
 func (transit *TransitImpl) onNodeDisconnected(values ...interface{}) {
 	var nodeID string = values[0].(string)
-	pending := transit.pendingRequests[nodeID]
-	pending.resultChan <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
-	delete(transit.pendingRequests, nodeID)
+	transit.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
+	pending := (*transit.pendingRequests)[nodeID]
+	(*pending.resultChan) <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
+	delete((*transit.pendingRequests), nodeID)
 }
 
 // CreateTransport : based on config it will load the transporter
@@ -82,7 +88,7 @@ func CreateTransport(serializer *Serializer) *Transport {
 
 type pendingRequest struct {
 	context    *Context
-	resultChan chan interface{}
+	resultChan *chan interface{}
 }
 
 func (transit *TransitImpl) checkMaxQueueSize() {
@@ -123,15 +129,24 @@ func (transit *TransitImpl) requestImpl(context *Context) chan interface{} {
 	transit.checkMaxQueueSize()
 
 	resultChan := make(chan interface{})
-	message := (*transit.broker.GetSerializer()).ContextToMessage(context)
-	nodeID := (*(*context).GetNode()).GetID()
+	payload := (*context).AsMap()
+	payload["sender"] = (*transit.broker.GetLocalNode()).GetID()
 
-	(*transit.transport).Publish("REQ", nodeID, message)
+	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	targetNodeID := (*context).GetTargetNodeID()
 
-	transit.pendingRequests[(*context).GetID()] = pendingRequest{
+	transit.logger.Debug("requestImpl() targetNodeID: ", targetNodeID, " message: ", message)
+
+	(*transit.pendingRequests)[(*context).GetID()] = pendingRequest{
 		context,
-		resultChan,
+		&resultChan,
 	}
+
+	transit.logger.Debug("requestImpl() transit.pendingRequests: ", transit.pendingRequests)
+	transit.logger.Debugf("requestImpl() transit - memory --> %p ", transit)
+	transit.logger.Debugf("requestImpl() transit.pendingRequests - memory --> %p ", transit.pendingRequests)
+
+	(*transit.transport).Publish("REQ", targetNodeID, message)
 	return resultChan
 }
 
@@ -142,23 +157,35 @@ func (transit TransitImpl) Request(context *Context) chan interface{} {
 func (transit *TransitImpl) reponseHandler() TransportHandler {
 	return func(message TransitMessage) {
 		id := message.Get("id").String()
-		request := transit.pendingRequests[id]
-		delete(transit.pendingRequests, id)
-		request.resultChan <- message.Get("data").Value()
+		sender := message.Get("sender").String()
+		transit.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " id: ", id)
+
+		request := (*transit.pendingRequests)[id]
+		delete((*transit.pendingRequests), id)
+		result := message.Get("data").Value()
+
+		transit.logger.Trace("reponseHandler() id: ", id, " result: ", result)
+		go func() {
+			(*request.resultChan) <- result
+		}()
 	}
 }
 
 func (transit *TransitImpl) sendResponse(context *Context, response interface{}) {
+	targetNodeID := (*context).GetTargetNodeID()
+
 	payload := make(map[string]interface{})
+	payload["sender"] = (*transit.broker.GetLocalNode()).GetID()
 	payload["id"] = (*context).GetID()
 	payload["meta"] = (*context).GetMeta()
 	payload["success"] = true
 	payload["data"] = response
 
 	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
-	nodeID := (*(*context).GetNode()).GetID()
 
-	(*transit.transport).Publish("RES", nodeID, message)
+	transit.logger.Debug("sendResponse() targetNodeID: ", targetNodeID, " payload: ", payload)
+
+	(*transit.transport).Publish("RES", targetNodeID, message)
 }
 
 // requestHandler : handles when a request arrives on this node.
@@ -167,7 +194,8 @@ func (transit *TransitImpl) sendResponse(context *Context, response interface{})
 // 3: send a response
 func (transit *TransitImpl) requestHandler() TransportHandler {
 	return func(message TransitMessage) {
-		context := (*transit.broker.GetSerializer()).MessageToContext(&message)
+		values := (*transit.broker.GetSerializer()).MessageToContextMap(&message)
+		context := CreateContext(transit.broker, values)
 		result := <-context.InvokeAction()
 		transit.sendResponse(&context, result)
 	}

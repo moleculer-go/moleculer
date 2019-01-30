@@ -47,7 +47,8 @@ var _ = test.Describe("Transit", func() {
 			received <- true
 		})
 
-		transporter.Publish("topicA", "node1", serializer.ContextToMessage(actionContext))
+		contextMap := actionContext.AsMap()
+		transporter.Publish("topicA", "node1", serializer.MapToMessage(&contextMap))
 
 		Expect(<-received).Should(Equal(true))
 

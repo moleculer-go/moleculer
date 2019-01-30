@@ -46,7 +46,7 @@ func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *Service) {
 
 func serviceActionExists(name string, actions []ServiceAction) bool {
 	for _, action := range actions {
-		if action.GetFullName() == name {
+		if action.GetName() == name {
 			return true
 		}
 	}
@@ -81,7 +81,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(service map[string]interface
 		}
 	}
 	for _, action := range current.GetActions() {
-		name := action.GetFullName()
+		name := action.GetName()
 		if !actionMapExists(name, actions) {
 			deletedActions = append(deletedActions, action)
 			current.RemoveAction(name)

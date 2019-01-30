@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	. "github.com/moleculer-go/moleculer/common"
@@ -14,8 +15,6 @@ type NodeInfo struct {
 	ipList            []string
 	hostname          string
 	client            map[string]interface{}
-	config            map[string]interface{}
-	port              string
 	services          []map[string]interface{}
 	rawInfo           map[string]interface{}
 	self              *NodeInfo
@@ -27,18 +26,55 @@ type NodeInfo struct {
 	isLocal           bool
 }
 
+func discoverIpList() []string {
+	var result []string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return make([]string, 0)
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				result = append(result, ipnet.IP.String())
+			}
+		}
+	}
+	return result
+}
+
+func discoverHostname() string {
+	hostname := ""
+	return hostname
+}
+
 func CreateNode(id string) Node {
-	node := NodeInfo{id: id, client: map[string]interface{}{
-		"type":        "moleculer-go",
-		"version":     version.Moleculer(),
-		"langVersion": version.Go(),
-	}}
+	ipList := discoverIpList()
+	hostname := discoverHostname()
+	node := NodeInfo{
+		id: id,
+		client: map[string]interface{}{
+			"type":        "moleculer-go",
+			"version":     version.Moleculer(),
+			"langVersion": version.Go(),
+		},
+		ipList:   ipList,
+		hostname: hostname,
+	}
 	node.self = &node
 	return node
 }
 
 func (node NodeInfo) Update(info map[string]interface{}) bool {
 	return node.self.updateImpl(info)
+}
+
+func interfaceToString(list []interface{}) []string {
+	result := make([]string, len(list))
+	for index, item := range list {
+		result[index] = item.(string)
+	}
+	return result
 }
 
 func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
@@ -54,9 +90,8 @@ func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
 	node.offlineSince = 0
 
 	node.rawInfo = info
-	node.ipList = info["ipList"].([]string)
+	node.ipList = interfaceToString(info["ipList"].([]interface{}))
 	node.hostname = info["hostname"].(string)
-	node.port = info["port"].(string)
 	node.client = info["client"].(map[string]interface{})
 
 	items := info["services"].([]interface{})
@@ -66,10 +101,9 @@ func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
 	}
 	node.services = services
 
-	node.config = info["config"].(map[string]interface{})
-	node.sequence = info["seq"].(int64)
-	node.cpu = info["cpu"].(int64)
-	node.cpuSequence = info["cpuSeq"].(int64)
+	node.sequence = int64(info["seq"].(float64))
+	node.cpu = int64(info["cpu"].(float64))
+	node.cpuSequence = int64(info["cpuSeq"].(float64))
 
 	return reconnected
 }
@@ -81,7 +115,6 @@ func (node *NodeInfo) exportAsMapImpl() map[string]interface{} {
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname
 	resultMap["client"] = node.client
-	resultMap["config"] = node.config
 	resultMap["seq"] = node.sequence
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence

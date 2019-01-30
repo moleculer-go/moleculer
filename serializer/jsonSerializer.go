@@ -2,13 +2,11 @@ package serializer
 
 import (
 	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/context"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
 type JSONSerializer struct {
-	getBroker brokerInfoFunction
 }
 
 type ResultWrapper struct {
@@ -17,38 +15,17 @@ type ResultWrapper struct {
 
 type brokerInfoFunction func() *BrokerInfo
 
-func CreateJSONSerializer(getBroker brokerInfoFunction) JSONSerializer {
-	return JSONSerializer{getBroker}
+func CreateJSONSerializer() JSONSerializer {
+	return JSONSerializer{}
 }
 
-func (serializer JSONSerializer) mapToContext(contextMap map[string]interface{}) Context {
-	id := contextMap["id"].(string)
-	actionName := contextMap["action"].(string)
-	params := contextMap["params"]
-	level := int(contextMap["level"].(float64))
-	sendMetrics := contextMap["metrics"].(bool)
-
-	var timeout int
-	var meta map[string]interface{}
-	var parentID, requestID string
-	if contextMap["timeout"] != nil {
-		timeout = int(contextMap["timeout"].(float64))
+// mapToContext make sure all value types are compatible with the context fields.
+func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[string]interface{} {
+	values["level"] = int(values["level"].(float64))
+	if values["timeout"] != nil {
+		values["timeout"] = int(values["timeout"].(float64))
 	}
-	if contextMap["meta"] != nil {
-		meta = contextMap["meta"].(map[string]interface{})
-	}
-	if contextMap["parentID"] != nil {
-		parentID = contextMap["parentID"].(string)
-	}
-	if contextMap["requestID"] != nil {
-		requestID = contextMap["requestID"].(string)
-	}
-
-	context := CreateContext(id, actionName, params, meta, level,
-		sendMetrics, timeout, parentID, requestID,
-		serializer.getBroker())
-
-	return context
+	return values
 }
 
 func (serializer JSONSerializer) BytesToMessage(bytes *[]byte) TransitMessage {
@@ -67,21 +44,8 @@ func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) 
 	return message
 }
 
-func (serializer JSONSerializer) MessageToContext(message *TransitMessage) Context {
-	contextMap := (*message).AsMap()
-	context := serializer.mapToContext(contextMap)
-	return context
-}
-
-func (serializer JSONSerializer) ContextToMessage(context *Context) TransitMessage {
-	contextMap := (*context).AsMap()
-	json, err := sjson.Set("{root:false}", "root", contextMap)
-	if err != nil {
-		panic(err)
-	}
-	result := gjson.Get(json, "root")
-	message := ResultWrapper{&result}
-	return message
+func (serializer JSONSerializer) MessageToContextMap(message *TransitMessage) map[string]interface{} {
+	return serializer.contextMap((*message).AsMap())
 }
 
 func (wrapper ResultWrapper) Get(path string) TransitMessage {

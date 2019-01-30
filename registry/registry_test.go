@@ -12,6 +12,7 @@ import (
 func createBrokerA() moleculer.ServiceBroker {
 	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerA" },
+		LogLevel:       "DEBUG",
 	})
 
 	broker.AddService(moleculer.Service{
@@ -33,6 +34,7 @@ func createBrokerA() moleculer.ServiceBroker {
 func createBrokerB() moleculer.ServiceBroker {
 	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerB" },
+		LogLevel:       "DEBUG",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "scanner",
@@ -40,8 +42,33 @@ func createBrokerB() moleculer.ServiceBroker {
 			{
 				Name: "scan",
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
-					context.GetLogger().Info("scan action invoked.")
+					context.GetLogger().Info("scan action invoked!")
+
 					return params.Value()
+				},
+			},
+		},
+	})
+
+	return (*broker)
+}
+
+func createBrokerC() moleculer.ServiceBroker {
+	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
+		DiscoverNodeID: func() string { return "node_brokerC" },
+		LogLevel:       "DEBUG",
+	})
+	broker.AddService(moleculer.Service{
+		Name: "cpu",
+		Actions: []moleculer.Action{
+			{
+				Name: "compute",
+				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+					context.GetLogger().Info("compute action invoked!")
+
+					scanResult := context.Call("scanner.scan", params.Value())
+
+					return context.Call("printer.print", scanResult)
 				},
 			},
 		},
@@ -63,6 +90,9 @@ var _ = Describe("Registry", func() {
 			brokerB := createBrokerB()
 			Expect((*brokerB.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerB"))
 
+			brokerC := createBrokerC()
+			Expect((*brokerC.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerC"))
+
 			brokerA.Start()
 
 			printText := "TEXT TO PRINT"
@@ -72,14 +102,29 @@ var _ = Describe("Registry", func() {
 			scanText := "TEXT TO SCAN"
 			Expect(func() {
 				<-brokerA.Call("scanner.scan", scanText)
-			}).Should(Panic())
+			}).Should(Panic()) //broker B is not started yet.. so should panic
 
 			brokerB.Start()
-
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Second)
 
 			scanResult := <-brokerA.Call("scanner.scan", scanText)
 			Expect(scanResult).Should(Equal(scanText))
+
+			brokerC.Start()
+			time.Sleep(2 * time.Second) //sleep until services are registered
+
+			contentToCompute := "Some long long text ..."
+			computeResult := <-brokerC.Call("cpu.compute", contentToCompute)
+			Expect(printResult).Should(Equal(computeResult))
+
+			//stopping broker B
+			// brokerB.Stop() // TODO -> not  implemented yet
+			// time.Sleep(2 * time.Second)
+
+			// Expect(func() {
+			// 	<-brokerA.Call("scanner.scan", scanText)
+			// }).Should(Panic()) //broker B is stoped ... so it should panic
+
 		})
 
 	})

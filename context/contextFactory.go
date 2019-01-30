@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"fmt"
+
 	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/params"
 	. "github.com/moleculer-go/moleculer/util"
@@ -10,32 +12,34 @@ import (
 
 type ContextImpl struct {
 	self              *ContextImpl
+	id                string
 	actionDelegate    ActionDelegateFunc
 	emitDelegate      EventDelegateFunc
 	broadcastDelegate EventDelegateFunc
-	node              *Node
-	parent            *ContextImpl
+	localNodeID       string
+	targetNodeID      string
+	parentID          string
 	actionName        string
 	eventName         string
 	getLogger         GetLoggerFunction
 	params            interface{}
-	id                string
 	meta              map[string]interface{}
 	timeout           int
 	level             int
 	sendMetrics       bool
-	requestID         string
 }
 
-func CreateBrokerContext(actionDelegate ActionDelegateFunc, emitDelegate EventDelegateFunc, broadcastDelegate EventDelegateFunc, getLogger GetLoggerFunction, node *Node) Context {
+func CreateBrokerContext(actionDelegate ActionDelegateFunc, emitDelegate EventDelegateFunc, broadcastDelegate EventDelegateFunc, getLogger GetLoggerFunction, localNodeID string) Context {
+	id := fmt.Sprint("rootContext-broker-", localNodeID, "-", RandomString(12))
 	context := ContextImpl{
+		id:                id,
 		actionDelegate:    actionDelegate,
 		emitDelegate:      emitDelegate,
 		broadcastDelegate: broadcastDelegate,
 		getLogger:         getLogger,
-		node:              node,
+		localNodeID:       localNodeID,
 		level:             1,
-		requestID:         "",
+		parentID:          "ImGroot;)",
 	}
 	context.self = &context
 	return context
@@ -50,17 +54,14 @@ func (context ContextImpl) NewActionContext(actionName string, params interface{
 		emitDelegate:      parentContext.emitDelegate,
 		broadcastDelegate: parentContext.broadcastDelegate,
 		getLogger:         parentContext.getLogger,
-		node:              parentContext.node,
+		localNodeID:       parentContext.localNodeID,
 		actionName:        actionName,
 		params:            params,
 		level:             parentContext.level + 1,
 		sendMetrics:       parentContext.sendMetrics,
-	}
-	if parentContext.requestID != "" {
-		actionContext.requestID = parentContext.requestID
+		parentID:          parentContext.id,
 	}
 	actionContext.self = &actionContext
-	actionContext.parent = parentContext
 	return actionContext
 }
 
@@ -69,33 +70,48 @@ func checkMaxCalls(context *ContextImpl) {
 
 }
 
-func CreateContext(id, actionName string, params interface{}, meta map[string]interface{}, level int, sendMetrics bool, timeout int, parentID, requestID string, broker *BrokerInfo) Context {
-
-	parentContext := ContextImpl{
-		id: parentID,
-	}
+func CreateContext(broker *BrokerInfo, values map[string]interface{}) Context {
 
 	actionDelegate, emitDelegate, broadcastDelegate := broker.GetDelegates()
+
+	//TODO check on moleculer JS if in the request the sender is sent.
+	sourceNodeID := values["sender"].(string)
+	id := values["id"].(string)
+	actionName := values["action"].(string)
+	params := values["params"]
+	level := values["level"].(int)
+	sendMetrics := values["metrics"].(bool)
+	parentID := values["parentID"].(string)
+
+	var timeout int
+	var meta map[string]interface{}
+	if values["timeout"] != nil {
+		timeout = values["timeout"].(int)
+	}
+	if values["meta"] != nil {
+		meta = values["meta"].(map[string]interface{})
+	}
+
+	localNodeID := (*broker.GetLocalNode()).GetID()
 
 	actionContext := ContextImpl{
 		actionDelegate:    actionDelegate,
 		emitDelegate:      emitDelegate,
 		broadcastDelegate: broadcastDelegate,
 		getLogger:         broker.GetLogger,
-		node:              broker.GetLocalNode(),
-
-		id:          id,
-		actionName:  actionName,
-		params:      params,
-		meta:        meta,
-		timeout:     timeout,
-		level:       level,
-		sendMetrics: sendMetrics,
-		requestID:   requestID,
+		localNodeID:       localNodeID,
+		targetNodeID:      sourceNodeID,
+		id:                id,
+		parentID:          parentID,
+		actionName:        actionName,
+		params:            params,
+		meta:              meta,
+		timeout:           timeout,
+		level:             level,
+		sendMetrics:       sendMetrics,
 	}
 
 	actionContext.self = &actionContext
-	actionContext.parent = &parentContext
 	return actionContext
 }
 
@@ -110,12 +126,8 @@ func (context ContextImpl) AsMap() map[string]interface{} {
 	mapResult["timeout"] = context.self.timeout
 	mapResult["level"] = context.self.level
 	mapResult["metrics"] = context.self.sendMetrics
-	if context.self.parent != nil {
-		mapResult["parentID"] = context.self.parent.id
-	}
-	if context.self.requestID != "" {
-		mapResult["requestID"] = context.self.requestID
-	}
+	mapResult["parentID"] = context.self.parentID
+
 	//TODO : check how to support streaming params in go
 	mapResult["stream"] = false
 
@@ -154,12 +166,13 @@ func (context ContextImpl) GetParams() Params {
 	return CreateParams(&context.self.params)
 }
 
-func (context ContextImpl) SetNode(node *Node) {
-	context.self.node = node
+func (context ContextImpl) SetTargetNodeID(targetNodeID string) {
+	fmt.Println("context factory SetTargetNodeID() targetNodeID: ", targetNodeID)
+	context.self.targetNodeID = targetNodeID
 }
 
-func (context ContextImpl) GetNode() *Node {
-	return context.self.node
+func (context ContextImpl) GetTargetNodeID() string {
+	return context.self.targetNodeID
 }
 
 func (context ContextImpl) GetID() string {

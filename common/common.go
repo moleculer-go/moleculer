@@ -36,8 +36,9 @@ type Context interface {
 
 	InvokeAction(opts ...OptionsFunc) chan interface{}
 
-	SetNode(node *Node)
-	GetNode() *Node
+	SetTargetNodeID(targetNodeID string)
+	GetTargetNodeID() string
+
 	GetID() string
 	GetMeta() map[string]interface{}
 
@@ -46,7 +47,7 @@ type Context interface {
 
 type Endpoint interface {
 	InvokeAction(context *Context) chan interface{}
-	GetNodeID() string
+	GetTargetNodeID() string
 	IsLocal() bool
 }
 
@@ -99,8 +100,7 @@ type TransitMessage interface {
 }
 type Serializer interface {
 	BytesToMessage(bytes *[]byte) TransitMessage
-	ContextToMessage(context *Context) TransitMessage
-	MessageToContext(*TransitMessage) Context
+	MessageToContextMap(*TransitMessage) map[string]interface{}
 	MapToMessage(mapValue *map[string]interface{}) TransitMessage
 }
 

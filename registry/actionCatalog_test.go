@@ -20,7 +20,7 @@ var _ = test.Describe("Actions Catalog", func() {
 	}
 	bankCreditAction := CreateServiceAction("bank", "credit", handler, actionSchema)
 
-	context := CreateBrokerContext(nil, nil, nil, CreateLogger, nil)
+	context := CreateBrokerContext(nil, nil, nil, CreateLogger, node1.GetID())
 
 	test.Describe("Invoking Actions ", func() {
 		test.It("Should invoke action on action endpoint", func() {

@@ -82,7 +82,7 @@ func getMapTransformer(value *interface{}) *mapTransformer {
 			return &transformer
 		}
 	}
-	fmt.Println("ERROR getMapTransformer() did not find a transformer for type: ", valueType)
+	//fmt.Println("[Error] no transformer for type: ", valueType)
 	return nil
 }
 
@@ -90,6 +90,8 @@ func getMapTransformer(value *interface{}) *mapTransformer {
 func copyValues(source *interface{}, target *map[string]interface{}) {
 	if transformer := getMapTransformer(source); transformer != nil {
 		transformer.copyMap(source, target)
+	} else {
+		//fmt.Println("[Error] No Transformer Found - source: ", (*source), " target: ", target)
 	}
 	//fmt.Println("ERROR copyValues() did not find a transformer")
 }

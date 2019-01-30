@@ -96,9 +96,9 @@ func (transporter StanTransporter) Subscribe(command string, nodeID string, hand
 	}
 
 	topic := stanTopicName(&transporter, command, nodeID)
-	fmt.Printf("\nSubscribe() - topic: %s", topic)
+	//fmt.Printf("\nSubscribe() - topic: %s", topic)
 	sub, error := connection.Subscribe(topic, func(msg *stan.Msg) {
-		fmt.Printf("\n(Subscribe) Received a message: %s\n", string(msg.Data))
+		//fmt.Printf("\n(Subscribe) Received a message: %s\n", string(msg.Data))
 		handler(transporter.createTransitMessage(msg))
 	})
 	if error != nil {
@@ -106,7 +106,7 @@ func (transporter StanTransporter) Subscribe(command string, nodeID string, hand
 		panic(error)
 	}
 	transporter.subscriptions = append(transporter.subscriptions, &sub)
-	fmt.Print("\nSubscribe() - Done!")
+	//fmt.Print("\nSubscribe() - Done!")
 }
 
 func (transporter StanTransporter) Publish(command, nodeID string, message TransitMessage) {
