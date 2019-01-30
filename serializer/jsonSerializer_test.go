@@ -8,6 +8,7 @@ import (
 	. "github.com/moleculer-go/moleculer/context"
 	. "github.com/moleculer-go/moleculer/registry"
 	. "github.com/moleculer-go/moleculer/serializer"
+	log "github.com/sirupsen/logrus"
 )
 
 var _ = test.Describe("JSON Serializer", func() {
@@ -15,7 +16,8 @@ var _ = test.Describe("JSON Serializer", func() {
 	context := CreateBrokerContext(nil, nil, nil, CreateLogger, "unit-test")
 
 	test.It("Should convert between context and Transit Message", func() {
-		serializer := CreateJSONSerializer()
+		logger := log.WithField("serializer", "JSON")
+		serializer := CreateJSONSerializer(&logger)
 
 		broker := &BrokerInfo{
 			GetDelegates: func() (ActionDelegateFunc, EventDelegateFunc, EventDelegateFunc) {
