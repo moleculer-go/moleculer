@@ -156,6 +156,7 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 	brokerLogger := log.WithFields(log.Fields{
 		"broker": nodeID,
 	})
+	fmt.Print("Broker Log Setup() nodeID: ", nodeID, " Level: ", log.GetLevel())
 
 	return brokerLogger
 }
@@ -269,9 +270,19 @@ func (broker *ServiceBroker) GetLocalNode() *Node {
 	return &broker.localNode
 }
 
+// createSerializer create the serializer accordingly to the config.
+func (broker *ServiceBroker) createSerializer() *Serializer {
+	//TODO implement other serializers and use config to drive it
+
+	logger := broker.logger.WithField("serializer", "JSON")
+	var serializer Serializer = CreateJSONSerializer(logger)
+	return &serializer
+}
+
 func (broker *ServiceBroker) init() {
-	var serializer Serializer = CreateJSONSerializer()
 	broker.logger = broker.createBrokerLogger()
+	serializer := broker.createSerializer()
+
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
 	broker.localNode = CreateNode(broker.config.DiscoverNodeID())
@@ -285,7 +296,7 @@ func (broker *ServiceBroker) init() {
 		broker.GetTransit,
 		broker.IsStarted,
 		func() *Serializer {
-			return &serializer
+			return serializer
 		},
 		broker.registryMessageHandler,
 		func() (ActionDelegateFunc, EventDelegateFunc, EventDelegateFunc) {

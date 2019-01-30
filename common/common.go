@@ -85,6 +85,8 @@ type Transit interface {
 	Request(*Context) chan interface{}
 	Connect() chan bool
 	DiscoverNode(nodeID string)
+	//DiscoverNodes will check if there are neighbours and return true if any are found ;).
+	DiscoverNodes() chan bool
 	SendHeartbeat()
 }
 
@@ -101,7 +103,7 @@ type TransitMessage interface {
 type Serializer interface {
 	BytesToMessage(bytes *[]byte) TransitMessage
 	MessageToContextMap(*TransitMessage) map[string]interface{}
-	MapToMessage(mapValue *map[string]interface{}) TransitMessage
+	MapToMessage(mapValue *map[string]interface{}) (TransitMessage, error)
 }
 
 type GetLoggerFunction func(name string, value string) *log.Entry

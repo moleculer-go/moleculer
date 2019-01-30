@@ -12,7 +12,7 @@ import (
 func createBrokerA() moleculer.ServiceBroker {
 	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerA" },
-		LogLevel:       "DEBUG",
+		LogLevel:       "TRACE",
 	})
 
 	broker.AddService(moleculer.Service{
@@ -34,7 +34,7 @@ func createBrokerA() moleculer.ServiceBroker {
 func createBrokerB() moleculer.ServiceBroker {
 	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerB" },
-		LogLevel:       "DEBUG",
+		LogLevel:       "TRACE",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "scanner",
@@ -56,7 +56,7 @@ func createBrokerB() moleculer.ServiceBroker {
 func createBrokerC() moleculer.ServiceBroker {
 	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerC" },
-		LogLevel:       "DEBUG",
+		LogLevel:       "TRACE",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "cpu",
@@ -66,9 +66,9 @@ func createBrokerC() moleculer.ServiceBroker {
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
 					context.GetLogger().Info("compute action invoked!")
 
-					scanResult := context.Call("scanner.scan", params.Value())
+					scanResult := <-context.Call("scanner.scan", params.Value())
 
-					return context.Call("printer.print", scanResult)
+					return <-context.Call("printer.print", scanResult)
 				},
 			},
 		},
@@ -115,7 +115,7 @@ var _ = Describe("Registry", func() {
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-brokerC.Call("cpu.compute", contentToCompute)
-			Expect(printResult).Should(Equal(computeResult))
+			Expect(computeResult).Should(Equal(contentToCompute))
 
 			//stopping broker B
 			// brokerB.Stop() // TODO -> not  implemented yet

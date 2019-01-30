@@ -7,7 +7,6 @@ import (
 
 	. "github.com/moleculer-go/moleculer/common"
 	. "github.com/moleculer-go/moleculer/context"
-	. "github.com/moleculer-go/moleculer/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -67,19 +66,27 @@ func (transit *TransitImpl) onNodeDisconnected(values ...interface{}) {
 
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
-func CreateTransport(serializer *Serializer) *Transport {
+func CreateTransport(broker *BrokerInfo) *Transport {
 	//TODO: move this to config and params
 	prefix := "MOL"
 	url := "stan://localhost:4222"
 	clusterID := "test-cluster"
-	nodeID := RandomString(5)
+
+	localNodeID := (*broker.GetLocalNode()).GetID()
+	serializer := broker.GetSerializer()
+	logger := broker.GetLogger("transport", "stan")
 
 	options := StanTransporterOptions{
 		prefix,
 		url,
 		clusterID,
-		nodeID,
+		localNodeID,
+		logger,
 		serializer,
+		func(message *TransitMessage) bool {
+			sender := (*message).Get("sender").String()
+			return sender != localNodeID
+		},
 	}
 
 	var transport Transport = CreateStanTransporter(options)
@@ -95,8 +102,15 @@ func (transit *TransitImpl) checkMaxQueueSize() {
 	//TODO: check transit.js line 524
 }
 
-func (transit TransitImpl) DiscoverNodes() {
-	transit.DiscoverNode("")
+//DiscoverNodes will check if there are neighbours and return true if any are found ;).
+func (transit TransitImpl) DiscoverNodes() chan bool {
+	result := make(chan bool)
+	go func() {
+		//TODO: implement the discover protocol usinga  request pattern so we wait for response OR timeout.
+		transit.DiscoverNode("")
+		result <- true
+	}()
+	return result
 }
 
 func (transit TransitImpl) SendHeartbeat() {
@@ -110,18 +124,21 @@ func (transit *TransitImpl) sendHeartbeatImpl() {
 		"cpu":    node["cpu"],
 		"cpuSeq": node["cpuSeq"],
 	}
-	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
-	(*transit.transport).Publish("HEARTBEAT", "", message)
+	message, err := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	if err == nil {
+		(*transit.transport).Publish("HEARTBEAT", "", message)
+	}
 }
 
 func (transit TransitImpl) DiscoverNode(nodeID string) {
 	transit.self.discoverNodeImpl(nodeID)
 }
 func (transit TransitImpl) discoverNodeImpl(nodeID string) {
-	payload := make(map[string]interface{})
-	payload["sender"] = (*transit.broker.GetLocalNode()).GetID()
-	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
-	(*transit.transport).Publish("DISCOVER", nodeID, message)
+	payload := map[string]interface{}{"sender": (*transit.broker.GetLocalNode()).GetID()}
+	message, err := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	if err == nil {
+		(*transit.transport).Publish("DISCOVER", nodeID, message)
+	}
 }
 
 func (transit *TransitImpl) requestImpl(context *Context) chan interface{} {
@@ -129,22 +146,22 @@ func (transit *TransitImpl) requestImpl(context *Context) chan interface{} {
 	transit.checkMaxQueueSize()
 
 	resultChan := make(chan interface{})
+
+	targetNodeID := (*context).GetTargetNodeID()
 	payload := (*context).AsMap()
 	payload["sender"] = (*transit.broker.GetLocalNode()).GetID()
 
-	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
-	targetNodeID := (*context).GetTargetNodeID()
+	transit.logger.Trace("requestImpl() targetNodeID: ", targetNodeID, " payload: ", payload)
 
-	transit.logger.Debug("requestImpl() targetNodeID: ", targetNodeID, " message: ", message)
-
+	message, err := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	if err != nil {
+		transit.logger.Error("Request() Error serializing the payload: ", payload, " error: ", err)
+		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
+	}
 	(*transit.pendingRequests)[(*context).GetID()] = pendingRequest{
 		context,
 		&resultChan,
 	}
-
-	transit.logger.Debug("requestImpl() transit.pendingRequests: ", transit.pendingRequests)
-	transit.logger.Debugf("requestImpl() transit - memory --> %p ", transit)
-	transit.logger.Debugf("requestImpl() transit.pendingRequests - memory --> %p ", transit.pendingRequests)
 
 	(*transit.transport).Publish("REQ", targetNodeID, message)
 	return resultChan
@@ -181,7 +198,11 @@ func (transit *TransitImpl) sendResponse(context *Context, response interface{})
 	payload["success"] = true
 	payload["data"] = response
 
-	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	message, err := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	if err != nil {
+		transit.logger.Error("sendResponse() Erro serializing the payload: ", payload, " error: ", err)
+		panic(err)
+	}
 
 	transit.logger.Debug("sendResponse() targetNodeID: ", targetNodeID, " payload: ", payload)
 
@@ -213,7 +234,7 @@ func (transit *TransitImpl) eventHandler() TransportHandler {
 func (transit *TransitImpl) broadcastNodeInfo(targetNodeID string) {
 	payload := (*transit.broker.GetLocalNode()).ExportAsMap()
 	payload["sender"] = payload["id"]
-	message := (*transit.broker.GetSerializer()).MapToMessage(&payload)
+	message, _ := (*transit.broker.GetSerializer()).MapToMessage(&payload)
 	(*transit.transport).Publish("INFO", targetNodeID, message)
 }
 
@@ -235,7 +256,7 @@ func (transit *TransitImpl) SendPing() {
 	sender := (*transit.broker.GetLocalNode()).GetID()
 	ping["sender"] = sender
 	ping["time"] = time.Now().Unix()
-	pingMessage := (*transit.broker.GetSerializer()).MapToMessage(&ping)
+	pingMessage, _ := (*transit.broker.GetSerializer()).MapToMessage(&ping)
 	(*transit.transport).Publish("PING", sender, pingMessage)
 
 }
@@ -248,7 +269,7 @@ func (transit *TransitImpl) pingHandler() TransportHandler {
 		pong["time"] = message.Get("time").Int()
 		pong["arrived"] = time.Now().Unix()
 
-		pongMessage := (*transit.broker.GetSerializer()).MapToMessage(&pong)
+		pongMessage, _ := (*transit.broker.GetSerializer()).MapToMessage(&pong)
 		(*transit.transport).Publish("PONG", sender, pongMessage)
 	}
 }
@@ -294,7 +315,7 @@ func (transit TransitImpl) Connect() chan bool {
 		endChan <- true
 		return endChan
 	}
-	transport := CreateTransport(transit.broker.GetSerializer())
+	transport := CreateTransport(transit.broker)
 	transit.self.transport = transport
 	go func() {
 		transit.self.isConnected = <-(*transport).Connect()

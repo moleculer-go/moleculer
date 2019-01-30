@@ -66,6 +66,7 @@ func (registry *ServiceRegistry) GetLocalNode() *Node {
 
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
+	<-(*registry.broker.GetTransit()).DiscoverNodes()
 	if registry.heartbeatFrequency > 0 {
 		go registry.loopWhileAlive(registry.heartbeatFrequency, (*registry.broker.GetTransit()).SendHeartbeat)
 	}
