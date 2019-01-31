@@ -1,0 +1,14 @@
+([]service.ServiceEventSchema) (len=3) {
+  (service.ServiceEventSchema) {
+    Name: (string) (len=13) "earth.rotates",
+    Handler: (service.EventHandler) <service.EventHandler Value>
+  },
+  (service.ServiceEventSchema) {
+    Name: (string) (len=13) "earth.rotates",
+    Handler: (service.EventHandler) <service.EventHandler Value>
+  },
+  (service.ServiceEventSchema) {
+    Name: (string) (len=12) "moon.isClose",
+    Handler: (service.EventHandler) <service.EventHandler Value>
+  }
+}

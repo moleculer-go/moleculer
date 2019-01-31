@@ -121,55 +121,22 @@ func (service *Service) GetEvents() []ServiceEvent {
 	return service.events
 }
 
+// extendActions merges the actions from the base service with the mixin schema.
 func extendActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
-	// Copy struct into a slice of interfaces
-	originListSlice := make([]interface{}, len(service.Actions))
-	for i, d := range service.Actions {
-		originListSlice[i] = d
-	}
-	// Copy origin list to avoid tainting
-	finalList := originListSlice
-	// Loop over in mixin
 	for _, mixinAction := range mixin.Actions {
-		// Check if already exists in service
-		filterExisting := filter(originListSlice, func(item interface{}) bool {
-			action := item.(ServiceActionSchema)
-			return action.Name == mixinAction.Name
-		})
-		// If does not exist, add to mixed list
-		if len(filterExisting) == 0 {
-			finalList = append(finalList, mixinAction)
+		for _, serviceAction := range service.Actions {
+			if serviceAction.Name != mixinAction.Name {
+				service.Actions = append(service.Actions, mixinAction)
+			}
 		}
 	}
-	// Convert back from interface slice to struct
-	var thisInterface interface{} = &finalList
-	service.Actions, _ = thisInterface.([]ServiceActionSchema)
 	return service
 }
 
 func concatenateEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
-	// Copy struct into a slice of interfaces
-	originListSlice := make([]interface{}, len(service.Events))
-	for i, d := range service.Events {
-		originListSlice[i] = d
-	}
-	// Copy origin list to avoid tainting
-	finalList := originListSlice
-	// Loop over in mixin
 	for _, mixinEvent := range mixin.Events {
-		// Check if already exists in service
-		filterExisting := filter(originListSlice, func(item interface{}) bool {
-			event := item.(ServiceActionSchema)
-			return event.Name == mixinEvent.Name
-		})
-		// If does not exist, add to mixed list
-		if len(filterExisting) == 0 {
-			finalList = append(finalList, mixinEvent)
-		}
+		service.Events = append(service.Events, mixinEvent)
 	}
-	// Convert back from interface slice to struct
-	var thisInterface interface{} = &finalList
-	service.Events, _ = thisInterface.([]ServiceEventSchema)
 	return service
 }
 
@@ -254,6 +221,7 @@ stopped:    	Concatenate listeners.
 func applyMixins(service ServiceSchema) ServiceSchema {
 	for _, mixin := range service.Mixins {
 		service = extendActions(service, &mixin)
+		service = concatenateEvents(service, &mixin)
 		service = extendSettings(service, &mixin)
 		service = extendMetadata(service, &mixin)
 		service = extendHooks(service, &mixin)
@@ -453,14 +421,18 @@ func (service *Service) Start() {
 
 }
 
-type filterPredicate func(item interface{}) bool
+type filterActionSchemaPredicate func(ServiceActionSchema) bool
 
-func filter(list []interface{}, predicate filterPredicate) []interface{} {
-	var result []interface{}
+func filterActionSchema(list []ServiceActionSchema, predicate filterActionSchemaPredicate) []ServiceActionSchema {
+	var result []ServiceActionSchema
 	for _, item := range list {
 		if predicate(item) {
 			result = append(result, item)
 		}
 	}
 	return result
+}
+
+func findActionSchema(list []ServiceActionSchema, predicate filterActionSchemaPredicate) bool {
+	return len(filterActionSchema(list, predicate)) > 0
 }

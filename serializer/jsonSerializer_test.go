@@ -17,7 +17,7 @@ var _ = test.Describe("JSON Serializer", func() {
 
 	test.It("Should convert between context and Transit Message", func() {
 		logger := log.WithField("serializer", "JSON")
-		serializer := CreateJSONSerializer(&logger)
+		serializer := CreateJSONSerializer(logger)
 
 		broker := &BrokerInfo{
 			GetDelegates: func() (ActionDelegateFunc, EventDelegateFunc, EventDelegateFunc) {
@@ -38,7 +38,7 @@ var _ = test.Describe("JSON Serializer", func() {
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "original_sender"
-		message := serializer.MapToMessage(&contextMap)
+		message, _ := serializer.MapToMessage(&contextMap)
 
 		Expect(message.Get("action").String()).Should(Equal(actionName))
 		Expect(message.Get("params.name").String()).Should(Equal("John"))
