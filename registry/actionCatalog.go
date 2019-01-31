@@ -6,24 +6,22 @@ import (
 )
 
 type ActionEntry struct {
-	node               *Node
+	targetNodeID       string
 	action             *ServiceAction
 	isLocal            bool
 	getTransitDelegate GetTransitFunction
 }
 
-type actionsMap map[string][]*ActionEntry
+type actionsMap map[string][]ActionEntry
 
 type ActionCatalog struct {
-	actionsByName      actionsMap
-	actionsByNode      map[string]actionsMap
+	actionsByName      *actionsMap
 	getTransitDelegate GetTransitFunction
 }
 
 func CreateActionCatalog(getTransitDelegate GetTransitFunction) *ActionCatalog {
 	actionsByName := make(actionsMap)
-	actionsByNode := make(map[string]actionsMap)
-	return &ActionCatalog{actionsByName, actionsByNode, getTransitDelegate}
+	return &ActionCatalog{&actionsByName, getTransitDelegate}
 }
 
 func (actionEntry *ActionEntry) invokeRemoteAction(context *Context) chan interface{} {
@@ -35,7 +33,7 @@ func (actionEntry *ActionEntry) invokeRemoteAction(context *Context) chan interf
 		transit := actionEntry.getTransitDelegate()
 		actionResult := <-(*transit).Request(context)
 
-		logger.Debug("action: ", (*context).GetActionName(),
+		logger.Debug("remote request done! action: ", (*context).GetActionName(),
 			" results: ", actionResult)
 		result <- actionResult
 	}()
@@ -49,53 +47,61 @@ func (actionEntry *ActionEntry) invokeLocalAction(context *Context) chan interfa
 	logger := (*context).GetLogger().WithField("actionCatalog", "invokeLocalAction")
 	logger.Debug("Before Invoking action: ", (*context).GetActionName())
 
-	//Apply before middlewares here ? or at the broker level ?
-
-	//invoke action :)
 	go func() {
 		handler := actionEntry.action.GetHandler()
 		actionResult := handler(*context, (*context).GetParams())
-		logger.Debug("action: ", (*context).GetActionName(),
+		logger.Debug("local action invoked ! action: ", (*context).GetActionName(),
 			" results: ", actionResult)
 		result <- actionResult
 	}()
 
-	//Apply after middlewares
-
 	return result
 }
 
-func (actionEntry *ActionEntry) GetNodeID() string {
-	return (*actionEntry.node).GetID()
+func (actionEntry ActionEntry) GetTargetNodeID() string {
+	return actionEntry.targetNodeID
 }
 
-func (actionEntry *ActionEntry) InvokeAction(ctx *Context) chan interface{} {
+func (actionEntry ActionEntry) InvokeAction(ctx *Context) chan interface{} {
 	if actionEntry.isLocal {
 		return actionEntry.invokeLocalAction(ctx)
 	}
+	(*ctx).SetTargetNodeID(actionEntry.GetTargetNodeID())
 	return actionEntry.invokeRemoteAction(ctx)
 }
 
-func (actionEntry *ActionEntry) IsLocal() bool {
+func (actionEntry ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal
 }
 
-func (actionCatalog *ActionCatalog) Add(node *Node, action ServiceAction, local bool) {
-	entry := &ActionEntry{node, &action, local, actionCatalog.getTransitDelegate}
-
+// Add a new action to the catalog.
+func (actionCatalog *ActionCatalog) Add(nodeID string, action ServiceAction, local bool) {
+	entry := ActionEntry{nodeID, &action, local, actionCatalog.getTransitDelegate}
 	name := action.GetFullName()
-	actionCatalog.actionsByName[name] = append(
-		actionCatalog.actionsByName[name], entry)
+	actions := (*actionCatalog.actionsByName)
 
-	nodeID := (*node).GetID()
-	if actionCatalog.actionsByNode[nodeID] == nil {
-		actionCatalog.actionsByNode[nodeID] = make(actionsMap)
-	}
-	actionCatalog.actionsByNode[nodeID][name] = append(
-		actionCatalog.actionsByNode[nodeID][name], entry)
+	actions[name] = append(actions[name], entry)
 }
 
-func actionsToEndPoints(actions []*ActionEntry) []Endpoint {
+func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updates map[string]interface{}) {
+	//TODO .. the only thing that can be udpated is the Action Schema (validation) and that does not exist yet
+}
+
+func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
+	var newList []ActionEntry
+	actions := (*actionCatalog.actionsByName)
+	//fmt.Println("\nRemove() nodeID: ", nodeID, " name: ", name, " actions: ", actions)
+
+	options := actions[name]
+	for _, action := range options {
+		if action.targetNodeID != nodeID {
+			newList = append(newList, action)
+		}
+	}
+	actions[name] = newList
+}
+
+func actionsToEndPoints(actions []ActionEntry) []Endpoint {
 	result := make([]Endpoint, len(actions))
 	for index, action := range actions {
 		var endpoint Endpoint = action
@@ -104,17 +110,22 @@ func actionsToEndPoints(actions []*ActionEntry) []Endpoint {
 	return result
 }
 
-func (actionCatalog *ActionCatalog) NextEndpointFromNode(actionName string, strategy Strategy, nodeID string, opts ...OptionsFunc) Endpoint {
-	mapOfActions := actionCatalog.actionsByNode[nodeID]
-	actions := mapOfActions[actionName]
-	return strategy.SelectEndpoint(actionsToEndPoints(actions))
+func (actionCatalog *ActionCatalog) NextEndpointFromNode(actionName string, nodeID string, opts ...OptionsFunc) Endpoint {
+	actions := (*actionCatalog.actionsByName)[actionName]
+	for _, action := range actions {
+		if action.targetNodeID == nodeID {
+			return action
+		}
+	}
+	return nil
 }
 
+// NextEndpoint find all actions registered in this node and use the strategy to select and return the best one to be called.
 func (actionCatalog *ActionCatalog) NextEndpoint(actionName string, strategy Strategy, opts ...OptionsFunc) Endpoint {
-	actions := actionCatalog.actionsByName[actionName]
-	return strategy.SelectEndpoint(actionsToEndPoints(actions))
+	options := (*actionCatalog.actionsByName)[actionName]
+	return strategy.SelectEndpoint(actionsToEndPoints(options))
 }
 
 func (actionCatalog *ActionCatalog) Size() int {
-	return len(actionCatalog.actionsByName)
+	return len((*actionCatalog.actionsByName))
 }

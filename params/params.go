@@ -57,6 +57,10 @@ func (params ParamsImpl) Get(name string) string {
 	return params.String(name)
 }
 
+func (params ParamsImpl) Value() interface{} {
+	return (*params.source)
+}
+
 func CreateParams(source *interface{}) Params {
 	values := make(map[string]interface{})
 	copyValues(source, &values)

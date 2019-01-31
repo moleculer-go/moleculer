@@ -13,7 +13,7 @@ func CreateLogger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-var localNode = CreateNode(DiscoverNodeID())
+var localNode = CreateNode("unit-test-node")
 
 func CreateBroker() *BrokerInfo {
 	localBus := CreateEmitter()

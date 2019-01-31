@@ -3,6 +3,8 @@ package broker
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	. "github.com/moleculer-go/goemitter"
 	. "github.com/moleculer-go/moleculer/cacher"
@@ -14,10 +16,50 @@ import (
 	. "github.com/moleculer-go/moleculer/service"
 	. "github.com/moleculer-go/moleculer/strategy"
 	. "github.com/moleculer-go/moleculer/transit"
+	. "github.com/moleculer-go/moleculer/util"
 	log "github.com/sirupsen/logrus"
 )
 
-type brokerConfig struct {
+type BrokerConfig struct {
+	LogLevel       string
+	LogFormat      string
+	DiscoverNodeID func() string
+}
+
+var defaultConfig = BrokerConfig{
+	LogLevel:       "INFO",
+	LogFormat:      "TEXT",
+	DiscoverNodeID: DiscoverNodeID,
+}
+
+// DiscoverNodeID - should return the node id for this machine
+func DiscoverNodeID() string {
+	// TODO: Check moleculer JS algo for this..
+	hostname, err := os.Hostname()
+	if err != nil {
+		fmt.Errorf("Error trying to get the machine hostname - error: %s", err)
+		hostname = ""
+	}
+	return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", RandomString(12))
+}
+
+func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerConfig {
+
+	if len(userConfig) > 0 {
+
+		config := userConfig[0]
+		if config.LogLevel != "" {
+			baseConfig.LogLevel = config.LogLevel
+		}
+		if config.LogFormat != "" {
+			baseConfig.LogFormat = config.LogFormat
+		}
+		if config.DiscoverNodeID != nil {
+			baseConfig.DiscoverNodeID = config.DiscoverNodeID
+		}
+	}
+
+	return baseConfig
 }
 
 type ServiceBroker struct {
@@ -46,13 +88,15 @@ type ServiceBroker struct {
 
 	rootContext Context
 
-	config brokerConfig
+	config BrokerConfig
 
 	strategy Strategy
 
 	info *BrokerInfo
 
 	localNode Node
+
+	registryMessageHandler RegistryMessageHandlerFunction
 }
 
 // GetLocalBus : return the service broker local bus (Event Emitter)
@@ -93,11 +137,34 @@ func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interfac
 	//TODO
 }
 
-func setupLogger() *log.Entry {
-	//log.SetFormatter(&log.JSONFormatter{})
+func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
+
+	if strings.ToUpper(broker.config.LogFormat) == "JSON" {
+		log.SetFormatter(&log.JSONFormatter{})
+	} else {
+		log.SetFormatter(&log.TextFormatter{})
+	}
+
+	if strings.ToUpper(broker.config.LogLevel) == "WARN" {
+		log.SetLevel(log.WarnLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "DEBUG" {
+		log.SetLevel(log.DebugLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "TRACE" {
+		log.SetLevel(log.TraceLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "ERROR" {
+		log.SetLevel(log.ErrorLevel)
+	} else if strings.ToUpper(broker.config.LogLevel) == "FATAL" {
+		log.SetLevel(log.FatalLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+
+	nodeID := broker.config.DiscoverNodeID()
 	brokerLogger := log.WithFields(log.Fields{
-		"broker": "yes",
+		"broker": nodeID,
 	})
+	fmt.Print("Broker Log Setup() nodeID: ", nodeID, " Level: ", log.GetLevel())
+
 	return brokerLogger
 }
 
@@ -127,10 +194,14 @@ func (broker *ServiceBroker) Start() {
 
 	broker.logger.Debug("Broker -> services started !")
 
+	broker.registry.Start()
+
+	broker.logger.Debug("Broker -> registry started !")
+
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
 
-	<-(*broker.transit).Ready()
+	//*broker.transit).Ready()
 
 	broker.logger.Debug("Broker -> transit is ready !")
 
@@ -165,28 +236,24 @@ func (broker *ServiceBroker) broadcastWithContext(context *Context, groups ...st
 func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFunc) chan interface{} {
 	actionName := (*context).GetActionName()
 	params := (*context).GetParams()
-	broker.logger.Debug("Broker - callWithContext() actionName: ", actionName, " params: ", params, " opts: ", opts)
+	broker.logger.Trace("Broker callWithContext() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
-	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, opts)
+	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, WrapOptions(opts))
 	if endpoint == nil {
 		msg := fmt.Sprintf("Broker - endpoint not found for actionName: %s", actionName)
 		broker.logger.Error(msg)
 		panic(errors.New(msg))
 	}
 
-	broker.logger.Debug("Broker - calling actionName: ", actionName)
-	node := CreateNode(endpoint.GetNodeID())
-	(*context).SetNode(&node)
+	broker.logger.Debug("Broker callWithContext() - actionName: ", actionName, " target nodeID: ", endpoint.GetTargetNodeID())
 	return endpoint.InvokeAction(context)
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
-	broker.logger.Info("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
+	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	actionContext := broker.rootContext.NewActionContext(actionName, params, WrapOptions(opts))
-	broker.logger.Info("Broker - Call() actionContext created!  ")
-
 	return actionContext.InvokeAction(WrapOptions(opts))
 }
 
@@ -210,30 +277,49 @@ func (broker *ServiceBroker) GetLocalNode() *Node {
 	return &broker.localNode
 }
 
-func (broker *ServiceBroker) init() {
-	//TODO move to wher we apply all settings
-	log.SetLevel(log.DebugLevel)
+// createSerializer create the serializer accordingly to the config.
+func (broker *ServiceBroker) createSerializer() *Serializer {
+	//TODO implement other serializers and use config to drive it
 
-	broker.logger = setupLogger()
+	logger := broker.logger.WithField("serializer", "JSON")
+	var serializer Serializer = CreateJSONSerializer(logger)
+	return &serializer
+}
+
+func (broker *ServiceBroker) init() {
+	broker.logger = broker.createBrokerLogger()
+	serializer := broker.createSerializer()
+
 	broker.strategy = RoundRobinStrategy{}
 	broker.setupLocalBus()
-	broker.localNode = CreateNode(DiscoverNodeID())
+	broker.localNode = CreateNode(broker.config.DiscoverNodeID())
+	broker.registryMessageHandler = func(command string, message *TransitMessage) {
+		broker.registry.HandleTransitMessage(command, message)
+	}
 	broker.info = &BrokerInfo{
 		broker.GetLocalNode,
 		broker.GetLogger,
 		broker.GetLocalBus,
 		broker.GetTransit,
 		broker.IsStarted,
+		func() *Serializer {
+			return serializer
+		},
+		broker.registryMessageHandler,
+		func() (ActionDelegateFunc, EventDelegateFunc, EventDelegateFunc) {
+			return broker.callWithContext, broker.emitWithContext, broker.broadcastWithContext
+		},
 	}
-	var serializer Serializer = CreateJSONSerializer()
-	broker.transit = CreateTransit(&serializer, &broker.localNode)
+
 	broker.registry = CreateRegistry(broker.GetInfo())
+
+	broker.transit = CreateTransit(broker.GetInfo())
 	broker.rootContext = CreateBrokerContext(
 		broker.callWithContext,
 		broker.emitWithContext,
 		broker.broadcastWithContext,
 		broker.GetLogger,
-		&broker.localNode)
+		broker.localNode.GetID())
 }
 
 func (broker *ServiceBroker) GetTransit() *Transit {
@@ -248,12 +334,14 @@ func (broker *ServiceBroker) setupLocalBus() {
 	})
 }
 
-// BrokerFromConfig : returns a valid broker based on environment configuration
+// FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
-func FromConfig() *ServiceBroker {
-	broker := ServiceBroker{config: brokerConfig{}}
+func FromConfig(userConfig []*BrokerConfig) *ServiceBroker {
+
+	config := mergeConfigs(defaultConfig, userConfig)
+	broker := ServiceBroker{config: config}
 	broker.init()
 
-	broker.logger.Info("Broker - brokerFromConfig() ")
+	broker.logger.Info("Broker - FromConfig() ")
 	return &broker
 }
