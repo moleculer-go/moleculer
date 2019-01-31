@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 
+	snap "github.com/moleculer-go/cupaloy"
 	. "github.com/moleculer-go/moleculer/common"
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,62 +32,6 @@ var _ = test.Describe("MergeActions", func() {
 
 	mixinMoonIsCloseFunc := func(ctx Context, params Params) {
 		fmt.Println("rise the tide !")
-	}
-
-	serviceSchema := ServiceSchema{
-		Name:    "earth",
-		Version: "0.2",
-		Settings: map[string]interface{}{
-			"dinosauros": true,
-		},
-		Metadata: map[string]interface{}{
-			"star-system": "sun",
-		},
-		Hooks: map[string]interface{}{
-			"solar-system": "true",
-		},
-		Mixins: []MixinSchema{
-			MixinSchema{
-				Name: "moon",
-				Settings: map[string]interface{}{
-					"craters": true,
-				},
-				Metadata: map[string]interface{}{
-					"resolution": "high",
-				},
-				Hooks: map[string]interface{}{
-					"earth": "true",
-				},
-				Actions: []ServiceActionSchema{
-					ServiceActionSchema{
-						Name:    "tide",
-						Handler: mixinTideFunc,
-					},
-				},
-				Events: []ServiceEventSchema{
-					ServiceEventSchema{
-						Name:    "earth.rotates",
-						Handler: mixinRotatesFunc,
-					},
-					ServiceEventSchema{
-						Name:    "moon.isClose",
-						Handler: mixinMoonIsCloseFunc,
-					},
-				},
-			},
-		},
-		Actions: []ServiceActionSchema{
-			ServiceActionSchema{
-				Name:    "rotate",
-				Handler: rotateFunc,
-			},
-		},
-		Events: []ServiceEventSchema{
-			ServiceEventSchema{
-				Name:    "earth.rotates",
-				Handler: rotatesEventFunc,
-			},
-		},
 	}
 
 	moonMixIn := MixinSchema{
@@ -118,37 +63,43 @@ var _ = test.Describe("MergeActions", func() {
 		},
 	}
 
-	test.It("Should merge and overwrite existing actions", func() {
-
-		mergedServiceActions := extendActions(serviceSchema, &moonMixIn)
-
-		Expect(mergedServiceActions.Actions).Should(Equal([]ServiceActionSchema{
+	serviceSchema := ServiceSchema{
+		Name:    "earth",
+		Version: "0.2",
+		Settings: map[string]interface{}{
+			"dinosauros": true,
+		},
+		Metadata: map[string]interface{}{
+			"star-system": "sun",
+		},
+		Hooks: map[string]interface{}{
+			"solar-system": "true",
+		},
+		Mixins: []MixinSchema{moonMixIn},
+		Actions: []ServiceActionSchema{
 			ServiceActionSchema{
 				Name:    "rotate",
 				Handler: rotateFunc,
 			},
-			ServiceActionSchema{
-				Name:    "tide",
-				Handler: mixinTideFunc,
-			},
 		},
-		))
-	})
-
-	test.It("Should merge and overwrite existing events", func() {
-
-		mergedServiceEvents := concatenateEvents(serviceSchema, &moonMixIn)
-		Expect(mergedServiceEvents.Events).Should(Equal([]ServiceEventSchema{
+		Events: []ServiceEventSchema{
 			ServiceEventSchema{
 				Name:    "earth.rotates",
 				Handler: rotatesEventFunc,
 			},
-			ServiceEventSchema{
-				Name:    "moon.isClose",
-				Handler: mixinMoonIsCloseFunc,
-			},
 		},
-		))
+	}
+
+	test.It("Should merge and overwrite existing actions", func() {
+		merged := extendActions(serviceSchema, &moonMixIn)
+		Expect(merged.Actions).Should(HaveLen(2))
+		Expect(snap.Snapshot(merged.Actions)).Should(Succeed())
+	})
+
+	test.It("Should merge and overwrite existing events", func() {
+		merged := concatenateEvents(serviceSchema, &moonMixIn)
+		Expect(merged.Events).Should(HaveLen(3))
+		Expect(snap.Snapshot(merged.Events)).Should(Succeed())
 	})
 
 	test.It("Should merge and overwrite existing settings", func() {
@@ -172,7 +123,6 @@ var _ = test.Describe("MergeActions", func() {
 	})
 
 	test.It("Should merge and overwrite existing hooks", func() {
-
 		mergedServiceHooks := extendHooks(serviceSchema, &moonMixIn)
 		Expect(mergedServiceHooks.Hooks).Should(Equal(map[string]interface{}{
 			"solar-system": "true",
@@ -182,75 +132,10 @@ var _ = test.Describe("MergeActions", func() {
 	})
 
 	test.It("Should apply mixins collectively", func() {
-
-		mergedService := applyMixins(serviceSchema)
-		Expect(mergedService).Should(Equal(ServiceSchema{
-			Name:    "earth",
-			Version: "0.2",
-			Settings: map[string]interface{}{
-				"dinosauros": true,
-				"craters":    true,
-			},
-			Metadata: map[string]interface{}{
-				"star-system": "sun",
-				"resolution":  "high",
-			},
-			Hooks: map[string]interface{}{
-				"solar-system": "true",
-				"earth":        "true",
-			},
-			Mixins: []MixinSchema{
-				MixinSchema{
-					Name: "moon",
-					Settings: map[string]interface{}{
-						"craters": true,
-					},
-					Metadata: map[string]interface{}{
-						"resolution": "high",
-					},
-					Hooks: map[string]interface{}{
-						"earth": "true",
-					},
-					Actions: []ServiceActionSchema{
-						ServiceActionSchema{
-							Name:    "tide",
-							Handler: mixinTideFunc,
-						},
-					},
-					Events: []ServiceEventSchema{
-						ServiceEventSchema{
-							Name:    "earth.rotates",
-							Handler: mixinRotatesFunc,
-						},
-						ServiceEventSchema{
-							Name:    "moon.isClose",
-							Handler: mixinMoonIsCloseFunc,
-						},
-					},
-				},
-			},
-			Actions: []ServiceActionSchema{
-				ServiceActionSchema{
-					Name:    "rotate",
-					Handler: rotateFunc,
-				},
-				ServiceActionSchema{
-					Name:    "tide",
-					Handler: mixinTideFunc,
-				},
-			},
-			Events: []ServiceEventSchema{
-				ServiceEventSchema{
-					Name:    "earth.rotates",
-					Handler: rotatesEventFunc,
-				},
-				ServiceEventSchema{
-					Name:    "moon.isClose",
-					Handler: mixinMoonIsCloseFunc,
-				},
-			},
-		},
-		))
+		merged := applyMixins(serviceSchema)
+		Expect(merged.Actions).Should(HaveLen(2))
+		Expect(merged.Events).Should(HaveLen(3))
+		Expect(snap.Snapshot(merged)).Should(Succeed())
 	})
 
 })

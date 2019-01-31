@@ -1,0 +1,82 @@
+(service.ServiceSchema) {
+  Name: (string) (len=5) "earth",
+  Version: (string) (len=3) "0.2",
+  Settings: (map[string]interface {}) (len=2) {
+    (string) (len=7) "craters": (bool) true,
+    (string) (len=10) "dinosauros": (bool) true
+  },
+  Metadata: (map[string]interface {}) (len=2) {
+    (string) (len=10) "resolution": (string) (len=4) "high",
+    (string) (len=11) "star-system": (string) (len=3) "sun"
+  },
+  Hooks: (map[string]interface {}) (len=2) {
+    (string) (len=5) "earth": (string) (len=4) "true",
+    (string) (len=12) "solar-system": (string) (len=4) "true"
+  },
+  Mixins: ([]service.MixinSchema) (len=1) {
+    (service.MixinSchema) {
+      Name: (string) (len=4) "moon",
+      Settings: (map[string]interface {}) (len=1) {
+        (string) (len=7) "craters": (bool) true
+      },
+      Metadata: (map[string]interface {}) (len=1) {
+        (string) (len=10) "resolution": (string) (len=4) "high"
+      },
+      Hooks: (map[string]interface {}) (len=1) {
+        (string) (len=5) "earth": (string) (len=4) "true"
+      },
+      Actions: ([]service.ServiceActionSchema) (len=1) {
+        (service.ServiceActionSchema) {
+          Name: (string) (len=4) "tide",
+          Handler: (service.ActionHandler) <service.ActionHandler Value>,
+          Schema: (service.ActionSchema) {
+          }
+        }
+      },
+      Events: ([]service.ServiceEventSchema) (len=2) {
+        (service.ServiceEventSchema) {
+          Name: (string) (len=13) "earth.rotates",
+          Handler: (service.EventHandler) <service.EventHandler Value>
+        },
+        (service.ServiceEventSchema) {
+          Name: (string) (len=12) "moon.isClose",
+          Handler: (service.EventHandler) <service.EventHandler Value>
+        }
+      },
+      Created: (service.FuncType) <service.FuncType Value>,
+      Started: (service.FuncType) <service.FuncType Value>,
+      Stopped: (service.FuncType) <service.FuncType Value>
+    }
+  },
+  Actions: ([]service.ServiceActionSchema) (len=2) {
+    (service.ServiceActionSchema) {
+      Name: (string) (len=6) "rotate",
+      Handler: (service.ActionHandler) <service.ActionHandler Value>,
+      Schema: (service.ActionSchema) {
+      }
+    },
+    (service.ServiceActionSchema) {
+      Name: (string) (len=4) "tide",
+      Handler: (service.ActionHandler) <service.ActionHandler Value>,
+      Schema: (service.ActionSchema) {
+      }
+    }
+  },
+  Events: ([]service.ServiceEventSchema) (len=3) {
+    (service.ServiceEventSchema) {
+      Name: (string) (len=13) "earth.rotates",
+      Handler: (service.EventHandler) <service.EventHandler Value>
+    },
+    (service.ServiceEventSchema) {
+      Name: (string) (len=13) "earth.rotates",
+      Handler: (service.EventHandler) <service.EventHandler Value>
+    },
+    (service.ServiceEventSchema) {
+      Name: (string) (len=12) "moon.isClose",
+      Handler: (service.EventHandler) <service.EventHandler Value>
+    }
+  },
+  Created: (service.FuncType) <service.FuncType Value>,
+  Started: (service.FuncType) <service.FuncType Value>,
+  Stopped: (service.FuncType) <service.FuncType Value>
+}

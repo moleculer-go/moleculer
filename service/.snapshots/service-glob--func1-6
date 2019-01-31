@@ -1,0 +1,14 @@
+([]service.ServiceActionSchema) (len=2) {
+  (service.ServiceActionSchema) {
+    Name: (string) (len=6) "rotate",
+    Handler: (service.ActionHandler) <service.ActionHandler Value>,
+    Schema: (service.ActionSchema) {
+    }
+  },
+  (service.ServiceActionSchema) {
+    Name: (string) (len=4) "tide",
+    Handler: (service.ActionHandler) <service.ActionHandler Value>,
+    Schema: (service.ActionSchema) {
+    }
+  }
+}
