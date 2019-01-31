@@ -1,35 +1,34 @@
 package broker
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
-	. "github.com/moleculer-go/goemitter"
-	. "github.com/moleculer-go/moleculer/cacher"
-	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/context"
-	. "github.com/moleculer-go/moleculer/middleware"
-	. "github.com/moleculer-go/moleculer/registry"
-	. "github.com/moleculer-go/moleculer/serializer"
-	. "github.com/moleculer-go/moleculer/service"
-	. "github.com/moleculer-go/moleculer/strategy"
-	. "github.com/moleculer-go/moleculer/transit"
-	. "github.com/moleculer-go/moleculer/util"
+	bus "github.com/moleculer-go/goemitter"
+	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/cache"
+	"github.com/moleculer-go/moleculer/context"
+	"github.com/moleculer-go/moleculer/middleware"
+	"github.com/moleculer-go/moleculer/options"
+	"github.com/moleculer-go/moleculer/registry"
+	"github.com/moleculer-go/moleculer/serializer"
+	"github.com/moleculer-go/moleculer/service"
+	"github.com/moleculer-go/moleculer/strategy"
+	"github.com/moleculer-go/moleculer/util"
+
 	log "github.com/sirupsen/logrus"
 )
 
-type BrokerConfig struct {
-	LogLevel       string
-	LogFormat      string
-	DiscoverNodeID func() string
-}
-
-var defaultConfig = BrokerConfig{
-	LogLevel:       "INFO",
-	LogFormat:      "TEXT",
-	DiscoverNodeID: DiscoverNodeID,
+var defaultConfig = moleculer.BrokerConfig{
+	LogLevel:              "INFO",
+	LogFormat:             "TEXT",
+	DiscoverNodeID:        DiscoverNodeID,
+	Transporter:           "MEMORY",
+	HeartbeatFrequency:    5 * time.Second,
+	HeartbeatTimeout:      30 * time.Second,
+	OfflineCheckFrequency: 20 * time.Second,
 }
 
 // DiscoverNodeID - should return the node id for this machine
@@ -40,13 +39,12 @@ func DiscoverNodeID() string {
 		fmt.Errorf("Error trying to get the machine hostname - error: %s", err)
 		hostname = ""
 	}
-	return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", RandomString(12))
+	return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
 }
 
-func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerConfig {
+func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.BrokerConfig) moleculer.BrokerConfig {
 
 	if len(userConfig) > 0 {
-
 		config := userConfig[0]
 		if config.LogLevel != "" {
 			baseConfig.LogLevel = config.LogLevel
@@ -57,55 +55,52 @@ func mergeConfigs(baseConfig BrokerConfig, userConfig []*BrokerConfig) BrokerCon
 		if config.DiscoverNodeID != nil {
 			baseConfig.DiscoverNodeID = config.DiscoverNodeID
 		}
+		if config.Transporter != "" {
+			baseConfig.Transporter = config.Transporter
+		}
 	}
 
 	return baseConfig
 }
 
 type ServiceBroker struct {
-	context *Context
-
 	namespace string
 	nodeID    string
 
 	logger *log.Entry
 
-	localBus *Emitter
+	localBus *bus.Emitter
 
-	registry *ServiceRegistry
+	registry *registry.ServiceRegistry
 
-	middlewares *MiddlewareHandler
+	middlewares *middleware.MiddlewareHandler
 
-	cacher *Cacher
+	cache cache.Cache
 
-	serializer *Serializer
+	serializer *serializer.Serializer
 
-	transit *Transit
-
-	services []*Service
+	services []*service.Service
 
 	started bool
 
-	rootContext Context
+	rootContext moleculer.BrokerContext
 
-	config BrokerConfig
+	config moleculer.BrokerConfig
 
-	strategy Strategy
+	strategy strategy.Strategy
 
-	info *BrokerInfo
+	delegates moleculer.BrokerDelegates
 
-	localNode Node
-
-	registryMessageHandler RegistryMessageHandlerFunction
+	localNode moleculer.Node
 }
 
 // GetLocalBus : return the service broker local bus (Event Emitter)
-func (broker *ServiceBroker) GetLocalBus() *Emitter {
+func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 	return broker.localBus
 }
 
 // startService start a service within the provided broker
-func startService(broker *ServiceBroker, service *Service) {
+func startService(broker *ServiceBroker, service *service.Service) {
 
 	broker.middlewares.CallHandlers("serviceStarting", service)
 
@@ -121,12 +116,12 @@ func startService(broker *ServiceBroker, service *Service) {
 }
 
 // wait for all service dependencies to load
-func waitForDependencies(service *Service) {
+func waitForDependencies(service *service.Service) {
 	//TODO
 }
 
 // notify a service when it is started
-func notifyServiceStarted(service *Service) {
+func notifyServiceStarted(service *service.Service) {
 	// if service.Started != nil {
 	// 	service.Started()
 	// }
@@ -170,99 +165,45 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 
 // AddService : for each service schema it will validate and create
 // a service instance in the broker.
-func (broker *ServiceBroker) AddService(schemas ...ServiceSchema) {
+func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	for _, schema := range schemas {
-		service := CreateService(schema)
-		broker.services = append(broker.services, service)
+		serviceInstance := service.FromSchema(schema)
+		broker.services = append(broker.services, serviceInstance)
 	}
 }
 
 func (broker *ServiceBroker) Start() {
-	broker.logger.Info("Broker -> starting ...")
+	broker.logger.Info("Broker -> Starting...")
 
 	broker.started = false
 
 	broker.middlewares.CallHandlers("starting", broker)
 
-	<-(*broker.transit).Connect()
-
-	broker.logger.Debug("Broker -> transit connected !")
-
 	for _, service := range broker.services {
 		startService(broker, service)
 	}
 
-	broker.logger.Debug("Broker -> services started !")
-
 	broker.registry.Start()
 
-	broker.logger.Debug("Broker -> registry started !")
+	broker.logger.Debug("Broker -> registry started!")
 
 	broker.started = true
 	broker.broadcastLocal("$broker.started")
 
-	//*broker.transit).Ready()
-
-	broker.logger.Debug("Broker -> transit is ready !")
-
 	broker.middlewares.CallHandlers("started", broker)
 
-	broker.logger.Info("Broker -> started !")
-}
-
-type contextKey int
-
-const (
-	ContextBroker contextKey = iota
-	ContextAction
-)
-
-type contextAction struct {
-	actionName string
-	params     interface{}
-}
-
-type contextBroker struct {
-	//TODO add relevante broker info here
-}
-
-func (broker *ServiceBroker) emitWithContext(context *Context, groups ...string) {
-}
-
-func (broker *ServiceBroker) broadcastWithContext(context *Context, groups ...string) {
-}
-
-// callWithContext :  invoke a service action and return a channel which will eventualy deliver the results ;)
-func (broker *ServiceBroker) callWithContext(context *Context, opts ...OptionsFunc) chan interface{} {
-	actionName := (*context).GetActionName()
-	params := (*context).GetParams()
-	broker.logger.Trace("Broker callWithContext() - actionName: ", actionName, " params: ", params, " opts: ", opts)
-
-	endpoint := broker.registry.NextActionEndpoint(actionName, broker.strategy, WrapOptions(opts))
-	if endpoint == nil {
-		msg := fmt.Sprintf("Broker - endpoint not found for actionName: %s", actionName)
-		broker.logger.Error(msg)
-		panic(errors.New(msg))
-	}
-
-	broker.logger.Debug("Broker callWithContext() - actionName: ", actionName, " target nodeID: ", endpoint.GetTargetNodeID())
-	return endpoint.InvokeAction(context)
+	broker.logger.Info("Broker -> Started!!!")
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
-func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
+func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan interface{} {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
-
-	actionContext := broker.rootContext.NewActionContext(actionName, params, WrapOptions(opts))
-	return actionContext.InvokeAction(WrapOptions(opts))
+	actionContext := broker.rootContext.NewActionContext(actionName, params, options.Wrap(opts))
+	return broker.registry.DelegateCall(actionContext, options.Wrap(opts))
 }
 
 func (broker *ServiceBroker) Emit(event string, params interface{}) {
 	broker.logger.Debug("Broker - emit !")
-}
-
-func (broker *ServiceBroker) GetInfo() *BrokerInfo {
-	return broker.info
 }
 
 func (broker *ServiceBroker) IsStarted() bool {
@@ -273,61 +214,42 @@ func (broker *ServiceBroker) GetLogger(name string, value string) *log.Entry {
 	return broker.logger.WithField(name, value)
 }
 
-func (broker *ServiceBroker) GetLocalNode() *Node {
-	return &broker.localNode
+func (broker *ServiceBroker) LocalNode() moleculer.Node {
+	return broker.localNode
 }
 
-// createSerializer create the serializer accordingly to the config.
-func (broker *ServiceBroker) createSerializer() *Serializer {
-	//TODO implement other serializers and use config to drive it
-
-	logger := broker.logger.WithField("serializer", "JSON")
-	var serializer Serializer = CreateJSONSerializer(logger)
-	return &serializer
+func (broker *ServiceBroker) newLogger(name string, value string) *log.Entry {
+	return broker.logger.WithField(name, value)
 }
 
 func (broker *ServiceBroker) init() {
 	broker.logger = broker.createBrokerLogger()
-	serializer := broker.createSerializer()
-
-	broker.strategy = RoundRobinStrategy{}
+	broker.strategy = strategy.RoundRobinStrategy{}
 	broker.setupLocalBus()
-	broker.localNode = CreateNode(broker.config.DiscoverNodeID())
-	broker.registryMessageHandler = func(command string, message *TransitMessage) {
-		broker.registry.HandleTransitMessage(command, message)
-	}
-	broker.info = &BrokerInfo{
-		broker.GetLocalNode,
-		broker.GetLogger,
-		broker.GetLocalBus,
-		broker.GetTransit,
+	broker.localNode = registry.CreateNode(broker.config.DiscoverNodeID())
+
+	broker.delegates = moleculer.BrokerDelegates{
+		broker.LocalNode,
+		broker.newLogger,
+		broker.LocalBus,
 		broker.IsStarted,
-		func() *Serializer {
-			return serializer
+		broker.config,
+		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan interface{} {
+			return broker.registry.DelegateCall(context, options.Wrap(opts))
 		},
-		broker.registryMessageHandler,
-		func() (ActionDelegateFunc, EventDelegateFunc, EventDelegateFunc) {
-			return broker.callWithContext, broker.emitWithContext, broker.broadcastWithContext
+		func(context moleculer.BrokerContext, groups []string) {
+			broker.registry.DelegateEvent(context, groups)
+		},
+		func(context moleculer.BrokerContext, groups []string) {
+			broker.registry.DelegateBroadcast(context, groups)
 		},
 	}
-
-	broker.registry = CreateRegistry(broker.GetInfo())
-
-	broker.transit = CreateTransit(broker.GetInfo())
-	broker.rootContext = CreateBrokerContext(
-		broker.callWithContext,
-		broker.emitWithContext,
-		broker.broadcastWithContext,
-		broker.GetLogger,
-		broker.localNode.GetID())
-}
-
-func (broker *ServiceBroker) GetTransit() *Transit {
-	return broker.transit
+	broker.registry = registry.CreateRegistry(broker.delegates)
+	broker.rootContext = context.BrokerContext(broker.delegates)
 }
 
 func (broker *ServiceBroker) setupLocalBus() {
-	broker.localBus = CreateEmitter()
+	broker.localBus = bus.CreateEmitter()
 
 	broker.localBus.On("$registry.service.added", func(args ...interface{}) {
 		//TODO check code from -> this.broker.servicesChanged(true)
@@ -336,7 +258,7 @@ func (broker *ServiceBroker) setupLocalBus() {
 
 // FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
-func FromConfig(userConfig []*BrokerConfig) *ServiceBroker {
+func FromConfig(userConfig ...*moleculer.BrokerConfig) *ServiceBroker {
 
 	config := mergeConfigs(defaultConfig, userConfig)
 	broker := ServiceBroker{config: config}

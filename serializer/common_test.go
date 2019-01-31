@@ -1,11 +1,29 @@
 package serializer_test
 
 import (
+	. "github.com/moleculer-go/goemitter"
+	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/registry"
+
 	log "github.com/sirupsen/logrus"
 )
 
-var logger = log.WithField("Unit Test", "Transit Pkg")
+var logger = log.WithField("unit test pkg", "serializer_test")
 
 func CreateLogger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
+}
+
+func BrokerDelegates(nodeID string) moleculer.BrokerDelegates {
+	localBus := CreateEmitter()
+	localNode := registry.CreateNode(nodeID)
+	broker := moleculer.BrokerDelegates{
+		LocalNode: func() moleculer.Node {
+			return localNode
+		},
+		Logger: CreateLogger,
+		Bus: func() *Emitter {
+			return localBus
+		}}
+	return broker
 }

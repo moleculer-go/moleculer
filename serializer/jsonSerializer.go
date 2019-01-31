@@ -1,7 +1,7 @@
 package serializer
 
 import (
-	. "github.com/moleculer-go/moleculer/common"
+	"github.com/moleculer-go/moleculer/transit"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -16,8 +16,6 @@ type ResultWrapper struct {
 	logger *log.Entry
 }
 
-type brokerInfoFunction func() *BrokerInfo
-
 func CreateJSONSerializer(logger *log.Entry) JSONSerializer {
 	return JSONSerializer{logger}
 }
@@ -31,13 +29,13 @@ func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[s
 	return values
 }
 
-func (serializer JSONSerializer) BytesToMessage(bytes *[]byte) TransitMessage {
+func (serializer JSONSerializer) BytesToMessage(bytes *[]byte) transit.Message {
 	result := gjson.ParseBytes(*bytes)
 	message := ResultWrapper{&result, serializer.logger}
 	return message
 }
 
-func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) (TransitMessage, error) {
+func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) (transit.Message, error) {
 	json, err := sjson.Set("{root:false}", "root", mapValue)
 	if err != nil {
 		serializer.logger.Error("MapToMessage() Error when parsing the map: ", mapValue, " Error: ", err)
@@ -48,11 +46,11 @@ func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) 
 	return message, nil
 }
 
-func (serializer JSONSerializer) MessageToContextMap(message *TransitMessage) map[string]interface{} {
-	return serializer.contextMap((*message).AsMap())
+func (serializer JSONSerializer) MessageToContextMap(message transit.Message) map[string]interface{} {
+	return serializer.contextMap(message.AsMap())
 }
 
-func (wrapper ResultWrapper) Get(path string) TransitMessage {
+func (wrapper ResultWrapper) Get(path string) transit.Message {
 	result := wrapper.result.Get(path)
 	message := ResultWrapper{&result, wrapper.logger}
 	return message

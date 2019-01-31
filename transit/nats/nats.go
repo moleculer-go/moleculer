@@ -1,8 +1,9 @@
-package transit
+package nats
 
 import (
 	"fmt"
 
+	"github.com/moleculer-go/moleculer/transit"
 	stan "github.com/nats-io/go-nats-streaming"
 )
 
@@ -29,7 +30,7 @@ func getCmdNodeTopic(command string, nodeID string) string {
 	return fmt.Sprint(command, ":", nodeID)
 }
 
-func (transporter NatsStreaming) Subscribe(command string, nodeID string, handler TransportHandler) {
+func (transporter NatsStreaming) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
 	connection := *transporter.self.connection
 	if connection == nil {
 		fmt.Print("No connection.. fodeu !!!")
@@ -48,10 +49,6 @@ func (transporter NatsStreaming) Subscribe(command string, nodeID string, handle
 	transporter.subscriptions = append(transporter.subscriptions, &sub)
 
 	fmt.Print("\nSubscribe() - Done!")
-}
-
-func (transporter NatsStreaming) MakeBalancedSubscriptions() {
-
 }
 
 func (transporter *NatsStreaming) getConnection() *stan.Conn {
@@ -90,14 +87,3 @@ func (transporter NatsStreaming) Disconnect() chan bool {
 // func (transporter NatsStreaming) Publish(packet Packet) {
 // 	(*transporter.getConnection()).Publish(packet.GetTarget(), []byte(packet.GetPayload()))
 // }
-
-func (transporter NatsStreaming) PublishString(target string, value string) {
-	(*transporter.getConnection()).PublishAsync(target, []byte(value), func(akn string, err error) {
-		if err != nil {
-			fmt.Print("\n PublishString() - Error: ", err)
-			panic(err)
-		}
-		fmt.Print("\n PublishString() - Done! - ack: ", akn)
-
-	})
-}

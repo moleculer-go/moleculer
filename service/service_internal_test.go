@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	snap "github.com/moleculer-go/cupaloy"
-	. "github.com/moleculer-go/moleculer/common"
+	"github.com/moleculer-go/moleculer"
+
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
@@ -14,27 +15,27 @@ var logger = log.WithField("Unit Test", true)
 
 var _ = test.Describe("MergeActions", func() {
 
-	rotateFunc := func(ctx Context, params Params) interface{} {
+	rotateFunc := func(ctx moleculer.Context, params moleculer.Params) interface{} {
 		return "Hellow Leleu ;) I'm rotating ..."
 	}
 
-	rotatesEventFunc := func(ctx Context, params Params) {
+	rotatesEventFunc := func(ctx moleculer.Context, params moleculer.Params) {
 		fmt.Println("spining spining spining")
 	}
 
-	mixinTideFunc := func(ctx Context, params Params) interface{} {
+	mixinTideFunc := func(ctx moleculer.Context, params moleculer.Params) interface{} {
 		return "tide influence in the oceans"
 	}
 
-	mixinRotatesFunc := func(ctx Context, params Params) {
+	mixinRotatesFunc := func(ctx moleculer.Context, params moleculer.Params) {
 		fmt.Println("update tide in relation to the moon")
 	}
 
-	mixinMoonIsCloseFunc := func(ctx Context, params Params) {
+	mixinMoonIsCloseFunc := func(ctx moleculer.Context, params moleculer.Params) {
 		fmt.Println("rise the tide !")
 	}
 
-	moonMixIn := MixinSchema{
+	moonMixIn := moleculer.Mixin{
 		Name: "moon",
 		Settings: map[string]interface{}{
 			"craters": true,
@@ -45,25 +46,25 @@ var _ = test.Describe("MergeActions", func() {
 		Hooks: map[string]interface{}{
 			"earth": "true",
 		},
-		Actions: []ServiceActionSchema{
-			ServiceActionSchema{
+		Actions: []moleculer.Action{
+			moleculer.Action{
 				Name:    "tide",
 				Handler: mixinTideFunc,
 			},
 		},
-		Events: []ServiceEventSchema{
-			ServiceEventSchema{
+		Events: []moleculer.Event{
+			moleculer.Event{
 				Name:    "earth.rotates",
 				Handler: mixinRotatesFunc,
 			},
-			ServiceEventSchema{
+			moleculer.Event{
 				Name:    "moon.isClose",
 				Handler: mixinMoonIsCloseFunc,
 			},
 		},
 	}
 
-	serviceSchema := ServiceSchema{
+	serviceSchema := moleculer.Service{
 		Name:    "earth",
 		Version: "0.2",
 		Settings: map[string]interface{}{
@@ -75,15 +76,15 @@ var _ = test.Describe("MergeActions", func() {
 		Hooks: map[string]interface{}{
 			"solar-system": "true",
 		},
-		Mixins: []MixinSchema{moonMixIn},
-		Actions: []ServiceActionSchema{
-			ServiceActionSchema{
+		Mixins: []moleculer.Mixin{moonMixIn},
+		Actions: []moleculer.Action{
+			moleculer.Action{
 				Name:    "rotate",
 				Handler: rotateFunc,
 			},
 		},
-		Events: []ServiceEventSchema{
-			ServiceEventSchema{
+		Events: []moleculer.Event{
+			moleculer.Event{
 				Name:    "earth.rotates",
 				Handler: rotatesEventFunc,
 			},

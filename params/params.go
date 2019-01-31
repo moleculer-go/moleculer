@@ -1,8 +1,6 @@
 package params
 
-import (
-	. "github.com/moleculer-go/moleculer/common"
-)
+import "github.com/moleculer-go/moleculer"
 
 type ParamsImpl struct {
 	source *interface{}
@@ -45,7 +43,7 @@ func (params ParamsImpl) String(name string) string {
 	return ""
 }
 
-func (params ParamsImpl) Map(name string) Params {
+func (params ParamsImpl) Map(name string) moleculer.Params {
 	if value, ok := (*params.values)[name]; ok {
 		var source *interface{} = &value
 		return CreateParams(source)
@@ -61,7 +59,7 @@ func (params ParamsImpl) Value() interface{} {
 	return (*params.source)
 }
 
-func CreateParams(source *interface{}) Params {
+func CreateParams(source *interface{}) moleculer.Params {
 	values := make(map[string]interface{})
 	copyValues(source, &values)
 	return ParamsImpl{source, &values}

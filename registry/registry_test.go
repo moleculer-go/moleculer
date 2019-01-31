@@ -1,18 +1,22 @@
 package registry_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
-	//. "github.com/moleculer-go/moleculer/registry"
+	"github.com/moleculer-go/moleculer/broker"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-func createBrokerA() moleculer.ServiceBroker {
-	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
+var logLevel = "DEBUG"
+
+func createBrokerA() broker.ServiceBroker {
+	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerA" },
-		LogLevel:       "TRACE",
+		LogLevel:       logLevel,
+		Transporter:    "STAN",
 	})
 
 	broker.AddService(moleculer.Service{
@@ -21,7 +25,7 @@ func createBrokerA() moleculer.ServiceBroker {
 			{
 				Name: "print",
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
-					context.GetLogger().Info("print action invoked.")
+					context.Logger().Info("print action invoked.")
 					return params.Value()
 				},
 			},
@@ -31,10 +35,11 @@ func createBrokerA() moleculer.ServiceBroker {
 	return (*broker)
 }
 
-func createBrokerB() moleculer.ServiceBroker {
-	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
+func createBrokerB() broker.ServiceBroker {
+	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerB" },
-		LogLevel:       "TRACE",
+		LogLevel:       logLevel,
+		Transporter:    "STAN",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "scanner",
@@ -42,7 +47,7 @@ func createBrokerB() moleculer.ServiceBroker {
 			{
 				Name: "scan",
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
-					context.GetLogger().Info("scan action invoked!")
+					context.Logger().Info("scan action invoked!")
 
 					return params.Value()
 				},
@@ -53,10 +58,11 @@ func createBrokerB() moleculer.ServiceBroker {
 	return (*broker)
 }
 
-func createBrokerC() moleculer.ServiceBroker {
-	broker := moleculer.BrokerFromConfig(&moleculer.BrokerConfig{
+func createBrokerC() broker.ServiceBroker {
+	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerC" },
-		LogLevel:       "TRACE",
+		LogLevel:       logLevel,
+		Transporter:    "STAN",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "cpu",
@@ -64,7 +70,7 @@ func createBrokerC() moleculer.ServiceBroker {
 			{
 				Name: "compute",
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
-					context.GetLogger().Info("compute action invoked!")
+					context.Logger().Info("compute action invoked!")
 
 					scanResult := <-context.Call("scanner.scan", params.Value())
 
@@ -85,13 +91,13 @@ var _ = Describe("Registry", func() {
 		It("Should call action from brokerA to brokerB and retun results", func() {
 
 			brokerA := createBrokerA()
-			Expect((*brokerA.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerA"))
+			Expect(brokerA.LocalNode().GetID()).Should(Equal("node_brokerA"))
 
 			brokerB := createBrokerB()
-			Expect((*brokerB.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerB"))
+			Expect(brokerB.LocalNode().GetID()).Should(Equal("node_brokerB"))
 
 			brokerC := createBrokerC()
-			Expect((*brokerC.GetInfo().GetLocalNode()).GetID()).Should(Equal("node_brokerC"))
+			Expect(brokerC.LocalNode().GetID()).Should(Equal("node_brokerC"))
 
 			brokerA.Start()
 
@@ -107,11 +113,17 @@ var _ = Describe("Registry", func() {
 			brokerB.Start()
 			time.Sleep(time.Second)
 
+			fmt.Println("***** Step X")
+
 			scanResult := <-brokerA.Call("scanner.scan", scanText)
 			Expect(scanResult).Should(Equal(scanText))
 
+			fmt.Println("***** Step Y")
+
 			brokerC.Start()
 			time.Sleep(time.Second) //sleep until services are registered
+
+			fmt.Println("***** Step Z")
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-brokerC.Call("cpu.compute", contentToCompute)

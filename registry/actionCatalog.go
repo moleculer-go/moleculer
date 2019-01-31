@@ -1,39 +1,38 @@
 package registry
 
 import (
-	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/service"
+	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/service"
+	"github.com/moleculer-go/moleculer/strategy"
 )
 
 type ActionEntry struct {
-	targetNodeID       string
-	action             *ServiceAction
-	isLocal            bool
-	getTransitDelegate GetTransitFunction
+	targetNodeID string
+	action       *service.Action
+	isLocal      bool
 }
 
 type actionsMap map[string][]ActionEntry
 
 type ActionCatalog struct {
-	actionsByName      *actionsMap
-	getTransitDelegate GetTransitFunction
+	actionsByName *actionsMap
 }
 
-func CreateActionCatalog(getTransitDelegate GetTransitFunction) *ActionCatalog {
+func CreateActionCatalog() *ActionCatalog {
 	actionsByName := make(actionsMap)
-	return &ActionCatalog{&actionsByName, getTransitDelegate}
+	return &ActionCatalog{&actionsByName}
 }
 
-func (actionEntry *ActionEntry) invokeRemoteAction(context *Context) chan interface{} {
+func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan interface{} {
 	result := make(chan interface{})
-	logger := (*context).GetLogger().WithField("actionCatalog", "invokeRemoteAction")
-	logger.Debug("Before Invoking action: ", (*context).GetActionName())
+
+	logger := context.Logger().WithField("actionCatalog", "invokeLocalAction")
+	logger.Debug("Before Invoking action: ", context.ActionName())
 
 	go func() {
-		transit := actionEntry.getTransitDelegate()
-		actionResult := <-(*transit).Request(context)
-
-		logger.Debug("remote request done! action: ", (*context).GetActionName(),
+		handler := actionEntry.action.Handler()
+		actionResult := handler(context.(moleculer.Context), context.Params())
+		logger.Debug("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
 		result <- actionResult
 	}()
@@ -41,43 +40,27 @@ func (actionEntry *ActionEntry) invokeRemoteAction(context *Context) chan interf
 	return result
 }
 
-func (actionEntry *ActionEntry) invokeLocalAction(context *Context) chan interface{} {
-	result := make(chan interface{})
-
-	logger := (*context).GetLogger().WithField("actionCatalog", "invokeLocalAction")
-	logger.Debug("Before Invoking action: ", (*context).GetActionName())
-
-	go func() {
-		handler := actionEntry.action.GetHandler()
-		actionResult := handler(*context, (*context).GetParams())
-		logger.Debug("local action invoked ! action: ", (*context).GetActionName(),
-			" results: ", actionResult)
-		result <- actionResult
-	}()
-
-	return result
-}
-
-func (actionEntry ActionEntry) GetTargetNodeID() string {
+func (actionEntry ActionEntry) TargetNodeID() string {
 	return actionEntry.targetNodeID
 }
 
-func (actionEntry ActionEntry) InvokeAction(ctx *Context) chan interface{} {
-	if actionEntry.isLocal {
-		return actionEntry.invokeLocalAction(ctx)
-	}
-	(*ctx).SetTargetNodeID(actionEntry.GetTargetNodeID())
-	return actionEntry.invokeRemoteAction(ctx)
-}
+//move the logic to decide between local and remote to the registry
+// func (actionEntry ActionEntry) InvokeAction(ctx moleculer.Context) chan interface{} {
+// 	if actionEntry.isLocal {
+// 		return actionEntry.invokeLocalAction(ctx)
+// 	}
+// 	(*ctx).SetTargetNodeID(actionEntry.TargetNodeID())
+// 	return actionEntry.invokeRemoteAction(ctx)
+// }
 
 func (actionEntry ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal
 }
 
 // Add a new action to the catalog.
-func (actionCatalog *ActionCatalog) Add(nodeID string, action ServiceAction, local bool) {
-	entry := ActionEntry{nodeID, &action, local, actionCatalog.getTransitDelegate}
-	name := action.GetFullName()
+func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, local bool) {
+	entry := ActionEntry{nodeID, &action, local}
+	name := action.FullName()
 	actions := (*actionCatalog.actionsByName)
 
 	actions[name] = append(actions[name], entry)
@@ -101,29 +84,24 @@ func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
 	actions[name] = newList
 }
 
-func actionsToEndPoints(actions []ActionEntry) []Endpoint {
-	result := make([]Endpoint, len(actions))
-	for index, action := range actions {
-		var endpoint Endpoint = action
-		result[index] = endpoint
-	}
-	return result
-}
-
-func (actionCatalog *ActionCatalog) NextEndpointFromNode(actionName string, nodeID string, opts ...OptionsFunc) Endpoint {
+func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID string) *ActionEntry {
 	actions := (*actionCatalog.actionsByName)[actionName]
 	for _, action := range actions {
 		if action.targetNodeID == nodeID {
-			return action
+			return &action
 		}
 	}
 	return nil
 }
 
 // NextEndpoint find all actions registered in this node and use the strategy to select and return the best one to be called.
-func (actionCatalog *ActionCatalog) NextEndpoint(actionName string, strategy Strategy, opts ...OptionsFunc) Endpoint {
-	options := (*actionCatalog.actionsByName)[actionName]
-	return strategy.SelectEndpoint(actionsToEndPoints(options))
+func (actionCatalog *ActionCatalog) Next(actionName string, strategy strategy.Strategy) *ActionEntry {
+	actions := (*actionCatalog.actionsByName)[actionName]
+	nodes := make([]string, len(actions))
+	for index, action := range actions {
+		nodes[index] = action.targetNodeID
+	}
+	return actionCatalog.NextFromNode(actionName, strategy.SelectTargetNode(nodes))
 }
 
 func (actionCatalog *ActionCatalog) Size() int {
