@@ -9,8 +9,8 @@ import (
 type Service = service.ServiceSchema
 type Action = service.ServiceActionSchema
 type Event = service.ServiceEventSchema
+type Mixin = service.MixinSchema
 type Params = common.Params
-
 type Context = common.Context
 
 type BrokerConfig = broker.BrokerConfig

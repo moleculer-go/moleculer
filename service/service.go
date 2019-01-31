@@ -7,12 +7,12 @@ import (
 	. "github.com/moleculer-go/moleculer/common"
 )
 
-type ActionSchema struct {
-}
-
 type ActionHandler func(ctx Context, params Params) interface{}
 
 type EventHandler func(ctx Context, params Params)
+
+type ActionSchema struct {
+}
 
 type ServiceActionSchema struct {
 	Name    string
@@ -44,7 +44,20 @@ type ServiceSchema struct {
 	Version  string
 	Settings map[string]interface{}
 	Metadata map[string]interface{}
-	Mixins   []*ServiceSchema
+	Hooks    map[string]interface{}
+	Mixins   []MixinSchema
+	Actions  []ServiceActionSchema
+	Events   []ServiceEventSchema
+	Created  FuncType
+	Started  FuncType
+	Stopped  FuncType
+}
+
+type MixinSchema struct {
+	Name     string
+	Settings map[string]interface{}
+	Metadata map[string]interface{}
+	Hooks    map[string]interface{}
 	Actions  []ServiceActionSchema
 	Events   []ServiceEventSchema
 	Created  FuncType
@@ -108,39 +121,150 @@ func (service *Service) GetEvents() []ServiceEvent {
 	return service.events
 }
 
-func mergeActions(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
-	// for _, mixinAction := range mixin.Actions {
-	// 	existing := filter(service.actions, func(item interface{}) bool {
-	// 		action := item.(ServiceAction)
-	// 		return action.Name == mixinAction.Name
-	// 	})
-	// }
+func extendActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+	// Copy struct into a slice of interfaces
+	originListSlice := make([]interface{}, len(service.Actions))
+	for i, d := range service.Actions {
+		originListSlice[i] = d
+	}
+	// Copy origin list to avoid tainting
+	finalList := originListSlice
+	// Loop over in mixin
+	for _, mixinAction := range mixin.Actions {
+		// Check if already exists in service
+		filterExisting := filter(originListSlice, func(item interface{}) bool {
+			action := item.(ServiceActionSchema)
+			return action.Name == mixinAction.Name
+		})
+		// If does not exist, add to mixed list
+		if len(filterExisting) == 0 {
+			finalList = append(finalList, mixinAction)
+		}
+	}
+	// Convert back from interface slice to struct
+	var thisInterface interface{} = &finalList
+	service.Actions, _ = thisInterface.([]ServiceActionSchema)
 	return service
 }
 
-func mergeEvents(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+func concatenateEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+	// Copy struct into a slice of interfaces
+	originListSlice := make([]interface{}, len(service.Events))
+	for i, d := range service.Events {
+		originListSlice[i] = d
+	}
+	// Copy origin list to avoid tainting
+	finalList := originListSlice
+	// Loop over in mixin
+	for _, mixinEvent := range mixin.Events {
+		// Check if already exists in service
+		filterExisting := filter(originListSlice, func(item interface{}) bool {
+			event := item.(ServiceActionSchema)
+			return event.Name == mixinEvent.Name
+		})
+		// If does not exist, add to mixed list
+		if len(filterExisting) == 0 {
+			finalList = append(finalList, mixinEvent)
+		}
+	}
+	// Convert back from interface slice to struct
+	var thisInterface interface{} = &finalList
+	service.Events, _ = thisInterface.([]ServiceEventSchema)
 	return service
 }
 
-func mergeSettings(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+func extendSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+	settings := make(map[string]interface{})
+	for index, setting := range service.Settings {
+		if _, ok := service.Settings[index]; ok {
+			settings[index] = setting
+		}
+	}
+
+	for index, setting := range mixin.Settings {
+		if _, ok := mixin.Settings[index]; ok {
+			settings[index] = setting
+		}
+	}
+	service.Settings = settings
 	return service
 }
 
-func mergeMetadata(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+func extendMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+	metadata := make(map[string]interface{})
+	for index, value := range service.Metadata {
+		if _, ok := service.Metadata[index]; ok {
+			metadata[index] = value
+		}
+	}
+
+	for index, value := range mixin.Metadata {
+		if _, ok := mixin.Metadata[index]; ok {
+			metadata[index] = value
+		}
+	}
+	service.Metadata = metadata
 	return service
 }
 
-func mergeHooks(service ServiceSchema, mixin *ServiceSchema) ServiceSchema {
+func extendHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+	hooks := make(map[string]interface{})
+	for index, hook := range service.Hooks {
+		if _, ok := service.Hooks[index]; ok {
+			hooks[index] = hook
+		}
+	}
+
+	for index, hook := range mixin.Hooks {
+		if _, ok := mixin.Hooks[index]; ok {
+			hooks[index] = hook
+		}
+	}
+	service.Hooks = hooks
 	return service
 }
+
+func mergeNames(service ServiceSchema, mixin *MixinSchema) ServiceSchema         { return service }
+func mergeVersions(service ServiceSchema, mixin *MixinSchema) ServiceSchema      { return service }
+func mergeMethods(service ServiceSchema, mixin *MixinSchema) ServiceSchema       { return service }
+func mergeMixins(service ServiceSchema, mixin *MixinSchema) ServiceSchema        { return service }
+func mergeDependencies(service ServiceSchema, mixin *MixinSchema) ServiceSchema  { return service }
+func concatenateCreated(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+func concatenateStarted(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+func concatenateStopped(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+
+/*
+Mixin Strategy:
+(done)settings:      	Extend with defaultsDeep.
+(done)metadata:   	Extend with defaultsDeep.
+(broken)actions:    	Extend with defaultsDeep. You can disable an action from mixin if you set to false in your service.
+(done)hooks:      	Extend with defaultsDeep.
+(broken)events:     	Concatenate listeners.
+TODO:
+name:           Merge & overwrite.
+version:    	Merge & overwrite.
+methods:       	Merge & overwrite.
+mixins:	        Merge & overwrite.
+dependencies:   Merge & overwrite.
+created:    	Concatenate listeners.
+started:    	Concatenate listeners.
+stopped:    	Concatenate listeners.
+*/
 
 func applyMixins(service ServiceSchema) ServiceSchema {
 	for _, mixin := range service.Mixins {
-		service = mergeActions(service, mixin)
-		service = mergeEvents(service, mixin)
-		service = mergeSettings(service, mixin)
-		service = mergeMetadata(service, mixin)
-		service = mergeHooks(service, mixin)
+		service = extendActions(service, &mixin)
+		service = extendSettings(service, &mixin)
+		service = extendMetadata(service, &mixin)
+		service = extendHooks(service, &mixin)
+		service = mergeNames(service, &mixin)
+		service = mergeVersions(service, &mixin)
+		service = mergeMethods(service, &mixin)
+		service = mergeMixins(service, &mixin)
+		service = mergeDependencies(service, &mixin)
+		service = concatenateCreated(service, &mixin)
+		service = concatenateStarted(service, &mixin)
+		service = concatenateStopped(service, &mixin)
 	}
 	return service
 }

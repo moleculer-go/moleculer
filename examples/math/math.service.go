@@ -36,8 +36,15 @@ func CreateServiceSchema() Service {
 				onSubEvent,
 			},
 		},
+		//Mixins: []*Mixin(helloWorldSchema),
+		Created: func() {
+			fmt.Println("math service created !")
+		},
 		Started: func() {
 			fmt.Println("math service started !")
+		},
+		Stopped: func() {
+			fmt.Println("math service stopped !")
 		},
 	}
 
