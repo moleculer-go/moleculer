@@ -1,11 +1,5 @@
 package memory
 
-// "errors"
-// "fmt"
-
-//
-// log "github.com/sirupsen/logrus"
-
 import (
 	"fmt"
 
