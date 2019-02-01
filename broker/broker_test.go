@@ -3,30 +3,32 @@ package broker_test
 import (
 	"fmt"
 
-	test "github.com/onsi/ginkgo"
+	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/broker"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	. "github.com/moleculer-go/moleculer"
 )
 
-var _ = test.Describe("Broker", func() {
+var _ = Describe("Broker", func() {
 
-	test.It("Should make a local call and return results", func() {
+	It("Should make a local call and return results", func() {
 		actionResult := "abra cadabra"
-		service := Service{
+		service := moleculer.Service{
 			Name: "do",
-			Actions: []Action{
-				Action{
+			Actions: []moleculer.Action{
+				moleculer.Action{
 					Name: "stuff",
-					Handler: func(ctx Context, params Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
 						return actionResult
 					},
 				},
 			},
 		}
 
-		broker := BrokerFromConfig()
+		broker := broker.FromConfig(&moleculer.BrokerConfig{
+			LogLevel: "DEBUG",
+		})
 		broker.AddService(service)
 		broker.Start()
 
@@ -38,29 +40,29 @@ var _ = test.Describe("Broker", func() {
 
 	})
 
-	test.It("Should call multiple local calls (in chain)", func() {
+	It("Should call multiple local calls (in chain)", func() {
 
 		actionResult := "step 1 done ! -> step 2: step 2 done ! -> magic: Just magic !!!"
-		service := Service{
+		service := moleculer.Service{
 			Name: "machine",
-			Actions: []Action{
-				Action{
+			Actions: []moleculer.Action{
+				moleculer.Action{
 					Name: "step1",
-					Handler: func(ctx Context, params Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
 						step2Result := <-ctx.Call("machine.step2", 0)
 						return fmt.Sprintf("step 1 done ! -> step 2: %s", step2Result.(string))
 					},
 				},
-				Action{
+				moleculer.Action{
 					Name: "step2",
-					Handler: func(ctx Context, params Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
 						magicResult := <-ctx.Call("machine.magic", 0)
 						return fmt.Sprintf("step 2 done ! -> magic: %s", magicResult.(string))
 					},
 				},
-				Action{
+				moleculer.Action{
 					Name: "magic",
-					Handler: func(ctx Context, params Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
 						ctx.Emit("magic.happened, params", "Always !")
 						return "Just magic !!!"
 					},
@@ -68,7 +70,9 @@ var _ = test.Describe("Broker", func() {
 			},
 		}
 
-		broker := BrokerFromConfig()
+		broker := broker.FromConfig(&moleculer.BrokerConfig{
+			LogLevel: "DEBUG",
+		})
 		broker.AddService(service)
 		broker.Start()
 
@@ -79,7 +83,7 @@ var _ = test.Describe("Broker", func() {
 		Expect(result).Should(Equal(actionResult))
 	})
 
-	test.It("Should make a remove call and return results", func() {
+	It("Should make a remote call and return results", func() {
 		//TODO
 	})
 

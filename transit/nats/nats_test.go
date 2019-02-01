@@ -1,4 +1,4 @@
-package transit_test
+package nats_test
 
 import (
 	test "github.com/onsi/ginkgo"

@@ -1,14 +1,14 @@
-([]service.ServiceActionSchema) (len=2) {
-  (service.ServiceActionSchema) {
+([]moleculer.Action) (len=2) {
+  (moleculer.Action) {
     Name: (string) (len=6) "rotate",
-    Handler: (service.ActionHandler) <service.ActionHandler Value>,
-    Schema: (service.ActionSchema) {
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Params: (moleculer.ParamsSchema) {
     }
   },
-  (service.ServiceActionSchema) {
+  (moleculer.Action) {
     Name: (string) (len=4) "tide",
-    Handler: (service.ActionHandler) <service.ActionHandler Value>,
-    Schema: (service.ActionSchema) {
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Params: (moleculer.ParamsSchema) {
     }
   }
 }

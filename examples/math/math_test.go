@@ -1,12 +1,11 @@
 package math_test
 
 import (
+	"github.com/moleculer-go/moleculer/broker"
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	. "github.com/moleculer-go/moleculer/examples/math"
-
-	. "github.com/moleculer-go/moleculer"
 )
 
 var _ = test.Describe("Math", func() {
@@ -31,7 +30,7 @@ var _ = test.Describe("Math", func() {
 	test.It("Can start broker with service and call actions", func() {
 		serviceDefinition := CreateServiceSchema()
 
-		broker := BrokerFromConfig()
+		broker := broker.FromConfig()
 		broker.AddService(serviceDefinition)
 		broker.Start()
 

@@ -62,12 +62,12 @@ func onSubEvent(ctx Context, params Params) {
 }
 
 func addAction(context Context, params Params) interface{} {
-	context.GetLogger().Info("math service add action.")
+	context.Logger().Info("math service add action.")
 	a := params.Int("a")
 	b := params.Int("b")
 	result := a + b
 
-	context.GetLogger().Info("params -> a: ", a, "b: ", b, "result: ", result)
+	context.Logger().Info("params -> a: ", a, "b: ", b, "result: ", result)
 
 	defer context.Emit("add.called", map[string]int{
 		"a":      a,

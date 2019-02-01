@@ -1,14 +1,14 @@
-([]service.ServiceEventSchema) (len=3) {
-  (service.ServiceEventSchema) {
+([]moleculer.Event) (len=3) {
+  (moleculer.Event) {
     Name: (string) (len=13) "earth.rotates",
-    Handler: (service.EventHandler) <service.EventHandler Value>
+    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
   },
-  (service.ServiceEventSchema) {
+  (moleculer.Event) {
     Name: (string) (len=13) "earth.rotates",
-    Handler: (service.EventHandler) <service.EventHandler Value>
+    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
   },
-  (service.ServiceEventSchema) {
+  (moleculer.Event) {
     Name: (string) (len=12) "moon.isClose",
-    Handler: (service.EventHandler) <service.EventHandler Value>
+    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
   }
 }

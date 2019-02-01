@@ -1,20 +1,16 @@
 package strategy
 
-import (
-	. "github.com/moleculer-go/moleculer/common"
-)
-
 type RoundRobinStrategy struct {
 	counter int
 }
 
-func (strategy RoundRobinStrategy) SelectEndpoint(endpoints []Endpoint) Endpoint {
-	if len(endpoints) == 0 {
-		return nil
+func (strategy RoundRobinStrategy) SelectTargetNode(nodes []string) string {
+	if len(nodes) == 0 {
+		return ""
 	}
-	if strategy.counter >= len(endpoints) {
+	if strategy.counter >= len(nodes) {
 		strategy.counter = 0
 	}
 	defer func() { strategy.counter = strategy.counter + 1 }()
-	return endpoints[strategy.counter]
+	return nodes[strategy.counter]
 }

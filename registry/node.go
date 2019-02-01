@@ -5,19 +5,17 @@ import (
 	"net"
 	"time"
 
-	. "github.com/moleculer-go/moleculer/common"
+	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/version"
 )
 
-type NodeInfo struct {
+type Node struct {
 	id                string
 	sequence          int64
 	ipList            []string
 	hostname          string
 	client            map[string]interface{}
 	services          []map[string]interface{}
-	rawInfo           map[string]interface{}
-	self              *NodeInfo
 	isAvailable       bool
 	cpu               int64
 	cpuSequence       int64
@@ -48,10 +46,10 @@ func discoverHostname() string {
 	return hostname
 }
 
-func CreateNode(id string) Node {
+func CreateNode(id string) moleculer.Node {
 	ipList := discoverIpList()
 	hostname := discoverHostname()
-	node := NodeInfo{
+	node := Node{
 		id: id,
 		client: map[string]interface{}{
 			"type":        "moleculer-go",
@@ -61,23 +59,11 @@ func CreateNode(id string) Node {
 		ipList:   ipList,
 		hostname: hostname,
 	}
-	node.self = &node
-	return node
-}
-
-func (node NodeInfo) Update(info map[string]interface{}) bool {
-	return node.self.updateImpl(info)
-}
-
-func interfaceToString(list []interface{}) []string {
-	result := make([]string, len(list))
-	for index, item := range list {
-		result[index] = item.(string)
-	}
+	var result moleculer.Node = &node
 	return result
 }
 
-func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
+func (node *Node) Update(info map[string]interface{}) bool {
 	id := info["id"]
 	if id != node.id {
 		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
@@ -89,7 +75,6 @@ func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
 	node.lastHeartBeatTime = time.Now().Unix()
 	node.offlineSince = 0
 
-	node.rawInfo = info
 	node.ipList = interfaceToString(info["ipList"].([]interface{}))
 	node.hostname = info["hostname"].(string)
 	node.client = info["client"].(map[string]interface{})
@@ -108,7 +93,17 @@ func (node *NodeInfo) updateImpl(info map[string]interface{}) bool {
 	return reconnected
 }
 
-func (node *NodeInfo) exportAsMapImpl() map[string]interface{} {
+func interfaceToString(list []interface{}) []string {
+	result := make([]string, len(list))
+	for index, item := range list {
+		result[index] = item.(string)
+	}
+	return result
+}
+
+// ExportAsMap export the node info as a map
+// this map is used to publish the node info to other nodes.
+func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
 	resultMap["services"] = node.services
@@ -121,20 +116,14 @@ func (node *NodeInfo) exportAsMapImpl() map[string]interface{} {
 	return resultMap
 }
 
-// ExportAsMap export the node info as a map
-// this map is used to publish the node info to other nodes.
-func (node NodeInfo) ExportAsMap() map[string]interface{} {
-	return node.self.exportAsMapImpl()
-}
-
-func (node NodeInfo) GetID() string {
+func (node *Node) GetID() string {
 	return node.id
 }
-func (node NodeInfo) IsExpired(timeout time.Duration) bool {
-	return node.self.isExpiredImpl(timeout)
+func (node *Node) IsExpired(timeout time.Duration) bool {
+	return node.isExpiredImpl(timeout)
 }
 
-func (node *NodeInfo) isExpiredImpl(timeout time.Duration) bool {
+func (node *Node) isExpiredImpl(timeout time.Duration) bool {
 	if !node.isAvailable || node.isLocal {
 		return false
 	}
@@ -142,41 +131,37 @@ func (node *NodeInfo) isExpiredImpl(timeout time.Duration) bool {
 	return diff > int64(timeout.Seconds())
 }
 
-func (node *NodeInfo) heartBeatImp(heartbeat map[string]interface{}) {
+func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 	if !node.isAvailable {
 		node.isAvailable = true
 		node.offlineSince = 0
 	}
-	node.cpu = heartbeat["cpu"].(int64)
-	node.cpuSequence = heartbeat["cpuSeq"].(int64)
+	node.cpu = int64(heartbeat["cpu"].(float64))
+	node.cpuSequence = int64(heartbeat["cpuSeq"].(float64))
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
-func (node NodeInfo) HeartBeat(heartbeat map[string]interface{}) {
-	node.self.heartBeatImp(heartbeat)
-}
-
-func (node *NodeInfo) addServicesImpl(service map[string]interface{}) {
+func (node *Node) addServicesImpl(service map[string]interface{}) {
 	node.services = append(node.services, service)
 }
 
-func (node NodeInfo) AddServices(service map[string]interface{}) {
-	node.self.addServicesImpl(service)
+func (node *Node) AddService(service map[string]interface{}) {
+	node.addServicesImpl(service)
 }
 
-func (node NodeInfo) IsAvailable() bool {
+func (node *Node) IsAvailable() bool {
 	return node.isAvailable
 }
 
-func (node NodeInfo) IsLocal() bool {
+func (node *Node) IsLocal() bool {
 	return node.isLocal
 }
 
-func (node NodeInfo) IncreaseSequence() {
+func (node *Node) IncreaseSequence() {
 	node.sequence++
 }
 
 //check if required
-// func (node *NodeInfo) AddService(service *Service) {
+// func (node *Node) AddService(service *Service) {
 
 // }

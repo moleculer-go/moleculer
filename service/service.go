@@ -4,65 +4,19 @@ import (
 	"errors"
 	"fmt"
 
-	. "github.com/moleculer-go/moleculer/common"
+	"github.com/moleculer-go/moleculer"
 )
 
-type ActionHandler func(ctx Context, params Params) interface{}
-
-type EventHandler func(ctx Context, params Params)
-
-type ActionSchema struct {
-}
-
-type ServiceActionSchema struct {
-	Name    string
-	Handler ActionHandler
-	Schema  ActionSchema
-}
-
-type ServiceAction struct {
+type Action struct {
 	name     string
 	fullname string
-	handler  ActionHandler
-	schema   ActionSchema
+	handler  moleculer.ActionHandler
+	params   moleculer.ParamsSchema
 }
 
-type ServiceEventSchema struct {
-	Name    string
-	Handler EventHandler
-}
-
-type ServiceEvent struct {
+type Event struct {
 	name    string
-	handler EventHandler
-}
-
-type FuncType func()
-
-type ServiceSchema struct {
-	Name     string
-	Version  string
-	Settings map[string]interface{}
-	Metadata map[string]interface{}
-	Hooks    map[string]interface{}
-	Mixins   []MixinSchema
-	Actions  []ServiceActionSchema
-	Events   []ServiceEventSchema
-	Created  FuncType
-	Started  FuncType
-	Stopped  FuncType
-}
-
-type MixinSchema struct {
-	Name     string
-	Settings map[string]interface{}
-	Metadata map[string]interface{}
-	Hooks    map[string]interface{}
-	Actions  []ServiceActionSchema
-	Events   []ServiceEventSchema
-	Created  FuncType
-	Started  FuncType
-	Stopped  FuncType
+	handler moleculer.EventHandler
 }
 
 type Service struct {
@@ -71,42 +25,38 @@ type Service struct {
 	version  string
 	settings map[string]interface{}
 	metadata map[string]interface{}
-	actions  []ServiceAction
-	events   []ServiceEvent
-	created  []FuncType
-	started  []FuncType
-	stopped  []FuncType
+	actions  []Action
+	events   []Event
+	created  []moleculer.FuncType
+	started  []moleculer.FuncType
+	stopped  []moleculer.FuncType
 }
 
-func (serviceAction *ServiceAction) ReplaceHandler(actionHandler ActionHandler) {
-	serviceAction.handler = actionHandler
-}
-
-func (serviceAction *ServiceAction) GetHandler() ActionHandler {
+func (serviceAction *Action) Handler() moleculer.ActionHandler {
 	return serviceAction.handler
 }
 
-func (serviceAction *ServiceAction) GetName() string {
+func (serviceAction *Action) Name() string {
 	return serviceAction.name
 }
 
-func (serviceAction *ServiceAction) GetFullName() string {
+func (serviceAction *Action) FullName() string {
 	return serviceAction.fullname
 }
 
-func (service *Service) GetName() string {
+func (service *Service) Name() string {
 	return service.name
 }
 
-func (service *Service) GetFullName() string {
+func (service *Service) FullName() string {
 	return service.fullname
 }
 
-func (service *Service) GetVersion() string {
+func (service *Service) Version() string {
 	return service.version
 }
 
-func (service *Service) GetActions() []ServiceAction {
+func (service *Service) Actions() []Action {
 	return service.actions
 }
 
@@ -117,12 +67,12 @@ func (service *Service) Summary() map[string]string {
 	}
 }
 
-func (service *Service) GetEvents() []ServiceEvent {
+func (service *Service) Events() []Event {
 	return service.events
 }
 
 // extendActions merges the actions from the base service with the mixin schema.
-func extendActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	for _, mixinAction := range mixin.Actions {
 		for _, serviceAction := range service.Actions {
 			if serviceAction.Name != mixinAction.Name {
@@ -133,14 +83,14 @@ func extendActions(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func concatenateEvents(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func concatenateEvents(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	for _, mixinEvent := range mixin.Events {
 		service.Events = append(service.Events, mixinEvent)
 	}
 	return service
 }
 
-func extendSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendSettings(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	settings := make(map[string]interface{})
 	for index, setting := range service.Settings {
 		if _, ok := service.Settings[index]; ok {
@@ -157,7 +107,7 @@ func extendSettings(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func extendMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendMetadata(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	metadata := make(map[string]interface{})
 	for index, value := range service.Metadata {
 		if _, ok := service.Metadata[index]; ok {
@@ -174,7 +124,7 @@ func extendMetadata(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func extendHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
+func extendHooks(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	hooks := make(map[string]interface{})
 	for index, hook := range service.Hooks {
 		if _, ok := service.Hooks[index]; ok {
@@ -191,14 +141,24 @@ func extendHooks(service ServiceSchema, mixin *MixinSchema) ServiceSchema {
 	return service
 }
 
-func mergeNames(service ServiceSchema, mixin *MixinSchema) ServiceSchema         { return service }
-func mergeVersions(service ServiceSchema, mixin *MixinSchema) ServiceSchema      { return service }
-func mergeMethods(service ServiceSchema, mixin *MixinSchema) ServiceSchema       { return service }
-func mergeMixins(service ServiceSchema, mixin *MixinSchema) ServiceSchema        { return service }
-func mergeDependencies(service ServiceSchema, mixin *MixinSchema) ServiceSchema  { return service }
-func concatenateCreated(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
-func concatenateStarted(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
-func concatenateStopped(service ServiceSchema, mixin *MixinSchema) ServiceSchema { return service }
+func mergeNames(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service { return service }
+func mergeVersions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	return service
+}
+func mergeMethods(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service { return service }
+func mergeMixins(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service  { return service }
+func mergeDependencies(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	return service
+}
+func concatenateCreated(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	return service
+}
+func concatenateStarted(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	return service
+}
+func concatenateStopped(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	return service
+}
 
 /*
 Mixin Strategy:
@@ -218,7 +178,7 @@ started:    	Concatenate listeners.
 stopped:    	Concatenate listeners.
 */
 
-func applyMixins(service ServiceSchema) ServiceSchema {
+func applyMixins(service moleculer.Service) moleculer.Service {
 	for _, mixin := range service.Mixins {
 		service = extendActions(service, &mixin)
 		service = concatenateEvents(service, &mixin)
@@ -244,12 +204,12 @@ func joinVersionToName(name string, version string) string {
 	return name
 }
 
-func CreateServiceAction(serviceName string, actionName string, handler ActionHandler, schema ActionSchema) ServiceAction {
-	return ServiceAction{
+func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ParamsSchema) Action {
+	return Action{
 		actionName,
 		fmt.Sprintf("%s.%s", serviceName, actionName),
 		handler,
-		schema,
+		params,
 	}
 }
 
@@ -266,7 +226,7 @@ func (service *Service) AsMap() map[string]interface{} {
 	for index, serviceAction := range service.actions {
 		actionInfo := make(map[string]interface{})
 		actionInfo["name"] = serviceAction.name
-		actionInfo["schema"] = actionSchemaAsMap(&serviceAction.schema)
+		actionInfo["params"] = paramsAsMap(&serviceAction.params)
 		actions[index] = actionInfo
 	}
 	serviceInfo["actions"] = actions
@@ -282,30 +242,34 @@ func (service *Service) AsMap() map[string]interface{} {
 	return serviceInfo
 }
 
-func actionSchemaFromMap(schemaInfo map[string]interface{}) ActionSchema {
+func paramsFromMap(schema interface{}) moleculer.ParamsSchema {
+	// if schema != nil {
+	//mapValues = schema.(map[string]interface{})
 	//TODO
-	return ActionSchema{}
+	// }
+	return moleculer.ParamsSchema{}
 }
 
-func actionSchemaAsMap(actionSchema *ActionSchema) map[string]interface{} {
+// moleculer.ParamsAsMap converts params schema into a map.
+func paramsAsMap(params *moleculer.ParamsSchema) map[string]interface{} {
 	//TODO
 	schema := make(map[string]interface{})
 	return schema
 }
 
-func (service *Service) AddActionMap(actionInfo map[string]interface{}) *ServiceAction {
+func (service *Service) AddActionMap(actionInfo map[string]interface{}) *Action {
 	action := CreateServiceAction(
 		service.fullname,
 		actionInfo["name"].(string),
 		nil,
-		actionSchemaFromMap(actionInfo["schema"].(map[string]interface{})),
+		paramsFromMap(actionInfo["schema"]),
 	)
 	service.actions = append(service.actions, action)
 	return &action
 }
 
 func (service *Service) RemoveAction(fullname string) {
-	var newActions []ServiceAction
+	var newActions []Action
 	for _, action := range service.actions {
 		if action.fullname != fullname {
 			newActions = append(newActions, action)
@@ -314,8 +278,8 @@ func (service *Service) RemoveAction(fullname string) {
 	service.actions = newActions
 }
 
-func (service *Service) AddEventMap(eventInfo map[string]interface{}) *ServiceEvent {
-	serviceEvent := ServiceEvent{
+func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
+	serviceEvent := Event{
 		eventInfo["name"].(string),
 		nil,
 	}
@@ -351,8 +315,8 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 	}
 }
 
-// populateFromSchema populate a service with data from a ServiceSchema.
-func populateFromSchema(service *Service, schema *ServiceSchema) {
+// populateFromSchema populate a service with data from a moleculer.Service.
+func populateFromSchema(service *Service, schema *moleculer.Service) {
 	service.name = schema.Name
 	service.version = schema.Version
 	service.fullname = joinVersionToName(service.name, service.version)
@@ -366,19 +330,19 @@ func populateFromSchema(service *Service, schema *ServiceSchema) {
 		service.metadata = make(map[string]interface{})
 	}
 
-	service.actions = make([]ServiceAction, len(schema.Actions))
+	service.actions = make([]Action, len(schema.Actions))
 	for index, actionSchema := range schema.Actions {
 		service.actions[index] = CreateServiceAction(
 			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
-			actionSchema.Schema,
+			actionSchema.Params,
 		)
 	}
 
-	service.events = make([]ServiceEvent, len(schema.Events))
+	service.events = make([]Event, len(schema.Events))
 	for index, eventSchema := range schema.Events {
-		service.events[index] = ServiceEvent{
+		service.events[index] = Event{
 			eventSchema.Name,
 			eventSchema.Handler,
 		}
@@ -395,7 +359,7 @@ func populateFromSchema(service *Service, schema *ServiceSchema) {
 	}
 }
 
-func CreateService(schema ServiceSchema) *Service {
+func FromSchema(schema moleculer.Service) *Service {
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
@@ -418,21 +382,5 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 
 // Start called by the broker when the service is starting.
 func (service *Service) Start() {
-
-}
-
-type filterActionSchemaPredicate func(ServiceActionSchema) bool
-
-func filterActionSchema(list []ServiceActionSchema, predicate filterActionSchemaPredicate) []ServiceActionSchema {
-	var result []ServiceActionSchema
-	for _, item := range list {
-		if predicate(item) {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
-func findActionSchema(list []ServiceActionSchema, predicate filterActionSchemaPredicate) bool {
-	return len(filterActionSchema(list, predicate)) > 0
+	//TODO implement service lifecycle
 }

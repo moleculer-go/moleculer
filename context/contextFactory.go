@@ -1,80 +1,65 @@
-package middleware
+package context
 
 import (
 	"fmt"
 
-	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/params"
-	. "github.com/moleculer-go/moleculer/util"
+	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/options"
+	"github.com/moleculer-go/moleculer/params"
+	"github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
 )
 
-type ContextImpl struct {
-	self              *ContextImpl
-	id                string
-	actionDelegate    ActionDelegateFunc
-	emitDelegate      EventDelegateFunc
-	broadcastDelegate EventDelegateFunc
-	localNodeID       string
-	targetNodeID      string
-	parentID          string
-	actionName        string
-	eventName         string
-	getLogger         GetLoggerFunction
-	params            interface{}
-	meta              map[string]interface{}
-	timeout           int
-	level             int
-	sendMetrics       bool
+type Context struct {
+	id           string
+	broker       moleculer.BrokerDelegates
+	targetNodeID string
+	parentID     string
+	actionName   string
+	eventName    string
+	params       *interface{}
+	meta         *map[string]interface{}
+	timeout      int
+	level        int
+	sendMetrics  bool
 }
 
-func CreateBrokerContext(actionDelegate ActionDelegateFunc, emitDelegate EventDelegateFunc, broadcastDelegate EventDelegateFunc, getLogger GetLoggerFunction, localNodeID string) Context {
-	id := fmt.Sprint("rootContext-broker-", localNodeID, "-", RandomString(12))
-	context := ContextImpl{
-		id:                id,
-		actionDelegate:    actionDelegate,
-		emitDelegate:      emitDelegate,
-		broadcastDelegate: broadcastDelegate,
-		getLogger:         getLogger,
-		localNodeID:       localNodeID,
-		level:             1,
-		parentID:          "ImGroot;)",
+func BrokerContext(broker moleculer.BrokerDelegates) moleculer.BrokerContext {
+	localNodeID := broker.LocalNode().GetID()
+	id := fmt.Sprint("rootContext-broker-", localNodeID, "-", util.RandomString(12))
+	context := Context{
+		id:       id,
+		broker:   broker,
+		level:    1,
+		parentID: "ImGroot;)",
 	}
-	context.self = &context
-	return context
+	return &context
 }
 
 // NewActionContext : create a new context for a specific action call
-func (context ContextImpl) NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) Context {
-	parentContext := context.self
-	actionContext := ContextImpl{
-		id:                RandomString(12),
-		actionDelegate:    parentContext.actionDelegate,
-		emitDelegate:      parentContext.emitDelegate,
-		broadcastDelegate: parentContext.broadcastDelegate,
-		getLogger:         parentContext.getLogger,
-		localNodeID:       parentContext.localNodeID,
-		actionName:        actionName,
-		params:            params,
-		level:             parentContext.level + 1,
-		sendMetrics:       parentContext.sendMetrics,
-		parentID:          parentContext.id,
+func (context *Context) NewActionContext(actionName string, params interface{}, opts ...moleculer.OptionsFunc) moleculer.BrokerContext {
+	parentContext := context
+	actionContext := Context{
+		id:          util.RandomString(12),
+		broker:      parentContext.broker,
+		actionName:  actionName,
+		params:      &params,
+		level:       parentContext.level + 1,
+		sendMetrics: parentContext.sendMetrics,
+		parentID:    parentContext.id,
 	}
-	actionContext.self = &actionContext
-	return actionContext
+	return &actionContext
 }
 
 // Max calling level check to avoid calling loops
-func checkMaxCalls(context *ContextImpl) {
+func checkMaxCalls(context *Context) {
 
 }
 
-func CreateContext(broker *BrokerInfo, values map[string]interface{}) Context {
+// RemoteActionContext create a context for a remote call
+func RemoteActionContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 
-	actionDelegate, emitDelegate, broadcastDelegate := broker.GetDelegates()
-
-	//TODO check on moleculer JS if in the request the sender is sent.
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
 	actionName := values["action"].(string)
@@ -92,41 +77,33 @@ func CreateContext(broker *BrokerInfo, values map[string]interface{}) Context {
 		meta = values["meta"].(map[string]interface{})
 	}
 
-	localNodeID := (*broker.GetLocalNode()).GetID()
-
-	actionContext := ContextImpl{
-		actionDelegate:    actionDelegate,
-		emitDelegate:      emitDelegate,
-		broadcastDelegate: broadcastDelegate,
-		getLogger:         broker.GetLogger,
-		localNodeID:       localNodeID,
-		targetNodeID:      sourceNodeID,
-		id:                id,
-		parentID:          parentID,
-		actionName:        actionName,
-		params:            params,
-		meta:              meta,
-		timeout:           timeout,
-		level:             level,
-		sendMetrics:       sendMetrics,
+	newContext := Context{
+		broker:       broker,
+		targetNodeID: sourceNodeID,
+		id:           id,
+		parentID:     parentID,
+		actionName:   actionName,
+		params:       &params,
+		meta:         &meta,
+		timeout:      timeout,
+		level:        level,
+		sendMetrics:  sendMetrics,
 	}
-
-	actionContext.self = &actionContext
-	return actionContext
+	return &newContext
 }
 
 // AsMap : export context info in a map[string]
-func (context ContextImpl) AsMap() map[string]interface{} {
+func (context *Context) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
 
-	mapResult["id"] = context.self.id
-	mapResult["action"] = context.self.actionName
-	mapResult["params"] = context.self.params
-	mapResult["meta"] = context.self.meta
-	mapResult["timeout"] = context.self.timeout
-	mapResult["level"] = context.self.level
-	mapResult["metrics"] = context.self.sendMetrics
-	mapResult["parentID"] = context.self.parentID
+	mapResult["id"] = context.id
+	mapResult["action"] = context.actionName
+	mapResult["params"] = context.params
+	mapResult["meta"] = context.meta
+	mapResult["timeout"] = context.timeout
+	mapResult["level"] = context.level
+	mapResult["metrics"] = context.sendMetrics
+	mapResult["parentID"] = context.parentID
 
 	//TODO : check how to support streaming params in go
 	mapResult["stream"] = false
@@ -134,58 +111,51 @@ func (context ContextImpl) AsMap() map[string]interface{} {
 	return mapResult
 }
 
-// InvokeAction : check max calls and call broker action delegate
-func (context ContextImpl) InvokeAction(opts ...OptionsFunc) chan interface{} {
-	checkMaxCalls(&context)
-	var contextInterface Context = (*context.self)
-	return context.self.actionDelegate(&contextInterface, WrapOptions(opts))
-}
-
 // Call : main entry point to call actions.
 // chained action invocation
-func (context ContextImpl) Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{} {
-	actionContext := context.self.NewActionContext(actionName, params, WrapOptions(opts))
-	return actionContext.InvokeAction(WrapOptions(opts))
+func (context *Context) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan interface{} {
+	actionContext := context.NewActionContext(actionName, params, options.Wrap(opts))
+	return context.broker.ActionDelegate(actionContext, options.Wrap(opts))
 }
 
 // Emit : Emit an event (grouped & balanced global event)
-func (context ContextImpl) Emit(eventName string, params interface{}, groups ...string) {
+func (context *Context) Emit(eventName string, params interface{}, groups ...string) {
 
 }
 
 // Broadcast : Broadcast an event for all local & remote services
-func (context ContextImpl) Broadcast(eventName string, params interface{}, groups ...string) {
+func (context *Context) Broadcast(eventName string, params interface{}, groups ...string) {
 
 }
 
-func (context ContextImpl) GetActionName() string {
-	return context.self.actionName
+func (context *Context) ActionName() string {
+	return context.actionName
 }
 
-func (context ContextImpl) GetParams() Params {
-	return CreateParams(&context.self.params)
+func (context *Context) Params() moleculer.Params {
+	return params.CreateParams(context.params)
 }
 
-func (context ContextImpl) SetTargetNodeID(targetNodeID string) {
-	fmt.Println("context factory SetTargetNodeID() targetNodeID: ", targetNodeID)
-	context.self.targetNodeID = targetNodeID
+func (context *Context) SetTargetNodeID(targetNodeID string) {
+	context.Logger().Debug("context factory SetTargetNodeID() targetNodeID: ", targetNodeID)
+	context.targetNodeID = targetNodeID
 }
 
-func (context ContextImpl) GetTargetNodeID() string {
-	return context.self.targetNodeID
+func (context *Context) TargetNodeID() string {
+	return context.targetNodeID
 }
 
-func (context ContextImpl) GetID() string {
-	return context.self.id
+func (context *Context) ID() string {
+	return context.id
 }
 
-func (context ContextImpl) GetMeta() map[string]interface{} {
-	return context.self.meta
+func (context *Context) Meta() *map[string]interface{} {
+	return context.meta
 }
 
-func (context ContextImpl) GetLogger() *log.Entry {
-	if context.self.actionName != "" {
-		return context.self.getLogger("action", context.self.actionName)
+func (context *Context) Logger() *log.Entry {
+	if context.actionName != "" {
+		return context.broker.Logger("action", context.actionName)
 	}
-	return context.self.getLogger("context", "<root>")
+	return context.broker.Logger("context", "<root>")
 }

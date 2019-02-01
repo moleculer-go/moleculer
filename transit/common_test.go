@@ -2,21 +2,29 @@ package transit_test
 
 import (
 	. "github.com/moleculer-go/goemitter"
-	. "github.com/moleculer-go/moleculer/common"
-	. "github.com/moleculer-go/moleculer/registry"
+	"github.com/moleculer-go/moleculer"
+
+	"github.com/moleculer-go/moleculer/registry"
 	log "github.com/sirupsen/logrus"
 )
 
-var logger = log.WithField("Unit Test", "Transit Pkg")
+var logger = log.WithField("unit test pkg", "transit_test")
 
 func CreateLogger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-var localNode = CreateNode("unit-test-node")
+var localNode = registry.CreateNode("unit-test-node")
 
-func CreateBroker() *BrokerInfo {
+func BrokerDelegates() *moleculer.BrokerDelegates {
 	localBus := CreateEmitter()
-	broker := &BrokerInfo{GetLocalNode: func() *Node { return &localNode }, GetLogger: CreateLogger, GetLocalBus: func() *Emitter { return localBus }}
+	broker := &moleculer.BrokerDelegates{
+		LocalNode: func() moleculer.Node {
+			return localNode
+		},
+		Logger: CreateLogger,
+		Bus: func() *Emitter {
+			return localBus
+		}}
 	return broker
 }

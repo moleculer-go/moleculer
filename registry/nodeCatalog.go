@@ -3,17 +3,17 @@ package registry
 import (
 	"time"
 
-	. "github.com/moleculer-go/moleculer/common"
+	"github.com/moleculer-go/moleculer"
 )
 
 // NodeCatalog catalog of nodes
 type NodeCatalog struct {
-	nodes map[string]*Node
+	nodes map[string]moleculer.Node
 }
 
 // CreateNodesCatalog create a node catalog
 func CreateNodesCatalog() *NodeCatalog {
-	nodes := make(map[string]*Node)
+	nodes := make(map[string]moleculer.Node)
 	return &NodeCatalog{nodes: nodes}
 }
 
@@ -21,26 +21,26 @@ func CreateNodesCatalog() *NodeCatalog {
 func (catalog *NodeCatalog) HeartBeat(heartbeat map[string]interface{}) bool {
 	sender := heartbeat["sender"].(string)
 	node, nodeExists := catalog.nodes[sender]
-	if nodeExists && (*node).IsAvailable() {
-		(*node).HeartBeat(heartbeat)
+	if nodeExists && node.IsAvailable() {
+		node.HeartBeat(heartbeat)
 		return true
 	}
 	return false
 }
 
 // checkRemoteNodes : check nodes with  heartbeat expired based on the timeout parameter
-func (catalog *NodeCatalog) expiredNodes(timeout time.Duration) []*Node {
-	var result []*Node
+func (catalog *NodeCatalog) expiredNodes(timeout time.Duration) []moleculer.Node {
+	var result []moleculer.Node
 	for _, node := range catalog.nodes {
-		if (*node).IsExpired(timeout) {
+		if node.IsExpired(timeout) {
 			result = append(result, node)
 		}
 	}
 	return result
 }
 
-// getNode : return a Node instance from the catalog
-func (catalog *NodeCatalog) getNode(nodeID string) (*Node, bool) {
+// findNode : return a Node instance from the catalog
+func (catalog *NodeCatalog) findNode(nodeID string) (moleculer.Node, bool) {
 	node, exists := catalog.nodes[nodeID]
 	return node, exists
 }
@@ -53,13 +53,13 @@ func (catalog *NodeCatalog) removeNode(nodeID string) {
 // Info : process info received about a NODE. It can be new, update to existing
 func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 	sender := info["sender"].(string)
-	node, exists := catalog.getNode(sender)
+	node, exists := catalog.findNode(sender)
 	var reconnected bool
 	if exists {
-		reconnected = (*node).Update(info)
+		reconnected = node.Update(info)
 	} else {
 		newNode := CreateNode(sender)
-		catalog.nodes[sender] = &newNode
+		catalog.nodes[sender] = newNode
 	}
 	return exists, reconnected
 }
