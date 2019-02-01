@@ -317,14 +317,11 @@ func (pubsub *PubSub) Connect() chan bool {
 		endChan <- true
 		return endChan
 	}
-	pubsub.logger.Info("PubSub Transit - Connecting...")
+	pubsub.logger.Info("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport(pubsub.broker)
-
-	pubsub.logger.Debug("transit: ", pubsub)
-	pubsub.logger.Debug("transport created: ", pubsub.transport)
 	go func() {
 		pubsub.isConnected = <-pubsub.transport.Connect()
-		pubsub.logger.Debug("transport is connected!")
+		pubsub.logger.Debug("Transport Connected!")
 		if pubsub.isConnected {
 			pubsub.subscribe()
 		}
