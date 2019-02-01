@@ -114,8 +114,6 @@ type BrokerContext interface {
 	//export context info in a map[string]
 	AsMap() map[string]interface{}
 
-	//InvokeAction(opts ...OptionsFunc) chan interface{}
-
 	SetTargetNodeID(targetNodeID string)
 	TargetNodeID() string
 

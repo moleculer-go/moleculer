@@ -1,7 +1,6 @@
 package registry_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -86,7 +85,6 @@ func createBrokerC() broker.ServiceBroker {
 var _ = Describe("Registry", func() {
 
 	Describe("Heartbeat", func() {
-		//broker := CreateBroker()
 
 		It("Should call action from brokerA to brokerB and retun results", func() {
 
@@ -113,17 +111,11 @@ var _ = Describe("Registry", func() {
 			brokerB.Start()
 			time.Sleep(time.Second)
 
-			fmt.Println("***** Step X")
-
 			scanResult := <-brokerA.Call("scanner.scan", scanText)
 			Expect(scanResult).Should(Equal(scanText))
 
-			fmt.Println("***** Step Y")
-
 			brokerC.Start()
 			time.Sleep(time.Second) //sleep until services are registered
-
-			fmt.Println("***** Step Z")
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-brokerC.Call("cpu.compute", contentToCompute)
