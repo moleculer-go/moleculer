@@ -1,4 +1,5 @@
 # moleculer
+
 🚀 Progressive microservices framework for Go - based and compatible with https://github.com/moleculerjs/moleculer
 
 [![Build Status](https://travis-ci.org/moleculer-go/moleculer.svg?branch=master)](https://travis-ci.org/moleculer-go/moleculer)
@@ -7,6 +8,7 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield)
 
 This the reimplementation of Moleculer (progressive microservices framework for Node.js) in Golang.
+
 <!--
 ![](https://img.shields.io/badge/performance-%2B50%25-brightgreen.svg)
 ![](https://img.shields.io/badge/performance-%2B5%25-green.svg)
@@ -22,7 +24,6 @@ This the reimplementation of Moleculer (progressive microservices framework for 
 
 ALL the goodness moleculer has:
 
-- Promise-based solution
 - request-reply concept
 - support streams
 - support event driven architecture with balancing
@@ -39,9 +40,10 @@ ALL the goodness moleculer has:
 - multiple services on a node/server
 - all nodes are equal, no master/leader node
 
-But developed and available in Golang.
+Now available in Golang.
 
 # Installation
+
 ```
 $ go get github.com/moleculer-go/moleculer
 ```
