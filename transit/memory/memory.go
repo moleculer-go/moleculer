@@ -23,7 +23,7 @@ type MemoryTransporter struct {
 }
 
 func CreateTransporter(prefix string, logger *log.Entry, messageIsValid transit.ValidateMsgFunc) MemoryTransporter {
-	events := bus.CreateEmitter()
+	events := bus.Construct()
 	return MemoryTransporter{events, prefix, logger, messageIsValid}
 }
 
