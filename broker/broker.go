@@ -249,7 +249,7 @@ func (broker *ServiceBroker) init() {
 }
 
 func (broker *ServiceBroker) setupLocalBus() {
-	broker.localBus = bus.CreateEmitter()
+	broker.localBus = bus.Construct()
 
 	broker.localBus.On("$registry.service.added", func(args ...interface{}) {
 		//TODO check code from -> this.broker.servicesChanged(true)
