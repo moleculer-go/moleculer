@@ -67,15 +67,24 @@ func (pubsub *PubSub) createTransport(broker moleculer.BrokerDelegates) transit.
 	}
 }
 
+var memoryTransporter transit.Transport
+
 func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
-	broker := pubsub.broker
-	logger := broker.Logger("transport", "memory")
-	localNodeID := broker.LocalNode().GetID()
-	transport := memory.CreateTransporter("", logger, func(message transit.Message) bool {
-		sender := message.Get("sender").String()
-		return sender != localNodeID
-	})
-	return &transport
+	if memoryTransporter == nil {
+		pubsub.logger.Debug("createMemoryTransporter() creating new instance !!!")
+		broker := pubsub.broker
+		prefix := "MOL"
+		logger := log.WithField("transport", "memory")
+		localNodeID := broker.LocalNode().GetID()
+		transport := memory.CreateTransporter(prefix, logger, func(message transit.Message) bool {
+			sender := message.Get("sender").String()
+			return sender != localNodeID
+		})
+		memoryTransporter = &transport
+	} else {
+		pubsub.logger.Debug("createMemoryTransporter() reusing existing instance.")
+	}
+	return memoryTransporter
 }
 
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
