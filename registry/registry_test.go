@@ -15,7 +15,6 @@ func createBrokerA() broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerA" },
 		LogLevel:       logLevel,
-		Transporter:    "STAN",
 	})
 
 	broker.AddService(moleculer.Service{
@@ -38,7 +37,6 @@ func createBrokerB() broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerB" },
 		LogLevel:       logLevel,
-		Transporter:    "STAN",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "scanner",
@@ -61,7 +59,6 @@ func createBrokerC() broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_brokerC" },
 		LogLevel:       logLevel,
-		Transporter:    "STAN",
 	})
 	broker.AddService(moleculer.Service{
 		Name: "cpu",
@@ -122,12 +119,12 @@ var _ = Describe("Registry", func() {
 			Expect(computeResult).Should(Equal(contentToCompute))
 
 			//stopping broker B
-			// brokerB.Stop() // TODO -> not  implemented yet
-			// time.Sleep(2 * time.Second)
+			brokerB.Stop() // TODO -> not  implemented yet
+			time.Sleep(time.Second)
 
-			// Expect(func() {
-			// 	<-brokerA.Call("scanner.scan", scanText)
-			// }).Should(Panic()) //broker B is stoped ... so it should panic
+			Expect(func() {
+				<-brokerA.Call("scanner.scan", scanText)
+			}).Should(Panic()) //broker B is stoped ... so it should panic
 
 		})
 

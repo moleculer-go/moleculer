@@ -384,3 +384,8 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 func (service *Service) Start() {
 	//TODO implement service lifecycle
 }
+
+// Stop called by the broker when the service is stoping.
+func (service *Service) Stop() {
+	//TODO implement service lifecycle
+}

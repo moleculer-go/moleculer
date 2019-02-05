@@ -99,8 +99,18 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 	return broker.localBus
 }
 
-// startService start a service within the provided broker
-func startService(broker *ServiceBroker, service *service.Service) {
+// stopService stop the service.
+func (broker *ServiceBroker) stopService(service *service.Service) {
+	broker.middlewares.CallHandlers("serviceStoping", service)
+
+	service.Stop()
+
+	broker.middlewares.CallHandlers("serviceStoped", service)
+
+}
+
+// startService start a service.
+func (broker *ServiceBroker) startService(service *service.Service) {
 
 	broker.middlewares.CallHandlers("serviceStarting", service)
 
@@ -172,6 +182,22 @@ func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	}
 }
 
+func (broker *ServiceBroker) Stop() {
+	broker.logger.Info("Broker -> Stoping...")
+
+	broker.middlewares.CallHandlers("stoping", broker)
+
+	for _, service := range broker.services {
+		broker.stopService(service)
+	}
+
+	broker.registry.Stop()
+
+	broker.started = false
+
+	broker.middlewares.CallHandlers("stoped", broker)
+}
+
 func (broker *ServiceBroker) Start() {
 	broker.logger.Info("Broker -> Starting...")
 
@@ -180,7 +206,7 @@ func (broker *ServiceBroker) Start() {
 	broker.middlewares.CallHandlers("starting", broker)
 
 	for _, service := range broker.services {
-		startService(broker, service)
+		broker.startService(service)
 	}
 
 	broker.registry.Start()
