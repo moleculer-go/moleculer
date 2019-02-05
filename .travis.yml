@@ -14,13 +14,12 @@ before_install:
   - go get -v golang.org/x/lint/golint
   - go get -v golang.org/x/tools/cmd/cover
   - go get -v github.com/mattn/goveralls
-
-before_script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then "curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash" ; fi
+  - go get -v github.com/nats-io/gnatsd
+  - curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash
 
 script:
+  - gnatsd &
   - go test -v ./...
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then $GOPATH/bin/goveralls -service=travis-ci          ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then fossa init          ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then fossa analyze          ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && `go version | grep 1.11` ]]; then fossa test          ; fi
+  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/goveralls -service=travis-ci || echo "Skipping Goveralls"
+  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa analyze || echo "Skipping Fossa Analysis"
+  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa test || echo "Skipping Fossa Tests"
