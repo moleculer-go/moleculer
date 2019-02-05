@@ -1,25 +1,37 @@
 language: go
 
 go:
-  - 1.9.x
   - 1.10.x
   - 1.11.x
+  - master
 
 os:
   - linux
   - osx
   - windows
 
+matrix:
+  allow_failures:
+    - os: windows
+
 before_install:
   - go get -v golang.org/x/lint/golint
   - go get -v golang.org/x/tools/cmd/cover
   - go get -v github.com/mattn/goveralls
   - go get -v github.com/nats-io/gnatsd
-  - curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash
+  - echo $TRAVIS_OS_NAME | grep osx && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-darwin-amd64.zip -o nats.zip || echo "Skipping OSX"
+  - echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip || echo "Skipping Linux"
+  - echo $TRAVIS_OS_NAME | grep windows && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-windows-amd64.zip -o nats.zip || echo "Skipping Windows"
+  - unzip nats.zip && ls
 
 script:
-  - gnatsd &
+  - echo $TRAVIS_OS_NAME | grep windows && nats-streaming-server-v0.11.2-windows-amd64/nats-streaming-server || nohup nats-*/nats-streaming-server &
   - go test -v ./...
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/goveralls -service=travis-ci || echo "Skipping Goveralls"
+
+after_script:
+  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash || echo "Skipping Fossa Binary Download"
   - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa analyze || echo "Skipping Fossa Analysis"
   - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa test || echo "Skipping Fossa Tests"
+
+after_success:
+  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/goveralls -service=travis-ci || echo "Skipping Goveralls"
