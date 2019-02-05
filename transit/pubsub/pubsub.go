@@ -50,9 +50,11 @@ func Create(broker moleculer.BrokerDelegates) transit.Transit {
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	var nodeID string = values[0].(string)
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
-	pending := pubsub.pendingRequests[nodeID]
-	(*pending.resultChan) <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
-	delete(pubsub.pendingRequests, nodeID)
+	pending, exists := pubsub.pendingRequests[nodeID]
+	if exists {
+		(*pending.resultChan) <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
+		delete(pubsub.pendingRequests, nodeID)
+	}
 }
 
 // CreateTransport : based on config it will load the transporter
@@ -67,24 +69,19 @@ func (pubsub *PubSub) createTransport(broker moleculer.BrokerDelegates) transit.
 	}
 }
 
-var memoryTransporter transit.Transport
-
 func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
-	if memoryTransporter == nil {
-		pubsub.logger.Debug("createMemoryTransporter() creating new instance !!!")
-		broker := pubsub.broker
-		prefix := "MOL"
-		logger := log.WithField("transport", "memory")
-		localNodeID := broker.LocalNode().GetID()
-		transport := memory.CreateTransporter(prefix, logger, func(message transit.Message) bool {
-			sender := message.Get("sender").String()
-			return sender != localNodeID
-		})
-		memoryTransporter = &transport
-	} else {
-		pubsub.logger.Debug("createMemoryTransporter() reusing existing instance.")
-	}
-	return memoryTransporter
+
+	pubsub.logger.Debug("createMemoryTransporter() ... ")
+	broker := pubsub.broker
+	prefix := "MOL"
+	logger := log.WithField("transport", "memory")
+	localNodeID := broker.LocalNode().GetID()
+	transport := memory.CreateTransporter(prefix, logger, func(message transit.Message) bool {
+		sender := message.Get("sender").String()
+		return sender != localNodeID
+	})
+
+	return &transport
 }
 
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
@@ -317,6 +314,28 @@ func (pubsub *PubSub) subscribe() {
 	pubsub.transport.Subscribe("PING", nodeID, pubsub.pingHandler())
 	pubsub.transport.Subscribe("PONG", nodeID, pubsub.pongHandler())
 
+}
+
+// sendDisconnect broadcast a DISCONNECT pkt to all nodes informing this one is stoping.
+func (pubsub *PubSub) sendDisconnect() {
+	payload := make(map[string]interface{})
+	payload["sender"] = pubsub.broker.LocalNode().GetID()
+	msg, _ := pubsub.serializer.MapToMessage(&payload)
+	pubsub.transport.Publish("DISCONNECT", "", msg)
+}
+
+// Disconnect : disconnect the transit's  transporter.
+func (pubsub *PubSub) Disconnect() chan bool {
+	endChan := make(chan bool)
+	if !pubsub.isConnected {
+		endChan <- true
+		return endChan
+	}
+	pubsub.logger.Info("PubSub - Disconnecting transport...")
+	pubsub.sendDisconnect()
+	endChan = pubsub.transport.Disconnect()
+	pubsub.isConnected = false
+	return endChan
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
