@@ -46,7 +46,7 @@ func Create(broker moleculer.BrokerDelegates) transit.Transit {
 		pendingRequests:      pendingRequests,
 		logger:               broker.Logger("Transit", ""),
 		serializer:           serializer.FromConfig(broker),
-		neighboursTimeout:    1 * time.Second,
+		neighboursTimeout:    broker.Config.NeighboursCheckTimeout,
 		knownNeighbours:      knownNeighbours,
 		neighboursMutex:      &sync.Mutex{},
 		pendingRequestsMutex: &sync.Mutex{},
@@ -150,7 +150,7 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 		expected := pubsub.expectedNeighbours()
 		neighbours := pubsub.neighbours()
 		if expected <= neighbours && expected > 0 && neighbours > 0 {
-			pubsub.logger.Info("waitForNeighbours() - received INDO from all expected neighbours: ", expected)
+			pubsub.logger.Info("waitForNeighbours() - received info from all expected neighbours :) -> expected: ", expected)
 			return true
 		}
 		if time.Since(start) > pubsub.neighboursTimeout {
@@ -395,9 +395,8 @@ func (pubsub *PubSub) Disconnect() chan bool {
 	}
 	pubsub.logger.Info("PubSub - Disconnecting transport...")
 	pubsub.sendDisconnect()
-	endChan = pubsub.transport.Disconnect()
 	pubsub.isConnected = false
-	return endChan
+	return pubsub.transport.Disconnect()
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
@@ -411,7 +410,7 @@ func (pubsub *PubSub) Connect() chan bool {
 	pubsub.transport = pubsub.createTransport(pubsub.broker)
 	go func() {
 		pubsub.isConnected = <-pubsub.transport.Connect()
-		pubsub.logger.Debug("Transport Connected!")
+		pubsub.logger.Debug("PubSub - Transport Connected!")
 		if pubsub.isConnected {
 			pubsub.subscribe()
 		}

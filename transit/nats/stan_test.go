@@ -1,6 +1,8 @@
 package nats_test
 
 import (
+	"fmt"
+
 	"github.com/moleculer-go/moleculer/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -102,25 +104,25 @@ var _ = Describe("Transit", func() {
 	}
 
 	It("Should create multiple brokers, connect and disconnect and make sure stan resources are closed/released properly.", func() {
-
+		logLevel := "DEBUG"
 		brokersLoop := 100
 		for i := 0; i < brokersLoop; i++ {
 			brokr1 := broker.FromConfig(&moleculer.BrokerConfig{
-				LogLevel:    "INFO",
+				LogLevel:    logLevel,
 				Transporter: "STAN",
 			})
 			addUserService(brokr1)
 			brokr1.Start()
 
 			brokr2 := broker.FromConfig(&moleculer.BrokerConfig{
-				LogLevel:    "INFO",
+				LogLevel:    logLevel,
 				Transporter: "STAN",
 			})
 			addContactService(brokr2)
 			brokr2.Start()
 
 			brokr3 := broker.FromConfig(&moleculer.BrokerConfig{
-				LogLevel:    "INFO",
+				LogLevel:    logLevel,
 				Transporter: "STAN",
 			})
 			addProfileService(brokr3)
@@ -131,6 +133,8 @@ var _ = Describe("Transit", func() {
 			Expect(len(newList)).Should(Equal(arraySize + 6))
 
 			stopBrokers(brokr1, brokr2, brokr3)
+
+			fmt.Println("**** One More Loop -> Total: ", i)
 		}
 
 	})

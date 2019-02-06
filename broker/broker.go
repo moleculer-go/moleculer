@@ -22,13 +22,14 @@ import (
 )
 
 var defaultConfig = moleculer.BrokerConfig{
-	LogLevel:              "INFO",
-	LogFormat:             "TEXT",
-	DiscoverNodeID:        DiscoverNodeID,
-	Transporter:           "MEMORY",
-	HeartbeatFrequency:    5 * time.Second,
-	HeartbeatTimeout:      30 * time.Second,
-	OfflineCheckFrequency: 20 * time.Second,
+	LogLevel:               "INFO",
+	LogFormat:              "TEXT",
+	DiscoverNodeID:         DiscoverNodeID,
+	Transporter:            "MEMORY",
+	HeartbeatFrequency:     5 * time.Second,
+	HeartbeatTimeout:       30 * time.Second,
+	OfflineCheckFrequency:  20 * time.Second,
+	NeighboursCheckTimeout: 2 * time.Second,
 }
 
 // DiscoverNodeID - should return the node id for this machine

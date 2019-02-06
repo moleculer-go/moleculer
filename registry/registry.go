@@ -100,6 +100,8 @@ func (registry *ServiceRegistry) Stop() {
 	registry.logger.Debug("Registry Stop() ")
 	registry.stoping = true
 	<-registry.transit.Disconnect()
+	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
+
 }
 
 // Start : start the registry background processes.

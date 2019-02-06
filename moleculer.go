@@ -63,13 +63,14 @@ type Mixin struct {
 }
 
 type BrokerConfig struct {
-	LogLevel              string
-	LogFormat             string
-	DiscoverNodeID        func() string
-	Transporter           string
-	HeartbeatFrequency    time.Duration
-	HeartbeatTimeout      time.Duration
-	OfflineCheckFrequency time.Duration
+	LogLevel               string
+	LogFormat              string
+	DiscoverNodeID         func() string
+	Transporter            string
+	HeartbeatFrequency     time.Duration
+	HeartbeatTimeout       time.Duration
+	OfflineCheckFrequency  time.Duration
+	NeighboursCheckTimeout time.Duration
 }
 
 type ActionHandler func(context Context, params Params) interface{}
