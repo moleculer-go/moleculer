@@ -256,7 +256,12 @@ func (registry *ServiceRegistry) nodeInfoMessageReceived(message transit.Message
 		}
 	}
 
-	eventParam := []interface{}{nodeID}
+	var neighbours int64
+	if message.Get("neighbours").Exists() {
+		neighbours = message.Get("neighbours").Int()
+	}
+
+	eventParam := []interface{}{nodeID, neighbours}
 	eventName := "$node.connected"
 	if exists {
 		eventName = "$node.updated"

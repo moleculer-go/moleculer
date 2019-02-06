@@ -3,6 +3,7 @@ package pubsub
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer/context"
@@ -17,12 +18,17 @@ import (
 
 // PubSub is a transit implementation.
 type PubSub struct {
-	logger          *log.Entry
-	transport       transit.Transport
-	broker          moleculer.BrokerDelegates
-	isConnected     bool
-	pendingRequests map[string]pendingRequest
-	serializer      serializer.Serializer
+	logger               *log.Entry
+	transport            transit.Transport
+	broker               moleculer.BrokerDelegates
+	isConnected          bool
+	pendingRequests      map[string]pendingRequest
+	pendingRequestsMutex *sync.Mutex
+	serializer           serializer.Serializer
+
+	knownNeighbours   map[string]int64
+	neighboursTimeout time.Duration
+	neighboursMutex   *sync.Mutex
 }
 
 func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
@@ -33,15 +39,21 @@ func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
 
 func Create(broker moleculer.BrokerDelegates) transit.Transit {
 	pendingRequests := make(map[string]pendingRequest)
+	knownNeighbours := make(map[string]int64)
 	transitImpl := PubSub{
-		broker:          broker,
-		isConnected:     false,
-		pendingRequests: pendingRequests,
-		logger:          broker.Logger("Transit", ""),
-		serializer:      serializer.FromConfig(broker),
+		broker:               broker,
+		isConnected:          false,
+		pendingRequests:      pendingRequests,
+		logger:               broker.Logger("Transit", ""),
+		serializer:           serializer.FromConfig(broker),
+		neighboursTimeout:    1 * time.Second,
+		knownNeighbours:      knownNeighbours,
+		neighboursMutex:      &sync.Mutex{},
+		pendingRequestsMutex: &sync.Mutex{},
 	}
 
 	broker.Bus().On("$node.disconnected", transitImpl.onNodeDisconnected)
+	broker.Bus().On("$node.connected", transitImpl.onNodeConnected)
 	broker.Bus().On("$broker.started", transitImpl.onBrokerStarted)
 
 	return &transitImpl
@@ -55,6 +67,16 @@ func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 		(*pending.resultChan) <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
 		delete(pubsub.pendingRequests, nodeID)
 	}
+	delete(pubsub.knownNeighbours, nodeID)
+}
+
+func (pubsub *PubSub) onNodeConnected(values ...interface{}) {
+	nodeID := values[0].(string)
+	neighbours := values[1].(int64)
+	pubsub.logger.Debug("onNodeConnected() nodeID: ", nodeID, " neighbours: ", neighbours)
+	pubsub.neighboursMutex.Lock()
+	pubsub.knownNeighbours[nodeID] = neighbours
+	pubsub.neighboursMutex.Unlock()
 }
 
 // CreateTransport : based on config it will load the transporter
@@ -121,13 +143,30 @@ func (pubsub *PubSub) checkMaxQueueSize() {
 	//TODO: check transit.js line 524
 }
 
+// waitForNeighbours this function will wait for neighbour nodes or timeout if the expected number is not received after a time out.
+func (pubsub *PubSub) waitForNeighbours() bool {
+	start := time.Now()
+	for {
+		expected := pubsub.expectedNeighbours()
+		neighbours := pubsub.neighbours()
+		if expected <= neighbours && expected > 0 && neighbours > 0 {
+			pubsub.logger.Info("waitForNeighbours() - received INDO from all expected neighbours: ", expected)
+			return true
+		}
+		if time.Since(start) > pubsub.neighboursTimeout {
+			pubsub.logger.Warn("waitForNeighbours() - Time out ! did not receive info from all expected neighbours: ", expected, "  INFOs received: ", neighbours)
+			return false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 //DiscoverNodes will check if there are neighbours and return true if any are found ;).
 func (pubsub *PubSub) DiscoverNodes() chan bool {
 	result := make(chan bool)
 	go func() {
-		//TODO: implement the discover protocol usinga  request pattern so we wait for response OR timeout.
 		pubsub.DiscoverNode("")
-		result <- true
+		result <- pubsub.waitForNeighbours()
 	}()
 	return result
 }
@@ -169,10 +208,12 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan interface{} 
 		pubsub.logger.Error("Request() Error serializing the payload: ", payload, " error: ", err)
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
+	pubsub.pendingRequestsMutex.Lock()
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
 	}
+	pubsub.pendingRequestsMutex.Unlock()
 
 	pubsub.transport.Publish("REQ", targetNodeID, message)
 	return resultChan
@@ -229,6 +270,25 @@ func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	}
 }
 
+// expectedNeighbours calculate the expected number of neighbours
+func (pubsub *PubSub) expectedNeighbours() int64 {
+	neighbours := pubsub.neighbours()
+	if neighbours == 0 {
+		return 0
+	}
+
+	var total int64
+	for _, value := range pubsub.knownNeighbours {
+		total = total + value
+	}
+	return total / neighbours
+}
+
+// neighbours return the total number of known neighbours.
+func (pubsub *PubSub) neighbours() int64 {
+	return int64(len(pubsub.knownNeighbours))
+}
+
 //TODO
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message transit.Message) {
@@ -241,6 +301,8 @@ func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]
+	payload["neighbours"] = pubsub.neighbours()
+
 	message, _ := pubsub.serializer.MapToMessage(&payload)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
 }

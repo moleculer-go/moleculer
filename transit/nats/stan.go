@@ -20,7 +20,7 @@ type StanTransporter struct {
 
 	serializer    serializer.Serializer
 	connection    stan.Conn
-	subscriptions []*stan.Subscription
+	subscriptions []stan.Subscription
 }
 
 type StanOptions struct {
@@ -67,7 +67,11 @@ func (transporter *StanTransporter) Connect() chan bool {
 func (transporter *StanTransporter) Disconnect() chan bool {
 	endChan := make(chan bool)
 	go func() {
+		for _, sub := range transporter.subscriptions {
+			sub.Unsubscribe()
+		}
 		transporter.connection.Close()
+		transporter.connection = nil
 		endChan <- true
 	}()
 	return endChan
@@ -101,10 +105,15 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 		transporter.logger.Error("Subscribe() - Error: ", error)
 		panic(error)
 	}
-	transporter.subscriptions = append(transporter.subscriptions, &sub)
+	transporter.subscriptions = append(transporter.subscriptions, sub)
 }
 
 func (transporter *StanTransporter) Publish(command, nodeID string, message transit.Message) {
+	if transporter.connection == nil {
+		msg := fmt.Sprint("stan.Publish() No connection :( -> command: ", command, " nodeID: ", nodeID)
+		transporter.logger.Warn(msg)
+		panic(errors.New(msg))
+	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
 	transporter.connection.Publish(topic, []byte(message.String()))
