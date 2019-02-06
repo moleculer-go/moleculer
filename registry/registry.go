@@ -96,6 +96,12 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 	})
 }
 
+func (registry *ServiceRegistry) Stop() {
+	registry.logger.Debug("Registry Stop() ")
+	registry.stoping = true
+	<-registry.transit.Disconnect()
+}
+
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
@@ -156,10 +162,13 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 	return result
 }
 
+// removeServicesByNodeID
 func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
-	//TODO ?? needed ?
+	registry.services.RemoveByNode(nodeID)
+	registry.actions.RemoveByNode(nodeID)
 }
 
+// disconnectNode remove node info (actions, events) from local registry.
 func (registry *ServiceRegistry) disconnectNode(node moleculer.Node) {
 	nodeID := node.GetID()
 	registry.removeServicesByNodeID(nodeID)
@@ -195,10 +204,6 @@ func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegat
 	}
 }
 
-func (registry *ServiceRegistry) Stop() {
-	registry.stoping = true
-}
-
 func (registry *ServiceRegistry) heartbeatMessageReceived(message transit.Message) {
 	heartbeat := message.AsMap()
 	succesful := registry.nodes.HeartBeat(heartbeat)
@@ -208,8 +213,12 @@ func (registry *ServiceRegistry) heartbeatMessageReceived(message transit.Messag
 	}
 }
 
+// disconnectMessageReceived handles when a disconnect msg is received.
+// It remove all actions/events from the sender node from the local registry.
 func (registry *ServiceRegistry) disconnectMessageReceived(message transit.Message) {
-	node, exists := registry.nodes.findNode(message.Get("sender").String())
+	sender := message.Get("sender").String()
+	node, exists := registry.nodes.findNode(sender)
+	registry.logger.Debug("disconnectMessageReceived() sender: ", sender, " exists: ", exists)
 	if exists {
 		registry.disconnectNode(node)
 	}

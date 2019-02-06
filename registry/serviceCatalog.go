@@ -7,12 +7,14 @@ import (
 )
 
 type ServiceCatalog struct {
-	services map[string]*service.Service
+	services       map[string]*service.Service
+	servicesByNode map[string][]string
 }
 
 func CreateServiceCatalog() *ServiceCatalog {
 	services := make(map[string]*service.Service)
-	return &ServiceCatalog{services}
+	servicesByNode := make(map[string][]string)
+	return &ServiceCatalog{services, servicesByNode}
 }
 
 func (serviceCatalog *ServiceCatalog) getLocalNodeServices() []map[string]interface{} {
@@ -38,10 +40,27 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 	return service
 }
 
+// RemoveByNode remove services for the given nodeID.
+func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
+	keys, exists := serviceCatalog.servicesByNode[nodeID]
+	if exists {
+		for _, key := range keys {
+			delete(serviceCatalog.services, key)
+		}
+		delete(serviceCatalog.servicesByNode, nodeID)
+	}
+}
+
 // Add : add a service to the catalog.
 func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *service.Service) {
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services[key] = service
+
+	if serviceCatalog.servicesByNode[nodeID] == nil {
+		serviceCatalog.servicesByNode[nodeID] = []string{key}
+	} else {
+		serviceCatalog.servicesByNode[nodeID] = append(serviceCatalog.servicesByNode[nodeID], key)
+	}
 }
 
 func serviceActionExists(name string, actions []service.Action) bool {
