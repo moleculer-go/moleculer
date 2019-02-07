@@ -1,8 +1,8 @@
 package broker
 
 import (
+	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -35,12 +35,13 @@ var defaultConfig = moleculer.BrokerConfig{
 // DiscoverNodeID - should return the node id for this machine
 func DiscoverNodeID() string {
 	// TODO: Check moleculer JS algo for this..
-	hostname, err := os.Hostname()
-	if err != nil {
-		fmt.Errorf("Error trying to get the machine hostname - error: %s", err)
-		hostname = ""
-	}
-	return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
+	// hostname, err := os.Hostname()
+	// if err != nil {
+	// 	fmt.Errorf("Error trying to get the machine hostname - error: %s", err)
+	// 	hostname = ""
+	// }
+	// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
+	return fmt.Sprint("Node_", util.RandomString(8))
 }
 
 func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.BrokerConfig) moleculer.BrokerConfig {
@@ -169,7 +170,7 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 	brokerLogger := log.WithFields(log.Fields{
 		"broker": nodeID,
 	})
-	fmt.Print("Broker Log Setup() nodeID: ", nodeID, " Level: ", log.GetLevel())
+	fmt.Println("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
 
 	return brokerLogger
 }
@@ -195,6 +196,7 @@ func (broker *ServiceBroker) Stop() {
 	broker.registry.Stop()
 
 	broker.started = false
+	broker.broadcastLocal("$broker.stoped")
 
 	broker.middlewares.CallHandlers("stoped", broker)
 }
@@ -225,6 +227,9 @@ func (broker *ServiceBroker) Start() {
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan interface{} {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
+	if !broker.started {
+		panic(errors.New("Broker must be started before making calls :("))
+	}
 	actionContext := broker.rootContext.NewActionContext(actionName, params, options.Wrap(opts))
 	return broker.registry.DelegateCall(actionContext, options.Wrap(opts))
 }
@@ -262,12 +267,21 @@ func (broker *ServiceBroker) init() {
 		broker.IsStarted,
 		broker.config,
 		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan interface{} {
+			if !broker.started {
+				panic(errors.New("Broker must be started before making calls :("))
+			}
 			return broker.registry.DelegateCall(context, options.Wrap(opts))
 		},
 		func(context moleculer.BrokerContext, groups []string) {
+			if !broker.started {
+				panic(errors.New("Broker must be started before emiting events :("))
+			}
 			broker.registry.DelegateEvent(context, groups)
 		},
 		func(context moleculer.BrokerContext, groups []string) {
+			if !broker.started {
+				panic(errors.New("Broker must be started before broadcasting events :("))
+			}
 			broker.registry.DelegateBroadcast(context, groups)
 		},
 	}

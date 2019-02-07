@@ -23,10 +23,7 @@ func addUserService(bkr *broker.ServiceBroker) {
 				Name: "update",
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
 					list := params.Value().([]interface{})
-					//sort.Strings(list)
-
 					list = append(list, "user update")
-					list = append(list, "one more...")
 					return list
 				},
 			},
@@ -43,9 +40,7 @@ func addContactService(bkr *broker.ServiceBroker) {
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
 					list := params.Value().([]interface{})
 					list = append(list, "contact update")
-					list = append(list, "one more...")
-
-					return <-context.Call("user.update", list)
+					return list
 				},
 			},
 		},
@@ -59,11 +54,16 @@ func addProfileService(bkr *broker.ServiceBroker) {
 			{
 				Name: "update",
 				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
-					list := params.Value().([]string)
-					list = append(list, "profile update")
-					list = append(list, "one more...")
+					paramsList := params.Value().([]interface{})
 
-					return <-context.Call("contact.update", list)
+					contactList := <-context.Call("contact.update", []interface{}{"profile update"})
+					userList := <-context.Call("user.update", contactList)
+
+					for _, item := range paramsList {
+						userList = append(userList.([]interface{}), item)
+					}
+
+					return userList
 				},
 			},
 		},
@@ -97,45 +97,96 @@ var _ = Describe("Transit", func() {
 
 	stringSize := 50
 	arraySize := 100
-	var longArrayOfStrings []string
+	var longList []interface{}
 	for i := 0; i < arraySize; i++ {
 		randomString := util.RandomString(stringSize)
-		longArrayOfStrings = append(longArrayOfStrings, randomString)
+		longList = append(longList, randomString)
 	}
 
-	It("Should create multiple brokers, connect and disconnect and make sure stan resources are closed/released properly.", func() {
-		logLevel := "DEBUG"
-		brokersLoop := 100
-		for i := 0; i < brokersLoop; i++ {
-			brokr1 := broker.FromConfig(&moleculer.BrokerConfig{
-				LogLevel:    logLevel,
-				Transporter: "STAN",
+	Describe("Start / Stop Cycles.", func() {
+		logLevel := "ERROR"
+		numberOfLoops := 10
+		loopNumber := 0
+		Measure("Creation of multiple brokers with connect/disconnect cycles running on stan transporter.", func(bench Benchmarker) {
+
+			var userBroker, contactBroker, profileBroker *broker.ServiceBroker
+			bench.Time("brokers creation", func() {
+				userBroker = broker.FromConfig(&moleculer.BrokerConfig{
+					LogLevel:    logLevel,
+					Transporter: "STAN",
+				})
+				addUserService(userBroker)
+				userBroker.Start()
+
+				contactBroker = broker.FromConfig(&moleculer.BrokerConfig{
+					LogLevel:    logLevel,
+					Transporter: "STAN",
+				})
+				addContactService(contactBroker)
+				contactBroker.Start()
+
+				profileBroker = broker.FromConfig(&moleculer.BrokerConfig{
+					LogLevel:    logLevel,
+					Transporter: "STAN",
+				})
+				addProfileService(profileBroker)
+				profileBroker.Start()
 			})
-			addUserService(brokr1)
-			brokr1.Start()
 
-			brokr2 := broker.FromConfig(&moleculer.BrokerConfig{
-				LogLevel:    logLevel,
-				Transporter: "STAN",
+			bench.Time("local calls", func() {
+				result := <-userBroker.Call("user.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+
+				result = <-contactBroker.Call("contact.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
 			})
-			addContactService(brokr2)
-			brokr2.Start()
 
-			brokr3 := broker.FromConfig(&moleculer.BrokerConfig{
-				LogLevel:    logLevel,
-				Transporter: "STAN",
+			bench.Time("5 remote calls", func() {
+				result := <-userBroker.Call("contact.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+
+				result = <-contactBroker.Call("user.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+
+				result = <-profileBroker.Call("profile.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 3))
+
+				result = <-contactBroker.Call("profile.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 3))
+
+				result = <-userBroker.Call("profile.update", longList)
+				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 3))
 			})
-			addProfileService(brokr3)
-			brokr3.Start()
 
-			result := <-brokr3.Call("profile.update", longArrayOfStrings)
-			newList := result.([]interface{})
-			Expect(len(newList)).Should(Equal(arraySize + 6))
+			bench.Time("stop and fail on action call", func() {
+				stopBrokers(userBroker)
 
-			stopBrokers(brokr1, brokr2, brokr3)
+				Expect(func() {
+					<-contactBroker.Call("user.update", longList)
+				}).Should(Panic())
+				Expect(func() {
+					<-profileBroker.Call("user.update", longList)
+				}).Should(Panic())
+				// Expect(func() {
+				// 	<-profileBroker.Call("profile.update", longList)
+				// }).Should(Panic())
 
-			fmt.Println("**** One More Loop -> Total: ", i)
-		}
+				stopBrokers(contactBroker)
+
+				Expect(func() {
+					<-profileBroker.Call("contact.update", longList)
+				}).Should(Panic())
+
+				stopBrokers(profileBroker)
+				Expect(func() {
+					<-profileBroker.Call("profile.update", longList)
+				}).Should(Panic())
+			})
+
+			loopNumber++
+			fmt.Println("\n\n**** One More Loop -> Total: ", loopNumber)
+
+		}, numberOfLoops)
 
 	})
 

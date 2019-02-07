@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/moleculer-go/moleculer/service"
 )
@@ -9,12 +10,14 @@ import (
 type ServiceCatalog struct {
 	services       map[string]*service.Service
 	servicesByNode map[string][]string
+	mutex          *sync.Mutex
 }
 
 func CreateServiceCatalog() *ServiceCatalog {
 	services := make(map[string]*service.Service)
 	servicesByNode := make(map[string][]string)
-	return &ServiceCatalog{services, servicesByNode}
+	mutex := &sync.Mutex{}
+	return &ServiceCatalog{services, servicesByNode, mutex}
 }
 
 func (serviceCatalog *ServiceCatalog) getLocalNodeServices() []map[string]interface{} {
@@ -53,9 +56,11 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
 
 // Add : add a service to the catalog.
 func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *service.Service) {
+	serviceCatalog.mutex.Lock()
+	defer serviceCatalog.mutex.Unlock()
+
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services[key] = service
-
 	if serviceCatalog.servicesByNode[nodeID] == nil {
 		serviceCatalog.servicesByNode[nodeID] = []string{key}
 	} else {
