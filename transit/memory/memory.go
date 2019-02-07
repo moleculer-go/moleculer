@@ -21,10 +21,10 @@ type MemoryTransporter struct {
 
 func CreateTransporter(prefix string, logger *log.Entry, messageIsValid transit.ValidateMsgFunc) MemoryTransporter {
 	mutex.Lock()
-	defer mutex.Unlock()
 	if handlers == nil {
 		handlers = make(map[string][]transit.TransportHandler)
 	}
+	mutex.Unlock()
 	return MemoryTransporter{prefix: prefix, logger: logger, messageIsValid: messageIsValid, connected: false}
 }
 
@@ -87,7 +87,9 @@ func (transporter *MemoryTransporter) Publish(command, nodeID string, message tr
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("memory.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
 
+	mutex.Lock()
 	handlers, exists := handlers[topic]
+	mutex.Unlock()
 	if exists {
 		for _, handler := range handlers {
 			handler(message)

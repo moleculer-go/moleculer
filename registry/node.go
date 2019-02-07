@@ -38,6 +38,9 @@ func discoverIpList() []string {
 			}
 		}
 	}
+	if result == nil {
+		result = []string{"0.0.0.0"}
+	}
 	return result
 }
 

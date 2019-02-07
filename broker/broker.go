@@ -67,7 +67,6 @@ func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.Bro
 
 type ServiceBroker struct {
 	namespace string
-	nodeID    string
 
 	logger *log.Entry
 
@@ -202,9 +201,11 @@ func (broker *ServiceBroker) Stop() {
 }
 
 func (broker *ServiceBroker) Start() {
+	if broker.IsStarted() {
+		broker.logger.Warn("broker.Start() called on a broker that already started!")
+		return
+	}
 	broker.logger.Info("Broker -> Starting...")
-
-	broker.started = false
 
 	broker.middlewares.CallHandlers("starting", broker)
 
@@ -216,18 +217,17 @@ func (broker *ServiceBroker) Start() {
 
 	broker.logger.Debug("Broker -> registry started!")
 
+	defer broker.broadcastLocal("$broker.started")
+	defer broker.middlewares.CallHandlers("started", broker)
+
 	broker.started = true
-	broker.broadcastLocal("$broker.started")
-
-	broker.middlewares.CallHandlers("started", broker)
-
-	broker.logger.Info("Broker -> Started!!!")
+	broker.logger.Info("Broker -> Started !!!")
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan interface{} {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
-	if !broker.started {
+	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before making calls :("))
 	}
 	actionContext := broker.rootContext.NewActionContext(actionName, params, options.Wrap(opts))
@@ -267,21 +267,12 @@ func (broker *ServiceBroker) init() {
 		broker.IsStarted,
 		broker.config,
 		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan interface{} {
-			if !broker.started {
-				panic(errors.New("Broker must be started before making calls :("))
-			}
 			return broker.registry.DelegateCall(context, options.Wrap(opts))
 		},
 		func(context moleculer.BrokerContext, groups []string) {
-			if !broker.started {
-				panic(errors.New("Broker must be started before emiting events :("))
-			}
 			broker.registry.DelegateEvent(context, groups)
 		},
 		func(context moleculer.BrokerContext, groups []string) {
-			if !broker.started {
-				panic(errors.New("Broker must be started before broadcasting events :("))
-			}
 			broker.registry.DelegateBroadcast(context, groups)
 		},
 	}
