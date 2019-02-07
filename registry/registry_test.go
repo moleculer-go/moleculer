@@ -98,7 +98,7 @@ var _ = Describe("Registry", func() {
 
 			printText := "TEXT TO PRINT"
 			printResult := <-printerBroker.Call("printer.print", printText)
-			Expect(printResult).Should(Equal(printText))
+			Expect(printResult.Value()).Should(Equal(printText))
 
 			scanText := "TEXT TO SCAN"
 			Expect(func() {
@@ -109,14 +109,14 @@ var _ = Describe("Registry", func() {
 			time.Sleep(time.Second)
 
 			scanResult := <-printerBroker.Call("scanner.scan", scanText)
-			Expect(scanResult).Should(Equal(scanText))
+			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			cpuBroker.Start()
 			time.Sleep(time.Second) //sleep until services are registered
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-cpuBroker.Call("cpu.compute", contentToCompute)
-			Expect(computeResult).Should(Equal(contentToCompute))
+			Expect(computeResult.Value()).Should(Equal(contentToCompute))
 
 			//stopping broker B
 			scannerBroker.Stop() // TODO -> not  implemented yet

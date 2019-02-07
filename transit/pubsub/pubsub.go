@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moleculer-go/moleculer/payload"
+
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/transit"
 	"github.com/moleculer-go/moleculer/transit/memory"
@@ -64,7 +66,7 @@ func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
 	pending, exists := pubsub.pendingRequests[nodeID]
 	if exists {
-		(*pending.resultChan) <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
+		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
 	delete(pubsub.knownNeighbours, nodeID)
@@ -136,7 +138,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 
 type pendingRequest struct {
 	context    moleculer.BrokerContext
-	resultChan *chan interface{}
+	resultChan *chan moleculer.Payload
 }
 
 func (pubsub *PubSub) checkMaxQueueSize() {
@@ -192,10 +194,10 @@ func (pubsub *PubSub) DiscoverNode(nodeID string) {
 	}
 }
 
-func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan interface{} {
+func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Payload {
 	pubsub.checkMaxQueueSize()
 
-	resultChan := make(chan interface{})
+	resultChan := make(chan moleculer.Payload)
 
 	targetNodeID := context.TargetNodeID()
 	payload := context.AsMap()
@@ -227,7 +229,7 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 
 		request := pubsub.pendingRequests[id]
 		delete(pubsub.pendingRequests, id)
-		result := message.Get("data").Value()
+		result := message.Get("data")
 
 		pubsub.logger.Trace("reponseHandler() id: ", id, " result: ", result)
 		go func() {

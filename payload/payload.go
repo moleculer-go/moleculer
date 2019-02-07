@@ -16,6 +16,19 @@ func (rawPayload *RawPayload) Exists() bool {
 	return rawPayload.source != nil
 }
 
+func (rawPayload *RawPayload) IsError() bool {
+	valueType := getValueType(&rawPayload.source)
+	fmt.Println("valueType ", valueType)
+	return valueType == "*errors.errorString"
+}
+
+func (rawPayload *RawPayload) Error() error {
+	if rawPayload.IsError() {
+		return rawPayload.source.(error)
+	}
+	return nil
+}
+
 func (rawPayload *RawPayload) Int() int {
 	return rawPayload.source.(int)
 }

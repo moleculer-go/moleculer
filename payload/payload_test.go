@@ -1,6 +1,8 @@
 package payload_test
 
 import (
+	"errors"
+
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -75,6 +77,11 @@ var _ = test.Describe("Payload", func() {
 		Expect(params.Get("float64").Float()).Should(Equal(f64Height))
 		Expect(params.Get("map").Map()["sub1"].String()).Should(Equal("value-sub1"))
 		Expect(params.Get("map").Map()["sub2"].String()).Should(Equal("value-sub2"))
+
+		someErrror := errors.New("some error")
+		params = Create(someErrror)
+		Expect(params.IsError()).Should(Equal(true))
+		Expect(params.Error()).Should(Equal(someErrror))
 	})
 
 })

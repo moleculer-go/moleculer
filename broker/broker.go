@@ -12,6 +12,7 @@ import (
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/middleware"
 	"github.com/moleculer-go/moleculer/options"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/registry"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/service"
@@ -225,12 +226,12 @@ func (broker *ServiceBroker) Start() {
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
-func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan interface{} {
+func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before making calls :("))
 	}
-	actionContext := broker.rootContext.NewActionContext(actionName, params, options.Wrap(opts))
+	actionContext := broker.rootContext.NewActionContext(actionName, payload.Create(params), options.Wrap(opts))
 	return broker.registry.DelegateCall(actionContext, options.Wrap(opts))
 }
 
@@ -266,7 +267,7 @@ func (broker *ServiceBroker) init() {
 		broker.LocalBus,
 		broker.IsStarted,
 		broker.config,
-		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan interface{} {
+		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 			return broker.registry.DelegateCall(context, options.Wrap(opts))
 		},
 		func(context moleculer.BrokerContext, groups []string) {

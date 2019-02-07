@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/service"
 	"github.com/moleculer-go/moleculer/strategy"
 )
@@ -27,8 +28,8 @@ func CreateActionCatalog() *ActionCatalog {
 	return &ActionCatalog{actionsByName: actionsByName, mutex: mutex}
 }
 
-func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan interface{} {
-	result := make(chan interface{})
+func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
+	result := make(chan moleculer.Payload)
 
 	logger := context.Logger().WithField("actionCatalog", "invokeLocalAction")
 	logger.Debug("Before Invoking action: ", context.ActionName())
@@ -38,7 +39,7 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 		actionResult := handler(context.(moleculer.Context), context.Payload())
 		logger.Debug("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
-		result <- actionResult
+		result <- payload.Create(actionResult)
 	}()
 
 	return result
@@ -47,15 +48,6 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 func (actionEntry ActionEntry) TargetNodeID() string {
 	return actionEntry.targetNodeID
 }
-
-//move the logic to decide between local and remote to the registry
-// func (actionEntry ActionEntry) InvokeAction(ctx moleculer.Context) chan interface{} {
-// 	if actionEntry.isLocal {
-// 		return actionEntry.invokeLocalAction(ctx)
-// 	}
-// 	(*ctx).SetTargetNodeID(actionEntry.TargetNodeID())
-// 	return actionEntry.invokeRemoteAction(ctx)
-// }
 
 func (actionEntry ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal

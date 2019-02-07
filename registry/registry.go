@@ -132,7 +132,7 @@ func (registry *ServiceRegistry) DelegateBroadcast(context moleculer.BrokerConte
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
 // This call might be local or remote.
-func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan interface{} {
+func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 	actionName := context.ActionName()
 	params := context.Payload()
 	registry.logger.Trace("DelegateCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
@@ -151,8 +151,8 @@ func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, o
 	return registry.invokeRemoteAction(context, actionEntry)
 }
 
-func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan interface{} {
-	result := make(chan interface{})
+func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan moleculer.Payload {
+	result := make(chan moleculer.Payload)
 	context.SetTargetNodeID(actionEntry.TargetNodeID())
 	registry.logger.Debug("Before invoking remote action: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID())
 

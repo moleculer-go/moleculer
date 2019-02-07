@@ -117,6 +117,14 @@ func (wrapper ResultWrapper) Float32() float32 {
 	return float32(wrapper.result.Float())
 }
 
+func (wrapper ResultWrapper) IsError() bool {
+	return false
+}
+
+func (wrapper ResultWrapper) Error() error {
+	return nil
+}
+
 func (wrapper ResultWrapper) String() string {
 	return wrapper.result.String()
 }

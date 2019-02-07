@@ -9,7 +9,7 @@ type TransportHandler func(moleculer.Payload)
 type ValidateMsgFunc func(moleculer.Payload) bool
 
 type Transit interface {
-	Request(moleculer.BrokerContext) chan interface{}
+	Request(moleculer.BrokerContext) chan moleculer.Payload
 	Connect() chan bool
 	Disconnect() chan bool
 	DiscoverNode(nodeID string)

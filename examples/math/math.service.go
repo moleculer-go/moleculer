@@ -90,7 +90,7 @@ func multAction(context Context, params Payload) interface{} {
 				"a": a,
 				"b": a,
 			})
-		result = result + actionResult.(int)
+		result = result + actionResult.Int()
 	}
 
 	defer context.Emit("mult.called", map[string]int{

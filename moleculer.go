@@ -16,6 +16,8 @@ type Payload interface {
 	RawMap() map[string]interface{}
 	Map() map[string]Payload
 	Exists() bool
+	IsError() bool
+	Error() error
 	Value() interface{}
 	Int() int
 	Int64() int64
@@ -92,7 +94,7 @@ type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
-type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan interface{}
+type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
 type EventDelegateFunc func(context BrokerContext, groups []string)
 
 type OptionsFunc func(key string) interface{}
@@ -110,15 +112,14 @@ type Node interface {
 
 type Context interface {
 	//context methods used by services
-	Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{}
+	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
-
 	Logger() *log.Entry
 }
 
 type BrokerContext interface {
-	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) BrokerContext
+	NewActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
 
 	ActionName() string
 	Payload() Payload
