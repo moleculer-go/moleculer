@@ -5,7 +5,7 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/options"
-	"github.com/moleculer-go/moleculer/params"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
@@ -132,8 +132,8 @@ func (context *Context) ActionName() string {
 	return context.actionName
 }
 
-func (context *Context) Params() moleculer.Params {
-	return params.CreateParams(context.params)
+func (context *Context) Payload() moleculer.Payload {
+	return payload.Create((*context.params))
 }
 
 func (context *Context) SetTargetNodeID(targetNodeID string) {

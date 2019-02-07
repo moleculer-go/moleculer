@@ -22,7 +22,7 @@ func createPrinterBroker() broker.ServiceBroker {
 		Actions: []moleculer.Action{
 			{
 				Name: "print",
-				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					context.Logger().Info("print action invoked.")
 					return params.Value()
 				},
@@ -43,7 +43,7 @@ func createScannerBroker() broker.ServiceBroker {
 		Actions: []moleculer.Action{
 			{
 				Name: "scan",
-				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					context.Logger().Info("scan action invoked!")
 
 					return params.Value()
@@ -65,7 +65,7 @@ func createCpuBroker() broker.ServiceBroker {
 		Actions: []moleculer.Action{
 			{
 				Name: "compute",
-				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					context.Logger().Info("compute action invoked!")
 
 					scanResult := <-context.Call("scanner.scan", params.Value())

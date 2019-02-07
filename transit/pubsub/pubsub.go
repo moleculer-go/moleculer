@@ -98,7 +98,7 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	prefix := "MOL"
 	logger := log.WithField("transport", "memory")
 	localNodeID := broker.LocalNode().GetID()
-	transport := memory.CreateTransporter(prefix, logger, func(message transit.Message) bool {
+	transport := memory.CreateTransporter(prefix, logger, func(message moleculer.Payload) bool {
 		sender := message.Get("sender").String()
 		return sender != localNodeID
 	})
@@ -123,7 +123,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 		localNodeID,
 		logger,
 		pubsub.serializer,
-		func(message transit.Message) bool {
+		func(message moleculer.Payload) bool {
 			sender := message.Get("sender").String()
 			return sender != localNodeID
 		},
@@ -220,7 +220,7 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan interface{} 
 }
 
 func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		id := message.Get("id").String()
 		sender := message.Get("sender").String()
 		pubsub.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " context id: ", id)
@@ -262,7 +262,7 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response int
 // 2: invoke the action
 // 3: send a response
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		values := pubsub.serializer.MessageToContextMap(message)
 		context := context.RemoteActionContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)
@@ -291,7 +291,7 @@ func (pubsub *PubSub) neighbours() int64 {
 
 //TODO
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		//moleculer.Context := pubsub.serializer.MessageTomoleculer.Context(&message)
 		// result := <-moleculer.Context.InvokeAction()
 		// transit.sendResponse(&moleculer.Context, result)
@@ -308,14 +308,14 @@ func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 }
 
 func (pubsub *PubSub) discoverHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		sender := message.Get("sender").String()
 		pubsub.broadcastNodeInfo(sender)
 	}
 }
 
 func (pubsub *PubSub) emitRegistryEvent(command string) transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		pubsub.logger.Trace("emitRegistryEvent() command: ", command, " message: ", message)
 		pubsub.broker.Bus().EmitAsync("$registry.transit.message", []interface{}{command, message})
 	}
@@ -332,7 +332,7 @@ func (pubsub *PubSub) SendPing() {
 }
 
 func (pubsub *PubSub) pingHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		pong := make(map[string]interface{})
 		sender := message.Get("sender").String()
 		pong["sender"] = sender
@@ -345,10 +345,10 @@ func (pubsub *PubSub) pingHandler() transit.TransportHandler {
 }
 
 func (pubsub *PubSub) pongHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		now := time.Now().Unix()
-		elapsed := now - message.Get("time").Int()
-		arrived := message.Get("arrived").Int()
+		elapsed := now - message.Get("time").Int64()
+		arrived := message.Get("arrived").Int64()
 		timeDiff := math.Round(
 			float64(now) - float64(arrived) - float64(elapsed)/2)
 

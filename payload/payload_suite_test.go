@@ -1,4 +1,4 @@
-package params_test
+package payload_test
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestParams(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Params Suite")
+	RunSpecs(t, "Payload Suite")
 }

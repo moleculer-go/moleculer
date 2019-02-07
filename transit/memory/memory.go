@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/transit"
 	log "github.com/sirupsen/logrus"
 )
@@ -62,7 +63,7 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("memory.Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
-	wrapper := func(message transit.Message) {
+	wrapper := func(message moleculer.Payload) {
 		if transporter.connected {
 			handler(message)
 		} else {
@@ -80,7 +81,7 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 	}
 }
 
-func (transporter *MemoryTransporter) Publish(command, nodeID string, message transit.Message) {
+func (transporter *MemoryTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if !transporter.connected {
 		panic(errors.New("Transport is not connected !"))
 	}

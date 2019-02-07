@@ -35,7 +35,7 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 
 	go func() {
 		handler := actionEntry.action.Handler()
-		actionResult := handler(context.(moleculer.Context), context.Params())
+		actionResult := handler(context.(moleculer.Context), context.Payload())
 		logger.Debug("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
 		result <- actionResult

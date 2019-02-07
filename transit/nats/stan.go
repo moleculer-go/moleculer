@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
 	stan "github.com/nats-io/go-nats-streaming"
@@ -119,7 +120,7 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 	transporter.subscriptions = append(transporter.subscriptions, sub)
 }
 
-func (transporter *StanTransporter) Publish(command, nodeID string, message transit.Message) {
+func (transporter *StanTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Publish() No connection :( -> command: ", command, " nodeID: ", nodeID)
 		transporter.logger.Warn(msg)

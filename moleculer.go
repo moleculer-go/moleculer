@@ -8,17 +8,28 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Params is wraps the payload sent to an action.
+type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
+
+// Payload contains the data sent/return to actions.
 // I has convinience methods to read action parameters by name with the right type.
-type Params interface {
-	Get(name string) string
-	String(name string) string
-	Int(name string) int
-	Int64(name string) int64
-	Float(name string) float32
-	Float64(name string) float64
-	Map(name string) Params
+type Payload interface {
+	RawMap() map[string]interface{}
+	Map() map[string]Payload
+	Exists() bool
 	Value() interface{}
+	Int() int
+	Int64() int64
+	Uint() uint64
+	Float32() float32
+	Float() float64
+	String() string
+	Bool() bool
+	Time() time.Time
+	Array() []Payload
+	Get(path string) Payload
+	IsArray() bool
+	IsMap() bool
+	ForEach(iterator func(key interface{}, value Payload) bool)
 }
 
 // ParamsSchema is used by the validation engine to check if parameters sent to the action are valid.
@@ -28,7 +39,7 @@ type ParamsSchema struct {
 type Action struct {
 	Name    string
 	Handler ActionHandler
-	Params  ParamsSchema
+	Payload ParamsSchema
 }
 
 type Event struct {
@@ -73,8 +84,8 @@ type BrokerConfig struct {
 	NeighboursCheckTimeout time.Duration
 }
 
-type ActionHandler func(context Context, params Params) interface{}
-type EventHandler func(context Context, params Params)
+type ActionHandler func(context Context, params Payload) interface{}
+type EventHandler func(context Context, params Payload)
 type FuncType func()
 
 type LoggerFunc func(name string, value string) *log.Entry
@@ -110,7 +121,7 @@ type BrokerContext interface {
 	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) BrokerContext
 
 	ActionName() string
-	Params() Params
+	Payload() Payload
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}

@@ -15,23 +15,23 @@ var logger = log.WithField("Unit Test", true)
 
 var _ = test.Describe("MergeActions", func() {
 
-	rotateFunc := func(ctx moleculer.Context, params moleculer.Params) interface{} {
+	rotateFunc := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 		return "Hellow Leleu ;) I'm rotating ..."
 	}
 
-	rotatesEventFunc := func(ctx moleculer.Context, params moleculer.Params) {
+	rotatesEventFunc := func(ctx moleculer.Context, params moleculer.Payload) {
 		fmt.Println("spining spining spining")
 	}
 
-	mixinTideFunc := func(ctx moleculer.Context, params moleculer.Params) interface{} {
+	mixinTideFunc := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 		return "tide influence in the oceans"
 	}
 
-	mixinRotatesFunc := func(ctx moleculer.Context, params moleculer.Params) {
+	mixinRotatesFunc := func(ctx moleculer.Context, params moleculer.Payload) {
 		fmt.Println("update tide in relation to the moon")
 	}
 
-	mixinMoonIsCloseFunc := func(ctx moleculer.Context, params moleculer.Params) {
+	mixinMoonIsCloseFunc := func(ctx moleculer.Context, params moleculer.Payload) {
 		fmt.Println("rise the tide !")
 	}
 

@@ -11,7 +11,6 @@ import (
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/serializer"
-	"github.com/moleculer-go/moleculer/transit"
 	"github.com/moleculer-go/moleculer/transit/nats"
 )
 
@@ -21,7 +20,7 @@ func addUserService(bkr *broker.ServiceBroker) {
 		Actions: []moleculer.Action{
 			{
 				Name: "update",
-				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					list := params.Value().([]interface{})
 					list = append(list, "user update")
 					return list
@@ -37,7 +36,7 @@ func addContactService(bkr *broker.ServiceBroker) {
 		Actions: []moleculer.Action{
 			{
 				Name: "update",
-				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					list := params.Value().([]interface{})
 					list = append(list, "contact update")
 					return list
@@ -53,7 +52,7 @@ func addProfileService(bkr *broker.ServiceBroker) {
 		Actions: []moleculer.Action{
 			{
 				Name: "update",
-				Handler: func(context moleculer.Context, params moleculer.Params) interface{} {
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					paramsList := params.Value().([]interface{})
 
 					contactList := <-context.Call("contact.update", []interface{}{"profile update"})
@@ -90,7 +89,7 @@ var _ = Describe("Transit", func() {
 		"unit-test-client-id",
 		logger,
 		serializer,
-		func(msg transit.Message) bool {
+		func(msg moleculer.Payload) bool {
 			return true
 		},
 	}
@@ -203,14 +202,14 @@ var _ = Describe("Transit", func() {
 		<-transporter.Connect()
 
 		received := make(chan bool)
-		transporter.Subscribe("topicA", "node1", func(message transit.Message) {
+		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {
 
 			contextMap := serializer.MessageToContextMap(message)
 			newContext := context.RemoteActionContext(brokerDelegates, contextMap)
 			Expect(newContext.ActionName()).Should(Equal(actionName))
-			contextParams := newContext.Params()
-			Expect(contextParams.String("name")).Should(Equal("John"))
-			Expect(contextParams.String("lastName")).Should(Equal("Snow"))
+			contextParams := newContext.Payload()
+			Expect(contextParams.Get("name").String()).Should(Equal("John"))
+			Expect(contextParams.Get("lastName").String()).Should(Equal("Snow"))
 
 			received <- true
 		})

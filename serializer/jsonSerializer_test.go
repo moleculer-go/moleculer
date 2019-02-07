@@ -38,8 +38,8 @@ var _ = Describe("JSON Serializer", func() {
 
 		Expect(contextAgain.TargetNodeID()).Should(Equal("original_sender"))
 		Expect(contextAgain.ActionName()).Should(Equal(actionName))
-		Expect(contextAgain.Params().String("name")).Should(Equal("John"))
-		Expect(contextAgain.Params().String("lastName")).Should(Equal("Snow"))
+		Expect(contextAgain.Payload().Get("name").String()).Should(Equal("John"))
+		Expect(contextAgain.Payload().Get("lastName").String()).Should(Equal("Snow"))
 
 	})
 })

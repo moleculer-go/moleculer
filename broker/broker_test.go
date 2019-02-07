@@ -19,7 +19,7 @@ var _ = Describe("Broker", func() {
 			Actions: []moleculer.Action{
 				moleculer.Action{
 					Name: "stuff",
-					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 						return actionResult
 					},
 				},
@@ -48,21 +48,21 @@ var _ = Describe("Broker", func() {
 			Actions: []moleculer.Action{
 				moleculer.Action{
 					Name: "step1",
-					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 						step2Result := <-ctx.Call("machine.step2", 0)
 						return fmt.Sprintf("step 1 done ! -> step 2: %s", step2Result.(string))
 					},
 				},
 				moleculer.Action{
 					Name: "step2",
-					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 						magicResult := <-ctx.Call("machine.magic", 0)
 						return fmt.Sprintf("step 2 done ! -> magic: %s", magicResult.(string))
 					},
 				},
 				moleculer.Action{
 					Name: "magic",
-					Handler: func(ctx moleculer.Context, params moleculer.Params) interface{} {
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 						ctx.Emit("magic.happened, params", "Always !")
 						return "Just magic !!!"
 					},
