@@ -18,6 +18,8 @@ type Context struct {
 	parentID     string
 	actionName   string
 	eventName    string
+	groups       []string
+	broadcast    bool
 	params       moleculer.Payload
 	meta         *map[string]interface{}
 	timeout      int
@@ -37,7 +39,24 @@ func BrokerContext(broker moleculer.BrokerDelegates) moleculer.BrokerContext {
 	return &context
 }
 
-// NewActionContext : create a new context for a specific action call
+// EventContext : create a new context for a specific event call.
+func (context *Context) EventContext(eventName string, params moleculer.Payload, groups []string, broadcast bool) moleculer.BrokerContext {
+	parentContext := context
+	eventContext := Context{
+		id:          util.RandomString(12),
+		broker:      parentContext.broker,
+		eventName:   eventName,
+		groups:      groups,
+		params:      params,
+		broadcast:   broadcast,
+		level:       parentContext.level + 1,
+		sendMetrics: parentContext.sendMetrics,
+		parentID:    parentContext.id,
+	}
+	return &eventContext
+}
+
+// NewActionContext : create a new context for a specific action call.
 func (context *Context) NewActionContext(actionName string, params moleculer.Payload, opts ...moleculer.OptionsFunc) moleculer.BrokerContext {
 	parentContext := context
 	actionContext := Context{
@@ -59,17 +78,24 @@ func checkMaxCalls(context *Context) {
 
 // RemoteContext create a context for a remote call
 func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+	var level int
+	var sendMetrics bool
+	var parentID string
+	var timeout int
+	var meta map[string]interface{}
+
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
 	actionName, isAction := values["action"]
 	eventName, isEvent := values["event"]
-	params := payload.Create(values["params"])
-	level := values["level"].(int)
-	sendMetrics := values["metrics"].(bool)
-	parentID := values["parentID"].(string)
 
-	var timeout int
-	var meta map[string]interface{}
+	if isAction {
+		level = values["level"].(int)
+		sendMetrics = values["metrics"].(bool)
+		parentID = values["parentID"].(string)
+	}
+	params := payload.Create(values["params"])
+
 	if values["timeout"] != nil {
 		timeout = values["timeout"].(int)
 	}
@@ -93,8 +119,8 @@ func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface
 		newContext.actionName = actionName.(string)
 	} else if isEvent {
 		newContext.eventName = eventName.(string)
-		// groups := values["groups"]
-		// broadcast := values["broadcast"]
+		newContext.groups = values["groups"].([]string)
+		newContext.broadcast = values["broadcast"].(bool)
 	}
 	return &newContext
 }
@@ -104,13 +130,20 @@ func (context *Context) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
 
 	mapResult["id"] = context.id
-	mapResult["action"] = context.actionName
 	mapResult["params"] = context.params.Value()
-	mapResult["meta"] = context.meta
-	mapResult["timeout"] = context.timeout
-	mapResult["level"] = context.level
-	mapResult["metrics"] = context.sendMetrics
-	mapResult["parentID"] = context.parentID
+	if context.actionName != "" {
+		mapResult["action"] = context.actionName
+		mapResult["level"] = context.level
+		mapResult["metrics"] = context.sendMetrics
+		mapResult["parentID"] = context.parentID
+		mapResult["meta"] = context.meta
+		mapResult["timeout"] = context.timeout
+	}
+	if context.eventName != "" {
+		mapResult["event"] = context.eventName
+		mapResult["groups"] = context.groups
+		mapResult["broadcast"] = context.broadcast
+	}
 
 	//TODO : check how to support streaming params in go
 	mapResult["stream"] = false
@@ -127,16 +160,26 @@ func (context *Context) Call(actionName string, params interface{}, opts ...mole
 
 // Emit : Emit an event (grouped & balanced global event)
 func (context *Context) Emit(eventName string, params interface{}, groups ...string) {
-
+	newContext := context.EventContext(eventName, payload.Create(params), groups, false)
+	context.broker.EventDelegate(newContext, groups)
 }
 
 // Broadcast : Broadcast an event for all local & remote services
 func (context *Context) Broadcast(eventName string, params interface{}, groups ...string) {
-
+	newContext := context.EventContext(eventName, payload.Create(params), groups, true)
+	context.broker.EventDelegate(newContext, groups)
 }
 
 func (context *Context) ActionName() string {
 	return context.actionName
+}
+
+func (context *Context) EventName() string {
+	return context.eventName
+}
+
+func (context *Context) Groups() []string {
+	return context.groups
 }
 
 func (context *Context) Payload() moleculer.Payload {

@@ -16,7 +16,20 @@ type Action struct {
 
 type Event struct {
 	name    string
+	group   string
 	handler moleculer.EventHandler
+}
+
+func (event *Event) Handler() moleculer.EventHandler {
+	return event.handler
+}
+
+func (event *Event) Name() string {
+	return event.name
+}
+
+func (event *Event) Group() string {
+	return event.group
 }
 
 type Service struct {
@@ -235,6 +248,7 @@ func (service *Service) AsMap() map[string]interface{} {
 	for index, serviceEvent := range service.events {
 		eventInfo := make(map[string]interface{})
 		eventInfo["name"] = serviceEvent.name
+		eventInfo["group"] = serviceEvent.group
 		events[index] = eventInfo
 	}
 	serviceInfo["events"] = events
@@ -280,8 +294,8 @@ func (service *Service) RemoveAction(fullname string) {
 
 func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 	serviceEvent := Event{
-		eventInfo["name"].(string),
-		nil,
+		name:  eventInfo["name"].(string),
+		group: eventInfo["group"].(string),
 	}
 	service.events = append(service.events, serviceEvent)
 	return &serviceEvent
@@ -342,9 +356,14 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 
 	service.events = make([]Event, len(schema.Events))
 	for index, eventSchema := range schema.Events {
+		group := eventSchema.Group
+		if group == "" {
+			group = service.Name()
+		}
 		service.events[index] = Event{
-			eventSchema.Name,
-			eventSchema.Handler,
+			name:    eventSchema.Name,
+			group:   group,
+			handler: eventSchema.Handler,
 		}
 	}
 

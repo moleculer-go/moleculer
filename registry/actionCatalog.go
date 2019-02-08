@@ -29,7 +29,7 @@ func CreateActionCatalog() *ActionCatalog {
 	return &ActionCatalog{actionsByName: actionsByName, mutex: mutex}
 }
 
-func catchError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
+func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
 	if err := recover(); err != nil {
 		logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
 		result <- payload.Create(err)
@@ -43,7 +43,7 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 	logger.Debug("Before Invoking action: ", context.ActionName())
 
 	go func() {
-		defer catchError(context, logger, result)
+		defer catchActionError(context, logger, result)
 		handler := actionEntry.action.Handler()
 		actionResult := handler(context.(moleculer.Context), context.Payload())
 		logger.Debug("local action invoked ! action: ", context.ActionName(),
@@ -111,7 +111,7 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 	return nil
 }
 
-// NextEndpoint find all actions registered in this node and use the strategy to select and return the best one to be called.
+// Next find all actions registered in this node and use the strategy to select and return the best one to be called.
 func (actionCatalog *ActionCatalog) Next(actionName string, strategy strategy.Strategy) *ActionEntry {
 	actions := actionCatalog.actionsByName[actionName]
 	nodes := make([]string, len(actions))

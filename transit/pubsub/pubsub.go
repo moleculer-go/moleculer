@@ -201,6 +201,22 @@ func (pubsub *PubSub) DiscoverNode(nodeID string) {
 	}
 }
 
+func (pubsub *PubSub) Emit(context moleculer.BrokerContext) {
+	targetNodeID := context.TargetNodeID()
+	payload := context.AsMap()
+	payload["sender"] = pubsub.broker.LocalNode().GetID()
+	payload["ver"] = version.MoleculerProtocol()
+
+	pubsub.logger.Trace("Emit() targetNodeID: ", targetNodeID, " payload: ", payload)
+
+	message, err := pubsub.serializer.MapToPayload(&payload)
+	if err != nil {
+		pubsub.logger.Error("Emit() Error serializing the payload: ", payload, " error: ", err)
+		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
+	}
+	pubsub.transport.Publish("EVENT", targetNodeID, message)
+}
+
 func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Payload {
 	pubsub.checkMaxQueueSize()
 

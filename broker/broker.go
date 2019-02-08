@@ -232,8 +232,22 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 	return broker.registry.DelegateCall(actionContext, options.Wrap(opts))
 }
 
-func (broker *ServiceBroker) Emit(event string, params interface{}) {
-	broker.logger.Debug("Broker - emit !")
+func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...string) {
+	broker.logger.Trace("Broker - Emit() event: ", event, " params: ", params, " groups: ", groups)
+	if !broker.IsStarted() {
+		panic(errors.New("Broker must be started before emiting events :("))
+	}
+	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups)
+	broker.registry.DelegateEvent(newContext)
+}
+
+func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups ...string) {
+	broker.logger.Trace("Broker - Broadcast() event: ", event, " params: ", params, " groups: ", groups)
+	if !broker.IsStarted() {
+		panic(errors.New("Broker must be started before broadcasting events :("))
+	}
+	newContext := broker.rootContext.NewActionContext(event, payload.Create(params), options.Wrap(opts))
+	broker.registry.DelegateBroadcast(newContext, groups)
 }
 
 func (broker *ServiceBroker) IsStarted() bool {

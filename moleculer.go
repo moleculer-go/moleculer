@@ -55,6 +55,7 @@ type Action struct {
 
 type Event struct {
 	Name    string
+	Group   string
 	Handler EventHandler
 }
 
@@ -129,9 +130,12 @@ type Context interface {
 
 type BrokerContext interface {
 	NewActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
+	EventContext(actionName string, params Payload, groups []string, broadcast bool) BrokerContext
 
 	ActionName() string
+	EventName() string
 	Payload() Payload
+	Groups() []string
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}

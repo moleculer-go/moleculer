@@ -124,10 +124,28 @@ func (registry *ServiceRegistry) Start() {
 	}
 }
 
-func (registry *ServiceRegistry) DelegateEvent(context moleculer.BrokerContext, groups []string) {
+func (registry *ServiceRegistry) DelegateEvent(context moleculer.BrokerContext) {
+	name := context.EventName()
+	params := context.Payload()
+	groups := context.Groups()
+	registry.logger.Trace("DelegateEvent() - name: ", name, " params: ", params, " groups: ", groups)
+
+	eventEntry := registry.events.Next(name, registry.strategy, groups)
+	if eventEntry == nil {
+		msg := fmt.Sprintf("Broker - endpoint not found for event: %s", name)
+		registry.logger.Error(msg)
+		panic(errors.New(msg))
+	}
+	registry.logger.Debug("DelegateEvent() - name: ", name, " target nodeID: ", eventEntry.TargetNodeID())
+
+	if eventEntry.isLocal {
+		eventEntry.emitLocalEvent(context)
+	}
+	registry.emitRemoteEvent(context, eventEntry)
 }
 
 func (registry *ServiceRegistry) DelegateBroadcast(context moleculer.BrokerContext, groups []string) {
+
 }
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
@@ -149,6 +167,12 @@ func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, o
 		return actionEntry.invokeLocalAction(context)
 	}
 	return registry.invokeRemoteAction(context, actionEntry)
+}
+
+func (registry *ServiceRegistry) emitRemoteEvent(context moleculer.BrokerContext, eventEntry *EventEntry) {
+	context.SetTargetNodeID(eventEntry.TargetNodeID())
+	registry.logger.Trace("Before invoking remote event: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID(), " context.Payload(): ", context.Payload())
+	registry.transit.Emit(context)
 }
 
 func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan moleculer.Payload {
