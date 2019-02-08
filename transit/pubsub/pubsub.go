@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -229,7 +230,13 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 
 		request := pubsub.pendingRequests[id]
 		delete(pubsub.pendingRequests, id)
-		result := message.Get("data")
+
+		var result moleculer.Payload
+		if message.Get("success").Bool() {
+			result = message.Get("data")
+		} else {
+			result = payload.Create(errors.New(message.Get("error").String()))
+		}
 
 		pubsub.logger.Trace("reponseHandler() id: ", id, " result: ", result)
 		go func() {
@@ -247,8 +254,14 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	values["sender"] = pubsub.broker.LocalNode().GetID()
 	values["id"] = context.ID()
 	values["meta"] = context.Meta()
-	values["success"] = true
-	values["data"] = response.Value()
+
+	if response.IsError() {
+		values["error"] = response.String()
+		values["success"] = false
+	} else {
+		values["success"] = true
+		values["data"] = response.Value()
+	}
 
 	message, err := pubsub.serializer.MapToMessage(&values)
 	if err != nil {

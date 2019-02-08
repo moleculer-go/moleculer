@@ -1,6 +1,7 @@
 package broker_test
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
@@ -38,6 +39,67 @@ var _ = Describe("Broker", func() {
 
 		Expect(result.Value()).Should(Equal(actionResult))
 
+	})
+
+	It("Should make a local call, call should panic and returned paylod should contain the error", func() {
+		//actionResult := "abra cadabra"
+		service := moleculer.Service{
+			Name: "do",
+			Actions: []moleculer.Action{
+				moleculer.Action{
+					Name: "panic",
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
+						if params.Bool() {
+							panic(errors.New("some random error..."))
+						}
+						return "no panic"
+					},
+				},
+			},
+		}
+
+		bkr := broker.FromConfig(&moleculer.BrokerConfig{
+			LogLevel: "DEBUG",
+		})
+		bkr.AddService(service)
+		bkr.Start()
+
+		result := <-bkr.Call("do.panic", true)
+
+		Expect(result.IsError()).Should(Equal(true))
+		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
+
+		service = moleculer.Service{
+			Name: "remote",
+			Actions: []moleculer.Action{
+				moleculer.Action{
+					Name: "panic",
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
+						result := <-ctx.Call("do.panic", params)
+						ctx.Logger().Debug("params: ", params, " result: ", result.Value())
+						if result.IsError() {
+							panic(result.Error())
+						}
+						return result
+					},
+				},
+			},
+		}
+		bkr = broker.FromConfig(&moleculer.BrokerConfig{
+			LogLevel: "DEBUG",
+		})
+		bkr.AddService(service)
+		bkr.Start()
+
+		result = <-bkr.Call("remote.panic", true)
+
+		Expect(result.IsError()).Should(Equal(true))
+		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
+
+		result = <-bkr.Call("remote.panic", false)
+
+		Expect(result.IsError()).Should(Equal(false))
+		Expect(result.String()).Should(BeEquivalentTo("no panic"))
 	})
 
 	It("Should call multiple local calls (in chain)", func() {
