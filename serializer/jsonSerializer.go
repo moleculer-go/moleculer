@@ -83,21 +83,122 @@ func (wrapper ResultWrapper) Time() time.Time {
 }
 
 func (wrapper ResultWrapper) StringArray() []string {
-	source := wrapper.result.Array()
-	array := make([]string, len(source))
-	for index, item := range source {
-		array[index] = item.String()
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]string, len(source))
+		for index, item := range source {
+			array[index] = item.String()
+		}
+		return array
 	}
-	return array
+	return nil
+}
+
+func (wrapper ResultWrapper) ValueArray() []interface{} {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]interface{}, len(source))
+		for index, item := range source {
+			array[index] = item.Value()
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) IntArray() []int {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]int, len(source))
+		for index, item := range source {
+			array[index] = int(item.Int())
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) Int64Array() []int64 {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]int64, len(source))
+		for index, item := range source {
+			array[index] = item.Int()
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) UintArray() []uint64 {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]uint64, len(source))
+		for index, item := range source {
+			array[index] = item.Uint()
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) Float32Array() []float32 {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]float32, len(source))
+		for index, item := range source {
+			array[index] = float32(item.Float())
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) FloatArray() []float64 {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]float64, len(source))
+		for index, item := range source {
+			array[index] = item.Float()
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) BoolArray() []bool {
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]bool, len(source))
+		for index, item := range source {
+			array[index] = item.Bool()
+		}
+		return array
+	}
+	return nil
+}
+
+func (wrapper ResultWrapper) TimeArray() []time.Time {
+	if source := wrapper.Array(); source != nil {
+		array := make([]time.Time, len(source))
+		for index, item := range source {
+			array[index] = item.Time()
+		}
+		return array
+	}
+	return nil
 }
 
 func (wrapper ResultWrapper) Array() []moleculer.Payload {
-	source := wrapper.result.Array()
-	array := make([]moleculer.Payload, len(source))
-	for index, item := range source {
-		array[index] = &ResultWrapper{&item, wrapper.logger}
+	if wrapper.IsArray() {
+		source := wrapper.result.Array()
+		array := make([]moleculer.Payload, len(source))
+		for index, item := range source {
+			array[index] = &ResultWrapper{&item, wrapper.logger}
+		}
+		return array
 	}
-	return array
+	return nil
 }
 
 func (wrapper ResultWrapper) IsArray() bool {

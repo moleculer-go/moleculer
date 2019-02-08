@@ -93,17 +93,6 @@ func (rawPayload *RawPayload) Int64Array() []int64 {
 	return nil
 }
 
-func (rawPayload *RawPayload) Int64Array() []int64 {
-	if source := rawPayload.Array(); source != nil {
-		array := make([]int64, len(source))
-		for index, item := range source {
-			array[index] = item.Int64()
-		}
-		return array
-	}
-	return nil
-}
-
 func (rawPayload *RawPayload) UintArray() []uint64 {
 	if source := rawPayload.Array(); source != nil {
 		array := make([]uint64, len(source))
