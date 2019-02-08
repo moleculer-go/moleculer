@@ -82,6 +82,15 @@ func (wrapper ResultWrapper) Time() time.Time {
 	return wrapper.result.Time()
 }
 
+func (wrapper ResultWrapper) StringArray() []string {
+	source := wrapper.result.Array()
+	array := make([]string, len(source))
+	for index, item := range source {
+		array[index] = item.String()
+	}
+	return array
+}
+
 func (wrapper ResultWrapper) Array() []moleculer.Payload {
 	source := wrapper.result.Array()
 	array := make([]moleculer.Payload, len(source))

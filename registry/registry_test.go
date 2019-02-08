@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var logLevel = "DEBUG"
+var logLevel = "INFO"
 
 func createPrinterBroker() broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
@@ -23,7 +23,7 @@ func createPrinterBroker() broker.ServiceBroker {
 			{
 				Name: "print",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					context.Logger().Info("print action invoked.")
+					context.Logger().Info("print action invoked. params: ", params)
 					return params.Value()
 				},
 			},
@@ -66,11 +66,15 @@ func createCpuBroker() broker.ServiceBroker {
 			{
 				Name: "compute",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					context.Logger().Info("compute action invoked!")
+					context.Logger().Debug("compute action invoked!")
 
-					scanResult := <-context.Call("scanner.scan", params.Value())
+					scanResult := <-context.Call("scanner.scan", params)
 
-					return <-context.Call("printer.print", scanResult)
+					context.Logger().Debug("scanResult: ", scanResult)
+
+					printResult := <-context.Call("printer.print", scanResult)
+
+					return printResult
 				},
 			},
 		},
@@ -108,7 +112,10 @@ var _ = Describe("Registry", func() {
 			scannerBroker.Start()
 			time.Sleep(time.Second)
 
-			scanResult := <-printerBroker.Call("scanner.scan", scanText)
+			scanResult := <-scannerBroker.Call("scanner.scan", scanText)
+			Expect(scanResult.Value()).Should(Equal(scanText))
+
+			scanResult = <-printerBroker.Call("scanner.scan", scanText)
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			cpuBroker.Start()

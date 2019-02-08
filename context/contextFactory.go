@@ -98,7 +98,7 @@ func (context *Context) AsMap() map[string]interface{} {
 
 	mapResult["id"] = context.id
 	mapResult["action"] = context.actionName
-	mapResult["params"] = context.params
+	mapResult["params"] = context.params.Value()
 	mapResult["meta"] = context.meta
 	mapResult["timeout"] = context.timeout
 	mapResult["level"] = context.level

@@ -154,7 +154,7 @@ func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, o
 func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan moleculer.Payload {
 	result := make(chan moleculer.Payload)
 	context.SetTargetNodeID(actionEntry.TargetNodeID())
-	registry.logger.Debug("Before invoking remote action: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID())
+	registry.logger.Trace("Before invoking remote action: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID(), " context.Payload(): ", context.Payload())
 
 	go func() {
 		actionResult := <-registry.transit.Request(context)

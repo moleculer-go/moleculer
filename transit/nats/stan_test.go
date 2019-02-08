@@ -3,6 +3,7 @@ package nats_test
 import (
 	"fmt"
 
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,7 +22,7 @@ func addUserService(bkr *broker.ServiceBroker) {
 			{
 				Name: "update",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					list := params.Value().([]interface{})
+					list := params.StringArray()
 					list = append(list, "user update")
 					return list
 				},
@@ -37,7 +38,7 @@ func addContactService(bkr *broker.ServiceBroker) {
 			{
 				Name: "update",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					list := params.Value().([]interface{})
+					list := params.StringArray()
 					list = append(list, "contact update")
 					return list
 				},
@@ -53,13 +54,14 @@ func addProfileService(bkr *broker.ServiceBroker) {
 			{
 				Name: "update",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					paramsList := params.Value().([]interface{})
+					paramsList := params.StringArray()
 
-					contactList := <-context.Call("contact.update", []interface{}{"profile update"})
-					userList := <-context.Call("user.update", contactList)
+					contactList := <-context.Call("contact.update", []string{"profile update"})
+					userUpdate := <-context.Call("user.update", contactList)
 
+					userList := userUpdate.StringArray()
 					for _, item := range paramsList {
-						userList = append(userList.([]interface{}), item)
+						userList = append(userList, item)
 					}
 
 					return userList
@@ -134,27 +136,27 @@ var _ = Describe("Transit", func() {
 
 			bench.Time("local calls", func() {
 				result := <-userBroker.Call("user.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 				result = <-contactBroker.Call("contact.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 			})
 
 			bench.Time("5 remote calls", func() {
 				result := <-userBroker.Call("contact.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 				result = <-contactBroker.Call("user.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 1))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 				result = <-profileBroker.Call("profile.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 3))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 3))
 
 				result = <-contactBroker.Call("profile.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 3))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 3))
 
 				result = <-userBroker.Call("profile.update", longList)
-				Expect(len(result.([]interface{}))).Should(Equal(arraySize + 3))
+				Expect(len(result.StringArray())).Should(Equal(arraySize + 3))
 			})
 
 			bench.Time("stop and fail on action call", func() {
@@ -196,7 +198,7 @@ var _ = Describe("Transit", func() {
 		}
 
 		actionName := "some.service.action"
-		actionContext := contextA.NewActionContext(actionName, params)
+		actionContext := contextA.NewActionContext(actionName, payload.Create(params))
 
 		transporter := nats.CreateStanTransporter(options)
 		<-transporter.Connect()

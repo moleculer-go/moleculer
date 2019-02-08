@@ -238,23 +238,25 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 	}
 }
 
-func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response interface{}) {
+func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response moleculer.Payload) {
 	targetNodeID := context.TargetNodeID()
 
-	payload := make(map[string]interface{})
-	payload["sender"] = pubsub.broker.LocalNode().GetID()
-	payload["id"] = context.ID()
-	payload["meta"] = context.Meta()
-	payload["success"] = true
-	payload["data"] = response
+	pubsub.logger.Tracef("sendResponse() reponse type: %T ", response)
 
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	values := make(map[string]interface{})
+	values["sender"] = pubsub.broker.LocalNode().GetID()
+	values["id"] = context.ID()
+	values["meta"] = context.Meta()
+	values["success"] = true
+	values["data"] = response.Value()
+
+	message, err := pubsub.serializer.MapToMessage(&values)
 	if err != nil {
-		pubsub.logger.Error("sendResponse() Erro serializing the payload: ", payload, " error: ", err)
+		pubsub.logger.Error("sendResponse() Erro serializing the values: ", values, " error: ", err)
 		panic(err)
 	}
 
-	pubsub.logger.Debug("sendResponse() targetNodeID: ", targetNodeID, " payload: ", payload)
+	pubsub.logger.Trace("sendResponse() targetNodeID: ", targetNodeID, " values: ", values, " message: ", message)
 
 	pubsub.transport.Publish("RES", targetNodeID, message)
 }

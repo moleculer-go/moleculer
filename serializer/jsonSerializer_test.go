@@ -2,6 +2,7 @@ package serializer_test
 
 import (
 	"github.com/moleculer-go/moleculer/context"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,7 +24,7 @@ var _ = Describe("JSON Serializer", func() {
 			"name":     "John",
 			"lastName": "Snow",
 		}
-		actionContext := contextA.NewActionContext(actionName, params)
+		actionContext := contextA.NewActionContext(actionName, payload.Create(params))
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "original_sender"

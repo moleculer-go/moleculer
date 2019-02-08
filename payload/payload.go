@@ -49,6 +49,116 @@ func (rawPayload *RawPayload) Time() time.Time {
 	return rawPayload.source.(time.Time)
 }
 
+func (rawPayload *RawPayload) StringArray() []string {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]string, len(source))
+		for index, item := range source {
+			array[index] = item.String()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) ValueArray() []interface{} {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]interface{}, len(source))
+		for index, item := range source {
+			array[index] = item.Value()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) IntArray() []int {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]int, len(source))
+		for index, item := range source {
+			array[index] = item.Int()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) Int64Array() []int64 {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]int64, len(source))
+		for index, item := range source {
+			array[index] = item.Int64()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) Int64Array() []int64 {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]int64, len(source))
+		for index, item := range source {
+			array[index] = item.Int64()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) UintArray() []uint64 {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]uint64, len(source))
+		for index, item := range source {
+			array[index] = item.Uint()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) Float32Array() []float32 {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]float32, len(source))
+		for index, item := range source {
+			array[index] = item.Float32()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) FloatArray() []float64 {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]float64, len(source))
+		for index, item := range source {
+			array[index] = item.Float()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) BoolArray() []bool {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]bool, len(source))
+		for index, item := range source {
+			array[index] = item.Bool()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) TimeArray() []time.Time {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]time.Time, len(source))
+		for index, item := range source {
+			array[index] = item.Time()
+		}
+		return array
+	}
+	return nil
+}
+
 func (rawPayload *RawPayload) Array() []moleculer.Payload {
 	if transformer := getArrayTransformer(&rawPayload.source); transformer != nil {
 		source := transformer.interfaceArray(&rawPayload.source)
@@ -143,5 +253,12 @@ func (rawPayload *RawPayload) Value() interface{} {
 }
 
 func Create(source interface{}) moleculer.Payload {
+	valueType := getValueType(&source)
+	if valueType == "*payload.RawPayload" {
+		return source.(moleculer.Payload)
+	} else if valueType == "serializer.ResultWrapper" {
+		//TODO make this flexible to other factories can be created for custom types
+		return source.(moleculer.Payload)
+	}
 	return &RawPayload{source}
 }

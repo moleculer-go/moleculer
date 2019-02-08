@@ -19,14 +19,23 @@ type Payload interface {
 	IsError() bool
 	Error() error
 	Value() interface{}
+	ValueArray() []interface{}
 	Int() int
+	IntArray() []int
 	Int64() int64
+	Int64Array() []int64
 	Uint() uint64
+	UintArray() []uint64
 	Float32() float32
+	Float32Array() []float32
 	Float() float64
+	FloatArray() []float64
 	String() string
+	StringArray() []string
 	Bool() bool
+	BoolArray() []bool
 	Time() time.Time
+	TimeArray() []time.Time
 	Array() []Payload
 	Get(path string) Payload
 	IsArray() bool
