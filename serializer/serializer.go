@@ -3,9 +3,9 @@ package serializer
 import "github.com/moleculer-go/moleculer"
 
 type Serializer interface {
-	BytesToMessage(bytes *[]byte) moleculer.Payload
-	MessageToContextMap(moleculer.Payload) map[string]interface{}
-	MapToMessage(mapValue *map[string]interface{}) (moleculer.Payload, error)
+	BytesToPayload(bytes *[]byte) moleculer.Payload
+	PayloadToContextMap(moleculer.Payload) map[string]interface{}
+	MapToPayload(mapValue *map[string]interface{}) (moleculer.Payload, error)
 }
 
 func FromConfig(broker moleculer.BrokerDelegates) Serializer {

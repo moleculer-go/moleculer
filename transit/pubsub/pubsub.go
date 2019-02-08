@@ -181,7 +181,7 @@ func (pubsub *PubSub) SendHeartbeat() {
 		"cpu":    node["cpu"],
 		"cpuSeq": node["cpuSeq"],
 	}
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err == nil {
 		pubsub.transport.Publish("HEARTBEAT", "", message)
 	}
@@ -189,7 +189,7 @@ func (pubsub *PubSub) SendHeartbeat() {
 
 func (pubsub *PubSub) DiscoverNode(nodeID string) {
 	payload := map[string]interface{}{"sender": pubsub.broker.LocalNode().GetID()}
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err == nil {
 		pubsub.transport.Publish("DISCOVER", nodeID, message)
 	}
@@ -206,7 +206,7 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 
 	pubsub.logger.Trace("Request() targetNodeID: ", targetNodeID, " payload: ", payload)
 
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err != nil {
 		pubsub.logger.Error("Request() Error serializing the payload: ", payload, " error: ", err)
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
@@ -263,7 +263,7 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 		values["data"] = response.Value()
 	}
 
-	message, err := pubsub.serializer.MapToMessage(&values)
+	message, err := pubsub.serializer.MapToPayload(&values)
 	if err != nil {
 		pubsub.logger.Error("sendResponse() Erro serializing the values: ", values, " error: ", err)
 		panic(err)
@@ -280,7 +280,7 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 // 3: send a response
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
-		values := pubsub.serializer.MessageToContextMap(message)
+		values := pubsub.serializer.PayloadToContextMap(message)
 		context := context.RemoteActionContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)
 		pubsub.sendResponse(context, result)
@@ -320,7 +320,7 @@ func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload["sender"] = payload["id"]
 	payload["neighbours"] = pubsub.neighbours()
 
-	message, _ := pubsub.serializer.MapToMessage(&payload)
+	message, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
 }
 
@@ -343,7 +343,7 @@ func (pubsub *PubSub) SendPing() {
 	sender := pubsub.broker.LocalNode().GetID()
 	ping["sender"] = sender
 	ping["time"] = time.Now().Unix()
-	pingMessage, _ := pubsub.serializer.MapToMessage(&ping)
+	pingMessage, _ := pubsub.serializer.MapToPayload(&ping)
 	pubsub.transport.Publish("PING", sender, pingMessage)
 
 }
@@ -356,7 +356,7 @@ func (pubsub *PubSub) pingHandler() transit.TransportHandler {
 		pong["time"] = message.Get("time").Int()
 		pong["arrived"] = time.Now().Unix()
 
-		pongMessage, _ := pubsub.serializer.MapToMessage(&pong)
+		pongMessage, _ := pubsub.serializer.MapToPayload(&pong)
 		pubsub.transport.Publish("PONG", sender, pongMessage)
 	}
 }
@@ -399,7 +399,7 @@ func (pubsub *PubSub) subscribe() {
 func (pubsub *PubSub) sendDisconnect() {
 	payload := make(map[string]interface{})
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
-	msg, _ := pubsub.serializer.MapToMessage(&payload)
+	msg, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("DISCONNECT", "", msg)
 }
 

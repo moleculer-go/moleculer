@@ -13,7 +13,7 @@ type JSONSerializer struct {
 	logger *log.Entry
 }
 
-type ResultWrapper struct {
+type JSONPayload struct {
 	result gjson.Result
 	logger *log.Entry
 }
@@ -31,60 +31,60 @@ func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[s
 	return values
 }
 
-func (serializer JSONSerializer) BytesToMessage(bytes *[]byte) moleculer.Payload {
+func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload {
 	result := gjson.ParseBytes(*bytes)
-	message := ResultWrapper{result, serializer.logger}
-	return message
+	payload := JSONPayload{result, serializer.logger}
+	return payload
 }
 
-func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) (moleculer.Payload, error) {
+func (serializer JSONSerializer) MapToPayload(mapValue *map[string]interface{}) (moleculer.Payload, error) {
 	json, err := sjson.Set("{root:false}", "root", mapValue)
 	if err != nil {
-		serializer.logger.Error("MapToMessage() Error when parsing the map: ", mapValue, " Error: ", err)
+		serializer.logger.Error("MapToPayload() Error when parsing the map: ", mapValue, " Error: ", err)
 		return nil, err
 	}
 	result := gjson.Get(json, "root")
-	message := ResultWrapper{result, serializer.logger}
-	return message, nil
+	payload := JSONPayload{result, serializer.logger}
+	return payload, nil
 }
 
-func (serializer JSONSerializer) MessageToContextMap(message moleculer.Payload) map[string]interface{} {
+func (serializer JSONSerializer) PayloadToContextMap(message moleculer.Payload) map[string]interface{} {
 	return serializer.contextMap(message.RawMap())
 }
 
-func (wrapper ResultWrapper) Get(path string) moleculer.Payload {
-	result := wrapper.result.Get(path)
-	message := ResultWrapper{result, wrapper.logger}
+func (payload JSONPayload) Get(path string) moleculer.Payload {
+	result := payload.result.Get(path)
+	message := JSONPayload{result, payload.logger}
 	return message
 }
 
-func (wrapper ResultWrapper) Exists() bool {
-	return wrapper.result.Exists()
+func (payload JSONPayload) Exists() bool {
+	return payload.result.Exists()
 }
 
-func (wrapper ResultWrapper) Value() interface{} {
-	return wrapper.result.Value()
+func (payload JSONPayload) Value() interface{} {
+	return payload.result.Value()
 }
 
-func (wrapper ResultWrapper) Int() int {
-	return int(wrapper.result.Int())
+func (payload JSONPayload) Int() int {
+	return int(payload.result.Int())
 }
 
-func (wrapper ResultWrapper) Int64() int64 {
-	return wrapper.result.Int()
+func (payload JSONPayload) Int64() int64 {
+	return payload.result.Int()
 }
 
-func (wrapper ResultWrapper) Uint() uint64 {
-	return wrapper.result.Uint()
+func (payload JSONPayload) Uint() uint64 {
+	return payload.result.Uint()
 }
 
-func (wrapper ResultWrapper) Time() time.Time {
-	return wrapper.result.Time()
+func (payload JSONPayload) Time() time.Time {
+	return payload.result.Time()
 }
 
-func (wrapper ResultWrapper) StringArray() []string {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) StringArray() []string {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]string, len(source))
 		for index, item := range source {
 			array[index] = item.String()
@@ -94,9 +94,9 @@ func (wrapper ResultWrapper) StringArray() []string {
 	return nil
 }
 
-func (wrapper ResultWrapper) ValueArray() []interface{} {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) ValueArray() []interface{} {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]interface{}, len(source))
 		for index, item := range source {
 			array[index] = item.Value()
@@ -106,9 +106,9 @@ func (wrapper ResultWrapper) ValueArray() []interface{} {
 	return nil
 }
 
-func (wrapper ResultWrapper) IntArray() []int {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) IntArray() []int {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]int, len(source))
 		for index, item := range source {
 			array[index] = int(item.Int())
@@ -118,9 +118,9 @@ func (wrapper ResultWrapper) IntArray() []int {
 	return nil
 }
 
-func (wrapper ResultWrapper) Int64Array() []int64 {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) Int64Array() []int64 {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]int64, len(source))
 		for index, item := range source {
 			array[index] = item.Int()
@@ -130,9 +130,9 @@ func (wrapper ResultWrapper) Int64Array() []int64 {
 	return nil
 }
 
-func (wrapper ResultWrapper) UintArray() []uint64 {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) UintArray() []uint64 {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]uint64, len(source))
 		for index, item := range source {
 			array[index] = item.Uint()
@@ -142,9 +142,9 @@ func (wrapper ResultWrapper) UintArray() []uint64 {
 	return nil
 }
 
-func (wrapper ResultWrapper) Float32Array() []float32 {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) Float32Array() []float32 {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]float32, len(source))
 		for index, item := range source {
 			array[index] = float32(item.Float())
@@ -154,9 +154,9 @@ func (wrapper ResultWrapper) Float32Array() []float32 {
 	return nil
 }
 
-func (wrapper ResultWrapper) FloatArray() []float64 {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) FloatArray() []float64 {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]float64, len(source))
 		for index, item := range source {
 			array[index] = item.Float()
@@ -166,9 +166,9 @@ func (wrapper ResultWrapper) FloatArray() []float64 {
 	return nil
 }
 
-func (wrapper ResultWrapper) BoolArray() []bool {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) BoolArray() []bool {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]bool, len(source))
 		for index, item := range source {
 			array[index] = item.Bool()
@@ -178,8 +178,8 @@ func (wrapper ResultWrapper) BoolArray() []bool {
 	return nil
 }
 
-func (wrapper ResultWrapper) TimeArray() []time.Time {
-	if source := wrapper.result.Array(); source != nil {
+func (payload JSONPayload) TimeArray() []time.Time {
+	if source := payload.result.Array(); source != nil {
 		array := make([]time.Time, len(source))
 		for index, item := range source {
 			array[index] = item.Time()
@@ -189,70 +189,70 @@ func (wrapper ResultWrapper) TimeArray() []time.Time {
 	return nil
 }
 
-func (wrapper ResultWrapper) Array() []moleculer.Payload {
-	if wrapper.IsArray() {
-		source := wrapper.result.Array()
+func (payload JSONPayload) Array() []moleculer.Payload {
+	if payload.IsArray() {
+		source := payload.result.Array()
 		array := make([]moleculer.Payload, len(source))
 		for index, item := range source {
-			array[index] = ResultWrapper{item, wrapper.logger}
+			array[index] = JSONPayload{item, payload.logger}
 		}
 		return array
 	}
 	return nil
 }
 
-func (wrapper ResultWrapper) IsArray() bool {
-	return wrapper.result.IsArray()
+func (payload JSONPayload) IsArray() bool {
+	return payload.result.IsArray()
 }
 
-func (wrapper ResultWrapper) IsMap() bool {
-	return wrapper.result.IsObject()
+func (payload JSONPayload) IsMap() bool {
+	return payload.result.IsObject()
 }
 
-func (wrapper ResultWrapper) ForEach(iterator func(key interface{}, value moleculer.Payload) bool) {
-	wrapper.result.ForEach(func(key, value gjson.Result) bool {
-		return iterator(key.Value(), &ResultWrapper{value, wrapper.logger})
+func (payload JSONPayload) ForEach(iterator func(key interface{}, value moleculer.Payload) bool) {
+	payload.result.ForEach(func(key, value gjson.Result) bool {
+		return iterator(key.Value(), &JSONPayload{value, payload.logger})
 	})
 }
 
-func (wrapper ResultWrapper) Bool() bool {
-	return wrapper.result.Bool()
+func (payload JSONPayload) Bool() bool {
+	return payload.result.Bool()
 }
 
-func (wrapper ResultWrapper) Float() float64 {
-	return wrapper.result.Float()
+func (payload JSONPayload) Float() float64 {
+	return payload.result.Float()
 }
 
-func (wrapper ResultWrapper) Float32() float32 {
-	return float32(wrapper.result.Float())
+func (payload JSONPayload) Float32() float32 {
+	return float32(payload.result.Float())
 }
 
-func (wrapper ResultWrapper) IsError() bool {
+func (payload JSONPayload) IsError() bool {
 	return false
 }
 
-func (wrapper ResultWrapper) Error() error {
+func (payload JSONPayload) Error() error {
 	return nil
 }
 
-func (wrapper ResultWrapper) String() string {
-	return wrapper.result.String()
+func (payload JSONPayload) String() string {
+	return payload.result.String()
 }
 
-func (wrapper ResultWrapper) RawMap() map[string]interface{} {
-	mapValue, ok := wrapper.result.Value().(map[string]interface{})
+func (payload JSONPayload) RawMap() map[string]interface{} {
+	mapValue, ok := payload.result.Value().(map[string]interface{})
 	if !ok {
-		wrapper.logger.Warn("RawMap() Could not convert result.Value() into a map[string]interface{} - result: ", wrapper.result)
+		payload.logger.Warn("RawMap() Could not convert result.Value() into a map[string]interface{} - result: ", payload.result)
 		return nil
 	}
 	return mapValue
 }
 
-func (wrapper ResultWrapper) Map() map[string]moleculer.Payload {
-	if source := wrapper.result.Map(); source != nil {
+func (payload JSONPayload) Map() map[string]moleculer.Payload {
+	if source := payload.result.Map(); source != nil {
 		newMap := make(map[string]moleculer.Payload)
 		for key, item := range source {
-			newMap[key] = &ResultWrapper{item, wrapper.logger}
+			newMap[key] = &JSONPayload{item, payload.logger}
 		}
 		return newMap
 	}

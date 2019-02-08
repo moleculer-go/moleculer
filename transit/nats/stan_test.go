@@ -206,7 +206,7 @@ var _ = Describe("Transit", func() {
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {
 
-			contextMap := serializer.MessageToContextMap(message)
+			contextMap := serializer.PayloadToContextMap(message)
 			newContext := context.RemoteActionContext(brokerDelegates, contextMap)
 			Expect(newContext.ActionName()).Should(Equal(actionName))
 			contextParams := newContext.Payload()
@@ -218,7 +218,7 @@ var _ = Describe("Transit", func() {
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "someone"
-		msg, _ := serializer.MapToMessage(&contextMap)
+		msg, _ := serializer.MapToPayload(&contextMap)
 		transporter.Publish("topicA", "node1", msg)
 
 		Expect(<-received).Should(Equal(true))

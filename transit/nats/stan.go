@@ -108,7 +108,7 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 
 	sub, error := transporter.connection.Subscribe(topic, func(msg *stan.Msg) {
 		transporter.logger.Trace("stan.Subscribe() command: ", command, " nodeID: ", nodeID, " msg: \n", msg, "\n - end")
-		message := transporter.serializer.BytesToMessage(&msg.Data)
+		message := transporter.serializer.BytesToPayload(&msg.Data)
 		if transporter.validateMsg(message) {
 			handler(message)
 		}

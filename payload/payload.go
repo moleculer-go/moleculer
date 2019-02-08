@@ -244,7 +244,7 @@ func Create(source interface{}) moleculer.Payload {
 	valueType := getValueType(&source)
 	if valueType == "*payload.RawPayload" {
 		return source.(moleculer.Payload)
-	} else if valueType == "serializer.ResultWrapper" {
+	} else if valueType == "serializer.JSONPayload" {
 		//TODO make this flexible to other factories can be created for custom types
 		return source.(moleculer.Payload)
 	}

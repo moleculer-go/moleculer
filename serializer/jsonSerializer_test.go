@@ -22,7 +22,7 @@ var _ = Describe("JSON Serializer", func() {
 		serializer := serializer.CreateJSONSerializer(logger)
 
 		json := []byte(`{"name":{"first":"Janet","last":"Prichard"},"age":47}`)
-		message := serializer.BytesToMessage(&json)
+		message := serializer.BytesToPayload(&json)
 
 		Expect(message.Get("name").IsMap()).Should(Equal(true))
 		Expect(message.Get("name").Get("first").String()).Should(Equal("Janet"))
@@ -35,14 +35,14 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.Get("age").Uint()).Should(Equal(uint64(47)))
 
 		json = []byte(`{"list":["first", "second", "third"]}`)
-		message = serializer.BytesToMessage(&json)
+		message = serializer.BytesToPayload(&json)
 
 		Expect(message.Get("list").IsArray()).Should(Equal(true))
 		Expect(message.Get("list").StringArray()).Should(Equal([]string{"first", "second", "third"}))
 		Expect(message.Get("list").ValueArray()).Should(Equal([]interface{}{"first", "second", "third"}))
 
 		json = []byte(`{"list":[10, 40, 50],"times":["2006-01-02T15:04:05Z", "2007-01-02T15:04:05Z", "2008-01-02T15:04:05Z"]}`)
-		message = serializer.BytesToMessage(&json)
+		message = serializer.BytesToPayload(&json)
 
 		Expect(message.Get("list").IsArray()).Should(Equal(true))
 		Expect(message.Get("list").IntArray()).Should(Equal([]int{10, 40, 50}))
@@ -83,13 +83,13 @@ var _ = Describe("JSON Serializer", func() {
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "original_sender"
-		message, _ := serializer.MapToMessage(&contextMap)
+		message, _ := serializer.MapToPayload(&contextMap)
 
 		Expect(message.Get("action").String()).Should(Equal(actionName))
 		Expect(message.Get("params.name").String()).Should(Equal("John"))
 		Expect(message.Get("params.lastName").String()).Should(Equal("Snow"))
 
-		values := serializer.MessageToContextMap(message)
+		values := serializer.PayloadToContextMap(message)
 		contextAgain := context.RemoteActionContext(brokerDelegates, values)
 
 		Expect(contextAgain.TargetNodeID()).Should(Equal("original_sender"))
