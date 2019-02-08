@@ -57,12 +57,12 @@ func checkMaxCalls(context *Context) {
 
 }
 
-// RemoteActionContext create a context for a remote call
-func RemoteActionContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
-
+// RemoteContext create a context for a remote call
+func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
-	actionName := values["action"].(string)
+	actionName, isAction := values["action"]
+	eventName, isEvent := values["event"]
 	params := payload.Create(values["params"])
 	level := values["level"].(int)
 	sendMetrics := values["metrics"].(bool)
@@ -82,12 +82,19 @@ func RemoteActionContext(broker moleculer.BrokerDelegates, values map[string]int
 		targetNodeID: sourceNodeID,
 		id:           id,
 		parentID:     parentID,
-		actionName:   actionName,
 		params:       params,
 		meta:         &meta,
 		timeout:      timeout,
 		level:        level,
 		sendMetrics:  sendMetrics,
+	}
+
+	if isAction {
+		newContext.actionName = actionName.(string)
+	} else if isEvent {
+		newContext.eventName = eventName.(string)
+		// groups := values["groups"]
+		// broadcast := values["broadcast"]
 	}
 	return &newContext
 }

@@ -289,11 +289,9 @@ func (broker *ServiceBroker) setupLocalBus() {
 // FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
 func FromConfig(userConfig ...*moleculer.BrokerConfig) *ServiceBroker {
-
 	config := mergeConfigs(defaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
-
 	broker.logger.Info("Broker - FromConfig() ")
 	return &broker
 }
