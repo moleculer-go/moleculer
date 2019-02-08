@@ -2,10 +2,13 @@ package payload_test
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/moleculer-go/moleculer/payload"
 	. "github.com/moleculer-go/moleculer/payload"
 )
 
@@ -58,6 +61,7 @@ var _ = test.Describe("Payload", func() {
 		Expect(params.Get("height").Float()).Should(Equal(f64Height))
 		Expect(params.Get("width").Float()).Should(Equal(f64Width))
 
+		timeArray := []time.Time{time.Now(), time.Now().Local(), time.Now().UTC()}
 		source = map[string]interface{}{
 			"string":  "Hellow Night!",
 			"int":     12345678910,
@@ -68,9 +72,24 @@ var _ = test.Describe("Payload", func() {
 				"sub1": "value-sub1",
 				"sub2": "value-sub2",
 			},
+			"stringArray": []string{"value1", "value2", "value3"},
+			"intArray":    []int{10, 20, 30},
+			"int64Array":  []int64{100, 200, 300},
+			"uintArray":   []uint64{1000, 2000, 3000},
+			"valueArray":  []interface{}{"value1", 20, 25.5},
+			"timeArray":   timeArray,
 		}
 		params = Create(source)
+		fmt.Println("StringArray: ", params.Get("stringArray").StringArray())
 		Expect(params.Get("string").String()).Should(Equal("Hellow Night!"))
+		Expect(params.Get("stringArray").StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
+		Expect(payload.Create([]string{"value1", "value2", "value3"}).StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
+		Expect(params.Get("intArray").IntArray()).Should(BeEquivalentTo([]int{10, 20, 30}))
+		Expect(params.Get("int64Array").Int64Array()).Should(BeEquivalentTo([]int64{100, 200, 300}))
+		Expect(params.Get("uintArray").UintArray()).Should(BeEquivalentTo([]uint64{1000, 2000, 3000}))
+		Expect(params.Get("valueArray").ValueArray()).Should(BeEquivalentTo([]interface{}{"value1", 20, 25.5}))
+		Expect(params.Get("timeArray").TimeArray()).Should(BeEquivalentTo(timeArray))
+
 		Expect(params.Get("int").Int()).Should(Equal(12345678910))
 		Expect(params.Get("int64").Int64()).Should(Equal(lHeight))
 		Expect(params.Get("float32").Float32()).Should(Equal(f32Height))

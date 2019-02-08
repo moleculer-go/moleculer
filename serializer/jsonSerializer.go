@@ -14,7 +14,7 @@ type JSONSerializer struct {
 }
 
 type ResultWrapper struct {
-	result *gjson.Result
+	result gjson.Result
 	logger *log.Entry
 }
 
@@ -33,7 +33,7 @@ func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[s
 
 func (serializer JSONSerializer) BytesToMessage(bytes *[]byte) moleculer.Payload {
 	result := gjson.ParseBytes(*bytes)
-	message := ResultWrapper{&result, serializer.logger}
+	message := ResultWrapper{result, serializer.logger}
 	return message
 }
 
@@ -44,7 +44,7 @@ func (serializer JSONSerializer) MapToMessage(mapValue *map[string]interface{}) 
 		return nil, err
 	}
 	result := gjson.Get(json, "root")
-	message := ResultWrapper{&result, serializer.logger}
+	message := ResultWrapper{result, serializer.logger}
 	return message, nil
 }
 
@@ -54,7 +54,7 @@ func (serializer JSONSerializer) MessageToContextMap(message moleculer.Payload) 
 
 func (wrapper ResultWrapper) Get(path string) moleculer.Payload {
 	result := wrapper.result.Get(path)
-	message := ResultWrapper{&result, wrapper.logger}
+	message := ResultWrapper{result, wrapper.logger}
 	return message
 }
 
@@ -179,7 +179,7 @@ func (wrapper ResultWrapper) BoolArray() []bool {
 }
 
 func (wrapper ResultWrapper) TimeArray() []time.Time {
-	if source := wrapper.Array(); source != nil {
+	if source := wrapper.result.Array(); source != nil {
 		array := make([]time.Time, len(source))
 		for index, item := range source {
 			array[index] = item.Time()
@@ -194,7 +194,7 @@ func (wrapper ResultWrapper) Array() []moleculer.Payload {
 		source := wrapper.result.Array()
 		array := make([]moleculer.Payload, len(source))
 		for index, item := range source {
-			array[index] = &ResultWrapper{&item, wrapper.logger}
+			array[index] = ResultWrapper{item, wrapper.logger}
 		}
 		return array
 	}
@@ -211,7 +211,7 @@ func (wrapper ResultWrapper) IsMap() bool {
 
 func (wrapper ResultWrapper) ForEach(iterator func(key interface{}, value moleculer.Payload) bool) {
 	wrapper.result.ForEach(func(key, value gjson.Result) bool {
-		return iterator(key.Value(), &ResultWrapper{&value, wrapper.logger})
+		return iterator(key.Value(), &ResultWrapper{value, wrapper.logger})
 	})
 }
 
@@ -252,7 +252,7 @@ func (wrapper ResultWrapper) Map() map[string]moleculer.Payload {
 	if source := wrapper.result.Map(); source != nil {
 		newMap := make(map[string]moleculer.Payload)
 		for key, item := range source {
-			newMap[key] = &ResultWrapper{&item, wrapper.logger}
+			newMap[key] = &ResultWrapper{item, wrapper.logger}
 		}
 		return newMap
 	}

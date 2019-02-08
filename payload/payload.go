@@ -18,7 +18,6 @@ func (rawPayload *RawPayload) Exists() bool {
 
 func (rawPayload *RawPayload) IsError() bool {
 	valueType := getValueType(&rawPayload.source)
-	fmt.Println("valueType ", valueType)
 	return valueType == "*errors.errorString"
 }
 
@@ -153,7 +152,7 @@ func (rawPayload *RawPayload) Array() []moleculer.Payload {
 		source := transformer.interfaceArray(&rawPayload.source)
 		array := make([]moleculer.Payload, len(source))
 		for index, item := range source {
-			array[index] = &RawPayload{&item}
+			array[index] = Create(item)
 		}
 		return array
 	}

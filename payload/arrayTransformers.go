@@ -1,5 +1,7 @@
 package payload
 
+import "time"
+
 type interfaceArrayFunc func(source *interface{}) []interface{}
 
 type arrayTransformer struct {
@@ -62,6 +64,28 @@ var arrayTransformers = []arrayTransformer{
 		"[]float64",
 		func(source *interface{}) []interface{} {
 			sourceList := (*source).([]float64)
+			result := make([]interface{}, len(sourceList))
+			for index, value := range sourceList {
+				result[index] = value
+			}
+			return result
+		},
+	},
+	arrayTransformer{
+		"[]uint64",
+		func(source *interface{}) []interface{} {
+			sourceList := (*source).([]uint64)
+			result := make([]interface{}, len(sourceList))
+			for index, value := range sourceList {
+				result[index] = value
+			}
+			return result
+		},
+	},
+	arrayTransformer{
+		"[]time.Time",
+		func(source *interface{}) []interface{} {
+			sourceList := (*source).([]time.Time)
 			result := make([]interface{}, len(sourceList))
 			for index, value := range sourceList {
 				result[index] = value
