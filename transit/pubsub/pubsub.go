@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moleculer-go/moleculer/version"
+
 	"github.com/moleculer-go/moleculer/payload"
 
 	"github.com/moleculer-go/moleculer/context"
@@ -180,6 +182,7 @@ func (pubsub *PubSub) SendHeartbeat() {
 		"sender": node["id"],
 		"cpu":    node["cpu"],
 		"cpuSeq": node["cpuSeq"],
+		"ver":    version.MoleculerProtocol(),
 	}
 	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err == nil {
@@ -188,7 +191,10 @@ func (pubsub *PubSub) SendHeartbeat() {
 }
 
 func (pubsub *PubSub) DiscoverNode(nodeID string) {
-	payload := map[string]interface{}{"sender": pubsub.broker.LocalNode().GetID()}
+	payload := map[string]interface{}{
+		"sender": pubsub.broker.LocalNode().GetID(),
+		"ver":    version.MoleculerProtocol(),
+	}
 	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err == nil {
 		pubsub.transport.Publish("DISCOVER", nodeID, message)
@@ -203,6 +209,7 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 	targetNodeID := context.TargetNodeID()
 	payload := context.AsMap()
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
+	payload["ver"] = version.MoleculerProtocol()
 
 	pubsub.logger.Trace("Request() targetNodeID: ", targetNodeID, " payload: ", payload)
 
@@ -220,6 +227,18 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 
 	pubsub.transport.Publish("REQ", targetNodeID, message)
 	return resultChan
+}
+
+// validateVersion check that version of the message is correct.
+func (pubsub *PubSub) validateVersion(handler func(message moleculer.Payload)) transit.TransportHandler {
+	return func(msg moleculer.Payload) {
+		msgVersion := msg.Get("ver").String()
+		if msgVersion == version.MoleculerProtocol() {
+			handler(msg)
+		} else {
+			pubsub.logger.Error("Discarding msg - wronging version: ", msgVersion, " expected: ", version.MoleculerProtocol(), " msg: ", msg)
+		}
+	}
 }
 
 func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
@@ -252,6 +271,7 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 
 	values := make(map[string]interface{})
 	values["sender"] = pubsub.broker.LocalNode().GetID()
+	values["ver"] = version.MoleculerProtocol()
 	values["id"] = context.ID()
 	values["meta"] = context.Meta()
 
@@ -281,9 +301,25 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
-		context := context.RemoteActionContext(pubsub.broker, values)
+		context := context.RemoteContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)
 		pubsub.sendResponse(context, result)
+	}
+}
+
+//eventHandler handles when a event msg is sent to this broker
+func (pubsub *PubSub) eventHandler() transit.TransportHandler {
+	return func(message moleculer.Payload) {
+		values := pubsub.serializer.PayloadToContextMap(message)
+		context := context.RemoteContext(pubsub.broker, values)
+		groups := message.Get("groups").StringArray()
+		broadcast := message.Get("broadcast").Bool()
+
+		if broadcast {
+			pubsub.broker.BroadcastDelegate(context, groups)
+		} else {
+			pubsub.broker.EventDelegate(context, groups)
+		}
 	}
 }
 
@@ -306,19 +342,11 @@ func (pubsub *PubSub) neighbours() int64 {
 	return int64(len(pubsub.knownNeighbours))
 }
 
-//TODO
-func (pubsub *PubSub) eventHandler() transit.TransportHandler {
-	return func(message moleculer.Payload) {
-		//moleculer.Context := pubsub.serializer.MessageTomoleculer.Context(&message)
-		// result := <-moleculer.Context.InvokeAction()
-		// transit.sendResponse(&moleculer.Context, result)
-	}
-}
-
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]
 	payload["neighbours"] = pubsub.neighbours()
+	payload["ver"] = version.MoleculerProtocol()
 
 	message, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
@@ -342,6 +370,7 @@ func (pubsub *PubSub) SendPing() {
 	ping := make(map[string]interface{})
 	sender := pubsub.broker.LocalNode().GetID()
 	ping["sender"] = sender
+	ping["ver"] = version.MoleculerProtocol()
 	ping["time"] = time.Now().Unix()
 	pingMessage, _ := pubsub.serializer.MapToPayload(&ping)
 	pubsub.transport.Publish("PING", sender, pingMessage)
@@ -353,6 +382,7 @@ func (pubsub *PubSub) pingHandler() transit.TransportHandler {
 		pong := make(map[string]interface{})
 		sender := message.Get("sender").String()
 		pong["sender"] = sender
+		pong["ver"] = version.MoleculerProtocol()
 		pong["time"] = message.Get("time").Int()
 		pong["arrived"] = time.Now().Unix()
 
@@ -380,18 +410,21 @@ func (pubsub *PubSub) pongHandler() transit.TransportHandler {
 
 func (pubsub *PubSub) subscribe() {
 	nodeID := pubsub.broker.LocalNode().GetID()
-	pubsub.transport.Subscribe("RES", nodeID, pubsub.reponseHandler())
-	pubsub.transport.Subscribe("REQ", nodeID, pubsub.requestHandler())
+	pubsub.transport.Subscribe("RES", nodeID, pubsub.validateVersion(pubsub.reponseHandler()))
 
-	pubsub.transport.Subscribe("HEARTBEAT", "", pubsub.emitRegistryEvent("HEARTBEAT"))
-	pubsub.transport.Subscribe("DISCONNECT", "", pubsub.emitRegistryEvent("DISCONNECT"))
-	pubsub.transport.Subscribe("INFO", "", pubsub.emitRegistryEvent("INFO"))
-	pubsub.transport.Subscribe("INFO", nodeID, pubsub.emitRegistryEvent("INFO"))
-	pubsub.transport.Subscribe("EVENT", nodeID, pubsub.eventHandler())
-	pubsub.transport.Subscribe("DISCOVER", nodeID, pubsub.discoverHandler())
-	pubsub.transport.Subscribe("DISCOVER", "", pubsub.discoverHandler())
-	pubsub.transport.Subscribe("PING", nodeID, pubsub.pingHandler())
-	pubsub.transport.Subscribe("PONG", nodeID, pubsub.pongHandler())
+	pubsub.transport.Subscribe("REQ", nodeID, pubsub.validateVersion(pubsub.requestHandler()))
+	//pubsub.transport.Subscribe("REQB", nodeID, pubsub.requestHandler())
+	pubsub.transport.Subscribe("EVENT", nodeID, pubsub.validateVersion(pubsub.eventHandler()))
+
+	pubsub.transport.Subscribe("HEARTBEAT", "", pubsub.validateVersion(pubsub.emitRegistryEvent("HEARTBEAT")))
+	pubsub.transport.Subscribe("DISCONNECT", "", pubsub.validateVersion(pubsub.emitRegistryEvent("DISCONNECT")))
+	pubsub.transport.Subscribe("INFO", "", pubsub.validateVersion(pubsub.emitRegistryEvent("INFO")))
+	pubsub.transport.Subscribe("INFO", nodeID, pubsub.validateVersion(pubsub.emitRegistryEvent("INFO")))
+	pubsub.transport.Subscribe("EVENT", nodeID, pubsub.validateVersion(pubsub.eventHandler()))
+	pubsub.transport.Subscribe("DISCOVER", nodeID, pubsub.validateVersion(pubsub.discoverHandler()))
+	pubsub.transport.Subscribe("DISCOVER", "", pubsub.validateVersion(pubsub.discoverHandler()))
+	pubsub.transport.Subscribe("PING", nodeID, pubsub.validateVersion(pubsub.pingHandler()))
+	pubsub.transport.Subscribe("PONG", nodeID, pubsub.validateVersion(pubsub.pongHandler()))
 
 }
 
@@ -399,6 +432,7 @@ func (pubsub *PubSub) subscribe() {
 func (pubsub *PubSub) sendDisconnect() {
 	payload := make(map[string]interface{})
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
+	payload["ver"] = version.MoleculerProtocol()
 	msg, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("DISCONNECT", "", msg)
 }
