@@ -39,6 +39,17 @@ var arrayTransformers = []arrayTransformer{
 		},
 	},
 	arrayTransformer{
+		"[]bool",
+		func(source *interface{}) []interface{} {
+			sourceList := (*source).([]bool)
+			result := make([]interface{}, len(sourceList))
+			for index, value := range sourceList {
+				result[index] = value
+			}
+			return result
+		},
+	},
+	arrayTransformer{
 		"[]int64",
 		func(source *interface{}) []interface{} {
 			sourceList := (*source).([]int64)

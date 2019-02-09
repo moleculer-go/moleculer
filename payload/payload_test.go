@@ -72,12 +72,15 @@ var _ = test.Describe("Payload", func() {
 				"sub1": "value-sub1",
 				"sub2": "value-sub2",
 			},
-			"stringArray": []string{"value1", "value2", "value3"},
-			"intArray":    []int{10, 20, 30},
-			"int64Array":  []int64{100, 200, 300},
-			"uintArray":   []uint64{1000, 2000, 3000},
-			"valueArray":  []interface{}{"value1", 20, 25.5},
-			"timeArray":   timeArray,
+			"stringArray":  []string{"value1", "value2", "value3"},
+			"intArray":     []int{10, 20, 30},
+			"int64Array":   []int64{100, 200, 300},
+			"float32Array": []float32{100.45, 200.56, 300.67},
+			"float64Array": []float64{100.45, 200.56, 300.67},
+			"uintArray":    []uint64{1000, 2000, 3000},
+			"valueArray":   []interface{}{"value1", 20, 25.5},
+			"timeArray":    timeArray,
+			"boolArray":    []bool{true, false, true},
 		}
 		params = Create(source)
 		fmt.Println("StringArray: ", params.Get("stringArray").StringArray())
@@ -91,9 +94,20 @@ var _ = test.Describe("Payload", func() {
 		Expect(payload.Create([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
 		Expect(payload.Create(map[string]int{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": 1, "key2": 2}))
 
+		Expect(params.Get("boolArray").BoolArray()).Should(BeEquivalentTo([]bool{true, false, true}))
+		Expect(payload.Create([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
+
 		Expect(params.Get("int64Array").Int64Array()).Should(BeEquivalentTo([]int64{100, 200, 300}))
 		Expect(payload.Create([]int64{100, 200, 300}).Int64Array()).Should(Equal([]int64{100, 200, 300}))
 		Expect(payload.Create(map[string]int64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": int64(1), "key2": int64(2)}))
+
+		Expect(params.Get("float64Array").FloatArray()).Should(BeEquivalentTo([]float64{100.45, 200.56, 300.67}))
+		Expect(payload.Create([]float64{100.45, 200.56, 300.67}).FloatArray()).Should(Equal([]float64{100.45, 200.56, 300.67}))
+		Expect(payload.Create(map[string]float64{"key1": 100.45, "key2": 200.56}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": float64(100.45), "key2": float64(200.56)}))
+
+		Expect(params.Get("float32Array").Float32Array()).Should(BeEquivalentTo([]float32{100.45, 200.56, 300.67}))
+		Expect(payload.Create([]float32{100.45, 200.56, 300.67}).Float32Array()).Should(Equal([]float32{100.45, 200.56, 300.67}))
+		Expect(payload.Create(map[string]float32{"key1": 100.45, "key2": 200.56}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": float32(100.45), "key2": float32(200.56)}))
 
 		Expect(params.Get("uintArray").UintArray()).Should(BeEquivalentTo([]uint64{1000, 2000, 3000}))
 		Expect(payload.Create([]uint64{1000, 2000, 3000}).UintArray()).Should(Equal([]uint64{1000, 2000, 3000}))

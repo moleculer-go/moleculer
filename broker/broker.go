@@ -104,11 +104,8 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 // stopService stop the service.
 func (broker *ServiceBroker) stopService(service *service.Service) {
 	broker.middlewares.CallHandlers("serviceStoping", service)
-
 	service.Stop()
-
 	broker.middlewares.CallHandlers("serviceStoped", service)
-
 }
 
 // startService start a service.
