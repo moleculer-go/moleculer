@@ -164,13 +164,13 @@ func (context *Context) Call(actionName string, params interface{}, opts ...mole
 func (context *Context) Emit(eventName string, params interface{}, groups ...string) {
 	context.Logger().Debug("Context Emit() eventName: ", eventName)
 	newContext := context.EventContext(eventName, payload.Create(params), groups, false)
-	context.broker.EventDelegate(newContext)
+	context.broker.EmitEvent(newContext)
 }
 
 // Broadcast : Broadcast an event for all local & remote services
 func (context *Context) Broadcast(eventName string, params interface{}, groups ...string) {
 	newContext := context.EventContext(eventName, payload.Create(params), groups, true)
-	context.broker.EventDelegate(newContext)
+	context.broker.EmitEvent(newContext)
 }
 
 func (context *Context) ActionName() string {

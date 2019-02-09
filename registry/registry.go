@@ -55,7 +55,7 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 		strategy:              strategy,
 		logger:                broker.Logger("registry", "Service Registry"),
 		actions:               CreateActionCatalog(),
-		events:                CreateEventCatalog(),
+		events:                CreateEventCatalog(broker.Logger("catalog", "Events")),
 		services:              CreateServiceCatalog(),
 		nodes:                 CreateNodesCatalog(),
 		localNode:             broker.LocalNode(),
@@ -125,20 +125,37 @@ func (registry *ServiceRegistry) Start() {
 	}
 }
 
+// HandleRemoteEvent handle when a remote event is delivered and call all the local handlers.
+func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerContext) {
+	name := context.EventName()
+	groups := context.Groups()
+	registry.logger.Debug("HandleRemoteEvent() - name: ", name, " groups: ", groups)
+
+	entries := registry.events.Next(name, nil, groups, true)
+	for _, localEvent := range entries {
+		localEvent.emitLocalEvent(context)
+	}
+}
+
 func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) {
 	name := context.EventName()
 	params := context.Payload()
 	groups := context.Groups()
 	registry.logger.Debug("LoadBalanceEvent() - name: ", name, " params: ", params, " groups: ", groups)
 
-	entries := registry.events.Next(name, registry.strategy, groups)
+	entries := registry.events.Next(name, registry.strategy, groups, false)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
 		return
 	}
 
-	registry.logger.Debug("LoadBalanceEvent() - name: ", name, " len(entries): ", len(entries))
+	nodes := make([]string, 0)
+	for _, eventEntry := range entries {
+		nodes = append(nodes, eventEntry.TargetNodeID())
+	}
+
+	registry.logger.Debug("LoadBalanceEvent() - name: ", name, " len(entries): ", len(entries), " nodes: ", nodes)
 	for _, eventEntry := range entries {
 		registry.logger.Debug("LoadBalanceEvent() - name: ", name, " eventEntry.targetNodeID: ", eventEntry.targetNodeID)
 		if eventEntry.isLocal {
@@ -290,6 +307,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 		for _, newEvent := range newEvents {
 			serviceEvent := service.CreateServiceEvent(
 				newEvent.Name(),
+				serviceInfo["name"].(string),
 				newEvent.Group(),
 				newEvent.Handler())
 			registry.events.Add(nodeID, serviceEvent, false)

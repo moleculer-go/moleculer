@@ -15,9 +15,10 @@ type Action struct {
 }
 
 type Event struct {
-	name    string
-	group   string
-	handler moleculer.EventHandler
+	name        string
+	serviceName string
+	group       string
+	handler     moleculer.EventHandler
 }
 
 func (event *Event) Handler() moleculer.EventHandler {
@@ -26,6 +27,10 @@ func (event *Event) Handler() moleculer.EventHandler {
 
 func (event *Event) Name() string {
 	return event.name
+}
+
+func (event *Event) ServiceName() string {
+	return event.serviceName
 }
 
 func (event *Event) Group() string {
@@ -217,9 +222,10 @@ func joinVersionToName(name string, version string) string {
 	return name
 }
 
-func CreateServiceEvent(eventName string, group string, handler moleculer.EventHandler) Event {
+func CreateServiceEvent(eventName, serviceName, group string, handler moleculer.EventHandler) Event {
 	return Event{
 		eventName,
+		serviceName,
 		group,
 		handler,
 	}
@@ -256,6 +262,7 @@ func (service *Service) AsMap() map[string]interface{} {
 	for index, serviceEvent := range service.events {
 		eventInfo := make(map[string]interface{})
 		eventInfo["name"] = serviceEvent.name
+		eventInfo["serviceName"] = serviceEvent.serviceName
 		eventInfo["group"] = serviceEvent.group
 		events[index] = eventInfo
 	}
@@ -312,8 +319,9 @@ func (service *Service) RemoveAction(fullname string) {
 
 func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 	serviceEvent := Event{
-		name:  eventInfo["name"].(string),
-		group: eventInfo["group"].(string),
+		name:        eventInfo["name"].(string),
+		serviceName: eventInfo["serviceName"].(string),
+		group:       eventInfo["group"].(string),
 	}
 	service.events = append(service.events, serviceEvent)
 	return &serviceEvent
@@ -379,9 +387,10 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 			group = service.Name()
 		}
 		service.events[index] = Event{
-			name:    eventSchema.Name,
-			group:   group,
-			handler: eventSchema.Handler,
+			name:        eventSchema.Name,
+			serviceName: service.Name(),
+			group:       group,
+			handler:     eventSchema.Handler,
 		}
 	}
 

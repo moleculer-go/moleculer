@@ -329,12 +329,7 @@ func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
 		context := context.RemoteContext(pubsub.broker, values)
-		broadcast := message.Get("broadcast").Bool()
-		if broadcast {
-			pubsub.broker.BroadcastDelegate(context)
-		} else {
-			pubsub.broker.EventDelegate(context)
-		}
+		pubsub.broker.HandleRemoteEvent(context)
 	}
 }
 
@@ -435,7 +430,6 @@ func (pubsub *PubSub) subscribe() {
 	pubsub.transport.Subscribe("DISCONNECT", "", pubsub.validateVersion(pubsub.emitRegistryEvent("DISCONNECT")))
 	pubsub.transport.Subscribe("INFO", "", pubsub.validateVersion(pubsub.emitRegistryEvent("INFO")))
 	pubsub.transport.Subscribe("INFO", nodeID, pubsub.validateVersion(pubsub.emitRegistryEvent("INFO")))
-	pubsub.transport.Subscribe("EVENT", nodeID, pubsub.validateVersion(pubsub.eventHandler()))
 	pubsub.transport.Subscribe("DISCOVER", nodeID, pubsub.validateVersion(pubsub.discoverHandler()))
 	pubsub.transport.Subscribe("DISCOVER", "", pubsub.validateVersion(pubsub.discoverHandler()))
 	pubsub.transport.Subscribe("PING", nodeID, pubsub.validateVersion(pubsub.pingHandler()))

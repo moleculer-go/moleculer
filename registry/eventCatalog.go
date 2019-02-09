@@ -24,6 +24,13 @@ func (eventEntry *EventEntry) IsLocal() bool {
 	return eventEntry.isLocal
 }
 
+func (eventEntry *EventEntry) String() string {
+	return fmt.Sprint("EventEntry Node -> ", eventEntry.targetNodeID,
+		" - Service: ", eventEntry.event.ServiceName(),
+		" - Event Name: ", eventEntry.event.Name(),
+		" - Group: ", eventEntry.event.Group())
+}
+
 func catchEventError(context moleculer.BrokerContext, logger *log.Entry) {
 	if err := recover(); err != nil {
 		logger.Error("local event failed :( event: ", context.EventName(), " error: ", err)
@@ -43,18 +50,20 @@ func (eventEntry *EventEntry) emitLocalEvent(context moleculer.BrokerContext) {
 type EventCatalog struct {
 	events map[string][]EventEntry
 	mutex  *sync.Mutex
+	logger *log.Entry
 }
 
-func CreateEventCatalog() *EventCatalog {
+func CreateEventCatalog(logger *log.Entry) *EventCatalog {
 	events := make(map[string][]EventEntry)
 	mutex := &sync.Mutex{}
-	return &EventCatalog{events: events, mutex: mutex}
+	return &EventCatalog{events: events, mutex: mutex, logger: logger}
 }
 
 // Add a new event to the catalog.
 func (eventCatalog *EventCatalog) Add(nodeID string, event service.Event, local bool) {
 	entry := EventEntry{nodeID, &event, local}
 	name := event.Name()
+	eventCatalog.logger.Debug("Add() name: ", name, " serviceName: ", event.ServiceName())
 	eventCatalog.events[name] = append(eventCatalog.events[name], entry)
 }
 
@@ -95,20 +104,20 @@ func findLocal(events []EventEntry) *EventEntry {
 }
 
 // Next find all events registered in this node and use the strategy to select and return the best one to be called.
-func (eventCatalog *EventCatalog) Next(name string, stg strategy.Strategy, groups []string) []*EventEntry {
+func (eventCatalog *EventCatalog) Next(name string, stg strategy.Strategy, groups []string, localOnly bool) []*EventEntry {
 	events := eventCatalog.events[name]
-	fmt.Println("\n *** eventCatalog.Next() name: ", name, " events: ", events)
 	entryGroups := make(map[string][]EventEntry)
 	for _, entry := range events {
+		if localOnly && !entry.isLocal {
+			continue
+		}
 		if matchGroup(entry.event, groups) {
 			entryGroups[entry.event.Group()] = append(entryGroups[entry.event.Group()], entry)
 		}
 	}
-	fmt.Println("\n *** eventCatalog.Next() name: ", name, " entryGroups: ", entryGroups)
 	var result []*EventEntry
 	for _, entries := range entryGroups {
-		fmt.Println("\n *** eventCatalog.Next() name: ", name, " entries: ", entries)
-		if local := findLocal(events); local != nil {
+		if local := findLocal(entries); local != nil {
 			result = append(result, local)
 		} else if len(entries) == 1 {
 			result = append(result, &entries[0])
@@ -123,6 +132,9 @@ func (eventCatalog *EventCatalog) Next(name string, stg strategy.Strategy, group
 			}
 		}
 	}
-	fmt.Println("\n *** eventCatalog.Next() result: ", result)
+	// for _, item := range result {
+	// 	fmt.Println("\n *** eventCatalog.Next() item: ", (*item).event.Name(), " service: ", (*item).event.ServiceName())
+	// }
+
 	return result
 }

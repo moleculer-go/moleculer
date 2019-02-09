@@ -287,6 +287,9 @@ func (broker *ServiceBroker) init() {
 		func(context moleculer.BrokerContext) {
 			broker.registry.BroadcastEvent(context)
 		},
+		func(context moleculer.BrokerContext) {
+			broker.registry.HandleRemoteEvent(context)
+		},
 	}
 	broker.registry = registry.CreateRegistry(broker.delegates)
 	broker.rootContext = context.BrokerContext(broker.delegates)
