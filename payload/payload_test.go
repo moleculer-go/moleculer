@@ -159,9 +159,7 @@ var _ = test.Describe("Payload", func() {
 			mapItems[key.(string)] = payload.String()
 			return false
 		})
-		Expect(mapItems).Should(Equal(map[string]string{
-			"sub1": "value-sub1",
-		}))
+		Expect(len(mapItems)).Should(Equal(1))
 
 		Expect(params.Error()).Should(BeNil())
 
