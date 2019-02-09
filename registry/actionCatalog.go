@@ -112,13 +112,18 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 }
 
 // Next find all actions registered in this node and use the strategy to select and return the best one to be called.
-func (actionCatalog *ActionCatalog) Next(actionName string, strategy strategy.Strategy) *ActionEntry {
+func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
 	actions := actionCatalog.actionsByName[actionName]
-	nodes := make([]string, len(actions))
+	nodes := make([]strategy.Selector, len(actions))
 	for index, action := range actions {
-		nodes[index] = action.targetNodeID
+		nodes[index] = action
 	}
-	return actionCatalog.NextFromNode(actionName, strategy.SelectTargetNode(nodes))
+	//return actionCatalog.NextFromNode(actionName, strategy.SelectTargetNode(nodes))
+	if selected := stg.Select(nodes); selected != nil {
+		entry := (*selected).(ActionEntry)
+		return &entry
+	}
+	return nil
 }
 
 func (actionCatalog *ActionCatalog) Size() int {

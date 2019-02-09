@@ -105,7 +105,7 @@ type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
-type EventDelegateFunc func(context BrokerContext, groups []string)
+type EventDelegateFunc func(context BrokerContext)
 
 type OptionsFunc func(key string) interface{}
 

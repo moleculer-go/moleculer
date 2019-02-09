@@ -55,6 +55,7 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 		strategy:              strategy,
 		logger:                broker.Logger("registry", "Service Registry"),
 		actions:               CreateActionCatalog(),
+		events:                CreateEventCatalog(),
 		services:              CreateServiceCatalog(),
 		nodes:                 CreateNodesCatalog(),
 		localNode:             broker.LocalNode(),
@@ -124,36 +125,39 @@ func (registry *ServiceRegistry) Start() {
 	}
 }
 
-func (registry *ServiceRegistry) DelegateEvent(context moleculer.BrokerContext) {
+func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) {
 	name := context.EventName()
 	params := context.Payload()
 	groups := context.Groups()
-	registry.logger.Trace("DelegateEvent() - name: ", name, " params: ", params, " groups: ", groups)
+	registry.logger.Trace("LoadBalanceEvent() - name: ", name, " params: ", params, " groups: ", groups)
 
-	eventEntry := registry.events.Next(name, registry.strategy, groups)
-	if eventEntry == nil {
-		msg := fmt.Sprintf("Broker - endpoint not found for event: %s", name)
-		registry.logger.Error(msg)
-		panic(errors.New(msg))
+	entries := registry.events.Next(name, registry.strategy, groups)
+	if entries == nil {
+		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
+		registry.logger.Warn(msg)
+		return
 	}
-	registry.logger.Debug("DelegateEvent() - name: ", name, " target nodeID: ", eventEntry.TargetNodeID())
 
-	if eventEntry.isLocal {
-		eventEntry.emitLocalEvent(context)
+	registry.logger.Trace("LoadBalanceEvent() - name: ", name, " len(entries): ", len(entries))
+	for _, eventEntry := range entries {
+		registry.logger.Debug("LoadBalanceEvent() - name: ", name, " eventEntry.targetNodeID: ", eventEntry.targetNodeID)
+		if eventEntry.isLocal {
+			eventEntry.emitLocalEvent(context)
+		}
+		registry.emitRemoteEvent(context, eventEntry)
 	}
-	registry.emitRemoteEvent(context, eventEntry)
 }
 
-func (registry *ServiceRegistry) DelegateBroadcast(context moleculer.BrokerContext, groups []string) {
+func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) {
 
 }
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
 // This call might be local or remote.
-func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 	actionName := context.ActionName()
 	params := context.Payload()
-	registry.logger.Trace("DelegateCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
+	registry.logger.Trace("LoadBalanceCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	actionEntry := registry.nextAction(actionName, registry.strategy, options.Wrap(opts))
 	if actionEntry == nil {
@@ -161,7 +165,7 @@ func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, o
 		registry.logger.Error(msg)
 		panic(errors.New(msg))
 	}
-	registry.logger.Debug("DelegateCall() - actionName: ", actionName, " target nodeID: ", actionEntry.TargetNodeID())
+	registry.logger.Debug("LoadBalanceCall() - actionName: ", actionName, " target nodeID: ", actionEntry.TargetNodeID())
 
 	if actionEntry.isLocal {
 		return actionEntry.invokeLocalAction(context)

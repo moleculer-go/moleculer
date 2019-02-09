@@ -229,7 +229,7 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 		panic(errors.New("Broker must be started before making calls :("))
 	}
 	actionContext := broker.rootContext.NewActionContext(actionName, payload.Create(params), options.Wrap(opts))
-	return broker.registry.DelegateCall(actionContext, options.Wrap(opts))
+	return broker.registry.LoadBalanceCall(actionContext, options.Wrap(opts))
 }
 
 func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...string) {
@@ -237,8 +237,8 @@ func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...st
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before emiting events :("))
 	}
-	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups)
-	broker.registry.DelegateEvent(newContext)
+	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups, false)
+	broker.registry.LoadBalanceEvent(newContext)
 }
 
 func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups ...string) {
@@ -246,8 +246,8 @@ func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups 
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before broadcasting events :("))
 	}
-	newContext := broker.rootContext.NewActionContext(event, payload.Create(params), options.Wrap(opts))
-	broker.registry.DelegateBroadcast(newContext, groups)
+	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups, true)
+	broker.registry.BroadcastEvent(newContext)
 }
 
 func (broker *ServiceBroker) IsStarted() bool {
@@ -279,13 +279,13 @@ func (broker *ServiceBroker) init() {
 		broker.IsStarted,
 		broker.config,
 		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-			return broker.registry.DelegateCall(context, options.Wrap(opts))
+			return broker.registry.LoadBalanceCall(context, options.Wrap(opts))
 		},
-		func(context moleculer.BrokerContext, groups []string) {
-			broker.registry.DelegateEvent(context, groups)
+		func(context moleculer.BrokerContext) {
+			broker.registry.LoadBalanceEvent(context)
 		},
-		func(context moleculer.BrokerContext, groups []string) {
-			broker.registry.DelegateBroadcast(context, groups)
+		func(context moleculer.BrokerContext) {
+			broker.registry.BroadcastEvent(context)
 		},
 	}
 	broker.registry = registry.CreateRegistry(broker.delegates)

@@ -201,6 +201,7 @@ func (pubsub *PubSub) DiscoverNode(nodeID string) {
 	}
 }
 
+// Emit emit an event to all services that listens to this event.
 func (pubsub *PubSub) Emit(context moleculer.BrokerContext) {
 	targetNodeID := context.TargetNodeID()
 	payload := context.AsMap()
@@ -328,13 +329,11 @@ func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
 		context := context.RemoteContext(pubsub.broker, values)
-		groups := message.Get("groups").StringArray()
 		broadcast := message.Get("broadcast").Bool()
-
 		if broadcast {
-			pubsub.broker.BroadcastDelegate(context, groups)
+			pubsub.broker.BroadcastDelegate(context)
 		} else {
-			pubsub.broker.EventDelegate(context, groups)
+			pubsub.broker.EventDelegate(context)
 		}
 	}
 }

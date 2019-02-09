@@ -15,7 +15,7 @@ type EventEntry struct {
 	isLocal      bool
 }
 
-func (eventEntry *EventEntry) TargetNodeID() string {
+func (eventEntry EventEntry) TargetNodeID() string {
 	return eventEntry.targetNodeID
 }
 
@@ -57,33 +57,52 @@ func (eventCatalog *EventCatalog) Add(nodeID string, event service.Event, local 
 	eventCatalog.events[name] = append(eventCatalog.events[name], entry)
 }
 
-func matchGroup(event service.Event, groups []string) bool {
+func matchGroup(event *service.Event, groups []string) bool {
 	if groups == nil || len(groups) == 0 {
 		return true
 	}
-
 	for _, group := range groups {
 		if event.Group() == group {
 			return true
 		}
 	}
+	return false
+}
+
+func findLocal(events []EventEntry) *EventEntry {
+	for _, item := range events {
+		if item.IsLocal() {
+			return &item
+		}
+	}
+	return nil
 }
 
 // Next find all events registered in this node and use the strategy to select and return the best one to be called.
-func (eventCatalog *EventCatalog) Next(name string, strategy strategy.Strategy, groups []string) *EventEntry {
+func (eventCatalog *EventCatalog) Next(name string, stg strategy.Strategy, groups []string) []*EventEntry {
 	events := eventCatalog.events[name]
-	nodeGroups := make(map[string]string)
+	entryGroups := make(map[string][]EventEntry)
 	for _, entry := range events {
 		if matchGroup(entry.event, groups) {
-			nodeGroups[entry.event.Group()] = event.targetNodeID
+			entryGroups[entry.event.Group()] = append(entryGroups[entry.event.Group()], entry)
 		}
 	}
-	nodes := make([]string, len(nodeGroups))
-	idx := 0
-	for group, node := range nodeGroups {
-		nodes[idx] = node
-		idx++
+	var result []*EventEntry
+	for _, entries := range entryGroups {
+		if local := findLocal(events); local != nil {
+			result = append(result, local)
+		} else if len(entries) == 1 {
+			result = append(result, &entries[0])
+		} else if len(entries) > 1 {
+			nodes := make([]strategy.Selector, len(entries))
+			for index, entry := range entries {
+				nodes[index] = &entry
+			}
+			if selected := stg.Select(nodes); selected != nil {
+				entry := (*selected).(EventEntry)
+				result = append(result, &entry)
+			}
+		}
 	}
-	return nil
-	//return eventCatalog.NextFromNode(name, strategy.SelectTargetNode(nodes))
+	return result
 }

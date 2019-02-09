@@ -3,6 +3,7 @@ package broker_test
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
@@ -145,8 +146,72 @@ var _ = Describe("Broker", func() {
 		Expect(result.Value()).Should(Equal(actionResult))
 	})
 
-	It("Should make a remote call and return results", func() {
-		//TODO
+	It("Should listen and reveice events", func() {
+
+		verse := "3 little birds..."
+		chorus := "don't worry..."
+		musicVerseList := make([]string, 0)
+		musicChorusList := make([]string, 0)
+		service := moleculer.Service{
+			Name: "music",
+			Actions: []moleculer.Action{
+				moleculer.Action{
+					Name: "start",
+					Handler: func(ctx moleculer.Context, verse moleculer.Payload) interface{} {
+						ctx.Emit("music.verse", verse)
+						return nil
+					},
+				},
+				moleculer.Action{
+					Name: "end",
+					Handler: func(ctx moleculer.Context, chorus moleculer.Payload) interface{} {
+						ctx.Emit("music.chorus", chorus)
+						return nil
+					},
+				},
+			},
+			Events: []moleculer.Event{
+				moleculer.Event{
+					Name: "music.verse",
+					Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
+						fmt.Println("music.verse --> ", verse.String())
+						ctx.Emit("music.chorus", verse)
+						musicVerseList = append(musicVerseList, verse.String())
+					},
+				},
+				moleculer.Event{
+					Name: "music.chorus",
+					Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
+						fmt.Println("music.chorus --> ", chorus.String())
+						musicChorusList = append(musicChorusList, chorus.String())
+					},
+				},
+			},
+		}
+
+		broker := broker.FromConfig(&moleculer.BrokerConfig{
+			LogLevel: "DEBUG",
+		})
+		broker.AddService(service)
+		broker.Start()
+
+		<-broker.Call("music.start", verse)
+		time.Sleep(time.Second)
+
+		Expect(len(musicVerseList)).Should(Equal(1))
+		Expect(musicVerseList[0]).Should(Equal(verse))
+		Expect(len(musicChorusList)).Should(Equal(1))
+		Expect(musicChorusList[0]).Should(Equal(verse))
+
+		<-broker.Call("music.stop", chorus)
+		time.Sleep(time.Second)
+
+		Expect(len(musicVerseList)).Should(Equal(1))
+		Expect(len(musicChorusList)).Should(Equal(2))
+		Expect(musicChorusList[1]).Should(Equal(chorus))
+
+		broker.Stop()
+
 	})
 
 })
