@@ -82,13 +82,27 @@ var _ = test.Describe("Payload", func() {
 		params = Create(source)
 		fmt.Println("StringArray: ", params.Get("stringArray").StringArray())
 		Expect(params.Get("string").String()).Should(Equal("Hellow Night!"))
+
 		Expect(params.Get("stringArray").StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
 		Expect(payload.Create([]string{"value1", "value2", "value3"}).StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
+		Expect(payload.Create(map[string]string{"key1": "value1", "key2": "value2"}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": "value1", "key2": "value2"}))
+
 		Expect(params.Get("intArray").IntArray()).Should(BeEquivalentTo([]int{10, 20, 30}))
+		Expect(payload.Create([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
+		Expect(payload.Create(map[string]int{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": 1, "key2": 2}))
+
 		Expect(params.Get("int64Array").Int64Array()).Should(BeEquivalentTo([]int64{100, 200, 300}))
+		Expect(payload.Create([]int64{100, 200, 300}).Int64Array()).Should(Equal([]int64{100, 200, 300}))
+		Expect(payload.Create(map[string]int64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": int64(1), "key2": int64(2)}))
+
 		Expect(params.Get("uintArray").UintArray()).Should(BeEquivalentTo([]uint64{1000, 2000, 3000}))
+		Expect(payload.Create([]uint64{1000, 2000, 3000}).UintArray()).Should(Equal([]uint64{1000, 2000, 3000}))
+		Expect(payload.Create(map[string]uint64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": uint64(1), "key2": uint64(2)}))
+
 		Expect(params.Get("valueArray").ValueArray()).Should(BeEquivalentTo([]interface{}{"value1", 20, 25.5}))
 		Expect(params.Get("timeArray").TimeArray()).Should(BeEquivalentTo(timeArray))
+		now := time.Now()
+		Expect(payload.Create(map[string]time.Time{"key1": now, "key2": now}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": now, "key2": now}))
 
 		Expect(params.Get("int").Int()).Should(Equal(12345678910))
 		Expect(params.Get("int64").Int64()).Should(Equal(lHeight))

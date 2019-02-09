@@ -1,6 +1,9 @@
 package payload
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type getFunc func(path string, source *interface{}) (interface{}, bool)
 type asMapFunc func(source *interface{}) map[string]interface{}
@@ -54,6 +57,16 @@ var mapTransformers = []mapTransformer{
 		},
 	},
 	mapTransformer{
+		"map[string]uint64",
+		func(source *interface{}) map[string]interface{} {
+			result := make(map[string]interface{})
+			for key, value := range (*source).(map[string]uint64) {
+				result[key] = value
+			}
+			return result
+		},
+	},
+	mapTransformer{
 		"map[string]float32",
 		func(source *interface{}) map[string]interface{} {
 			result := make(map[string]interface{})
@@ -68,6 +81,16 @@ var mapTransformers = []mapTransformer{
 		func(source *interface{}) map[string]interface{} {
 			result := make(map[string]interface{})
 			for key, value := range (*source).(map[string]float64) {
+				result[key] = value
+			}
+			return result
+		},
+	},
+	mapTransformer{
+		"map[string]time.Time",
+		func(source *interface{}) map[string]interface{} {
+			result := make(map[string]interface{})
+			for key, value := range (*source).(map[string]time.Time) {
 				result[key] = value
 			}
 			return result
