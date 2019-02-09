@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
@@ -31,11 +32,11 @@ func catchEventError(context moleculer.BrokerContext, logger *log.Entry) {
 
 func (eventEntry *EventEntry) emitLocalEvent(context moleculer.BrokerContext) {
 	logger := context.Logger().WithField("eventCatalog", "emitLocalEvent")
-	logger.Debug("Before Invoking event: ", context.EventName())
+	logger.Debug("Before invoking local event: ", context.EventName())
 	defer catchEventError(context, logger)
 	handler := eventEntry.event.Handler()
 	handler(context.(moleculer.Context), context.Payload())
-	logger.Debug("local event invoked ! event: ", context.EventName())
+	logger.Debug("After invoking local event: ", context.EventName())
 
 }
 
@@ -55,6 +56,21 @@ func (eventCatalog *EventCatalog) Add(nodeID string, event service.Event, local 
 	entry := EventEntry{nodeID, &event, local}
 	name := event.Name()
 	eventCatalog.events[name] = append(eventCatalog.events[name], entry)
+}
+
+func (eventCatalog *EventCatalog) Update(nodeID string, name string, updates map[string]interface{}) {
+	//TODO .. the only thing that can be udpated is the Event Schema (validation) and that does not exist yet
+}
+
+func (eventCatalog *EventCatalog) Remove(nodeID string, name string) {
+	var newList []EventEntry
+	options := eventCatalog.events[name]
+	for _, event := range options {
+		if event.targetNodeID != nodeID {
+			newList = append(newList, event)
+		}
+	}
+	eventCatalog.events[name] = newList
 }
 
 func matchGroup(event *service.Event, groups []string) bool {
@@ -81,14 +97,17 @@ func findLocal(events []EventEntry) *EventEntry {
 // Next find all events registered in this node and use the strategy to select and return the best one to be called.
 func (eventCatalog *EventCatalog) Next(name string, stg strategy.Strategy, groups []string) []*EventEntry {
 	events := eventCatalog.events[name]
+	fmt.Println("\n *** eventCatalog.Next() name: ", name, " events: ", events)
 	entryGroups := make(map[string][]EventEntry)
 	for _, entry := range events {
 		if matchGroup(entry.event, groups) {
 			entryGroups[entry.event.Group()] = append(entryGroups[entry.event.Group()], entry)
 		}
 	}
+	fmt.Println("\n *** eventCatalog.Next() name: ", name, " entryGroups: ", entryGroups)
 	var result []*EventEntry
 	for _, entries := range entryGroups {
+		fmt.Println("\n *** eventCatalog.Next() name: ", name, " entries: ", entries)
 		if local := findLocal(events); local != nil {
 			result = append(result, local)
 		} else if len(entries) == 1 {
@@ -104,5 +123,6 @@ func (eventCatalog *EventCatalog) Next(name string, stg strategy.Strategy, group
 			}
 		}
 	}
+	fmt.Println("\n *** eventCatalog.Next() result: ", result)
 	return result
 }

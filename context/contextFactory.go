@@ -119,7 +119,9 @@ func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface
 		newContext.actionName = actionName.(string)
 	} else if isEvent {
 		newContext.eventName = eventName.(string)
-		newContext.groups = values["groups"].([]string)
+		if values["groups"] != nil {
+			newContext.groups = values["groups"].([]string)
+		}
 		newContext.broadcast = values["broadcast"].(bool)
 	}
 	return &newContext
@@ -160,6 +162,7 @@ func (context *Context) Call(actionName string, params interface{}, opts ...mole
 
 // Emit : Emit an event (grouped & balanced global event)
 func (context *Context) Emit(eventName string, params interface{}, groups ...string) {
+	context.Logger().Debug("Context Emit() eventName: ", eventName)
 	newContext := context.EventContext(eventName, payload.Create(params), groups, false)
 	context.broker.EventDelegate(newContext)
 }

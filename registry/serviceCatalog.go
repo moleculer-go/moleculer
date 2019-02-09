@@ -77,7 +77,16 @@ func serviceActionExists(name string, actions []service.Action) bool {
 	return false
 }
 
-func actionMapExists(name string, actions []interface{}) bool {
+func serviceEventExists(name string, events []service.Event) bool {
+	for _, event := range events {
+		if event.Name() == name {
+			return true
+		}
+	}
+	return false
+}
+
+func itemMapExists(name string, actions []interface{}) bool {
 	for _, item := range actions {
 		action := item.(map[string]interface{})
 		if action["name"].(string) == name {
@@ -85,6 +94,33 @@ func actionMapExists(name string, actions []interface{}) bool {
 		}
 	}
 	return false
+}
+
+// updateEvents takes the remote service definition and the current service definition and calculates what events are new, updated or removed.
+// add new events to the service and return new, updated and deleted events.
+func (serviceCatalog *ServiceCatalog) updateEvents(serviceMap map[string]interface{}, current *service.Service) ([]map[string]interface{}, []service.Event, []service.Event) {
+	var updated []map[string]interface{}
+	var newEvents, deletedEvents []service.Event
+
+	events := serviceMap["events"].([]interface{})
+	for _, item := range events {
+		event := item.(map[string]interface{})
+		name := event["name"].(string)
+		if serviceEventExists(name, current.Events()) {
+			updated = append(updated, event)
+		} else {
+			serviceEvent := current.AddEventMap(event)
+			newEvents = append(newEvents, *serviceEvent)
+		}
+	}
+	for _, event := range current.Events() {
+		name := event.Name()
+		if !itemMapExists(name, events) {
+			deletedEvents = append(deletedEvents, event)
+			current.RemoteEvent(name)
+		}
+	}
+	return updated, newEvents, deletedEvents
 }
 
 // updateActions takes the remote service definition and the current service definition and calculates what actions are new, updated or removed.
@@ -106,7 +142,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 	}
 	for _, action := range current.Actions() {
 		name := action.Name()
-		if !actionMapExists(name, actions) {
+		if !itemMapExists(name, actions) {
 			deletedActions = append(deletedActions, action)
 			current.RemoveAction(name)
 		}
@@ -115,24 +151,27 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 }
 
 // updateRemote : update remote service info and return what actions are new, updated and deleted
-func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) ([]map[string]interface{}, []service.Action, []service.Action) {
-	var updatedActions []map[string]interface{}
-	var newActions, deletedActions []service.Action
-
+func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) ([]map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
 	current, serviceExists := serviceCatalog.services[key]
 
 	if serviceExists {
 		current.UpdateFromMap(serviceInfo)
-		return serviceCatalog.updateActions(serviceInfo, current)
+		updatedActions, newActions, deletedActions := serviceCatalog.updateActions(serviceInfo, current)
+		updatedEvents, newEvents, deletedEvents := serviceCatalog.updateEvents(serviceInfo, current)
+		return updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 	}
 
 	serviceInstance := service.CreateServiceFromMap(serviceInfo)
 	serviceCatalog.Add(nodeID, serviceInstance)
 
-	newActions = serviceInstance.Actions()
-	updatedActions = make([]map[string]interface{}, 0)
-	deletedActions = make([]service.Action, 0)
-	return updatedActions, newActions, deletedActions
+	newActions := serviceInstance.Actions()
+	updatedActions := make([]map[string]interface{}, 0)
+	deletedActions := make([]service.Action, 0)
+
+	newEvents := serviceInstance.Events()
+	updatedEvents := make([]map[string]interface{}, 0)
+	deletedEvents := make([]service.Event, 0)
+	return updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 
 }

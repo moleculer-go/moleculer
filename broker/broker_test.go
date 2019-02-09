@@ -203,7 +203,7 @@ var _ = Describe("Broker", func() {
 		Expect(len(musicChorusList)).Should(Equal(1))
 		Expect(musicChorusList[0]).Should(Equal(verse))
 
-		<-broker.Call("music.stop", chorus)
+		<-broker.Call("music.end", chorus)
 		time.Sleep(time.Second)
 
 		Expect(len(musicVerseList)).Should(Equal(1))
@@ -211,7 +211,6 @@ var _ = Describe("Broker", func() {
 		Expect(musicChorusList[1]).Should(Equal(chorus))
 
 		broker.Stop()
-
 	})
 
 })

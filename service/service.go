@@ -217,6 +217,14 @@ func joinVersionToName(name string, version string) string {
 	return name
 }
 
+func CreateServiceEvent(eventName string, group string, handler moleculer.EventHandler) Event {
+	return Event{
+		eventName,
+		group,
+		handler,
+	}
+}
+
 func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ParamsSchema) Action {
 	return Action{
 		actionName,
@@ -280,6 +288,16 @@ func (service *Service) AddActionMap(actionInfo map[string]interface{}) *Action 
 	)
 	service.actions = append(service.actions, action)
 	return &action
+}
+
+func (service *Service) RemoteEvent(name string) {
+	var newEvents []Event
+	for _, event := range service.events {
+		if event.name != name {
+			newEvents = append(newEvents, event)
+		}
+	}
+	service.events = newEvents
 }
 
 func (service *Service) RemoveAction(fullname string) {
