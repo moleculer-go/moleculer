@@ -38,6 +38,13 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.Get("age").Float()).Should(Equal(float64(47)))
 		Expect(message.Get("age").Uint()).Should(Equal(uint64(47)))
 
+		Expect(message.Get("age").StringArray()).Should(BeNil())
+		Expect(message.Get("age").IntArray()).Should(BeNil())
+		Expect(message.Get("age").Int64Array()).Should(BeNil())
+		Expect(message.Get("age").Float32Array()).Should(BeNil())
+		Expect(message.Get("age").FloatArray()).Should(BeNil())
+		Expect(message.Get("age").UintArray()).Should(BeNil())
+
 		json = []byte(`{"list":["first", "second", "third"]}`)
 		message = serializer.BytesToPayload(&json)
 
@@ -96,6 +103,8 @@ var _ = Describe("JSON Serializer", func() {
 		message = serializer.BytesToPayload(&json)
 		t, _ = time.Parse(time.RFC3339, "2016-01-02T15:04:05Z")
 		Expect(message.Get("time").Time()).Should(BeEquivalentTo(t))
+		Expect(message.IsError()).Should(Equal(false))
+		Expect(message.Error()).Should(BeNil())
 
 		json = []byte(`{"error":"shit happened!"}`)
 		message = serializer.BytesToPayload(&json)

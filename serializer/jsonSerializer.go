@@ -233,7 +233,10 @@ func (payload JSONPayload) IsError() bool {
 }
 
 func (payload JSONPayload) Error() error {
-	return errors.New(payload.Get("error").String())
+	if payload.IsError() {
+		return errors.New(payload.Get("error").String())
+	}
+	return nil
 }
 
 func (payload JSONPayload) String() string {

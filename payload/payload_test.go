@@ -144,6 +144,36 @@ var _ = test.Describe("Payload", func() {
 		})
 		Expect(items).Should(Equal([]string{"value1"}))
 
+		mapItems := make(map[string]string)
+		params.Get("map").ForEach(func(key interface{}, payload moleculer.Payload) bool {
+			mapItems[key.(string)] = payload.String()
+			return true
+		})
+		Expect(mapItems).Should(Equal(map[string]string{
+			"sub1": "value-sub1",
+			"sub2": "value-sub2",
+		}))
+
+		mapItems = make(map[string]string)
+		params.Get("map").ForEach(func(key interface{}, payload moleculer.Payload) bool {
+			mapItems[key.(string)] = payload.String()
+			return false
+		})
+		Expect(mapItems).Should(Equal(map[string]string{
+			"sub1": "value-sub1",
+		}))
+
+		Expect(params.Error()).Should(BeNil())
+
+		Expect(params.Get("string").StringArray()).Should(BeNil())
+		Expect(params.Get("string").IntArray()).Should(BeNil())
+		Expect(params.Get("string").Int64Array()).Should(BeNil())
+		Expect(params.Get("string").FloatArray()).Should(BeNil())
+		Expect(params.Get("string").Float32Array()).Should(BeNil())
+		Expect(params.Get("string").ValueArray()).Should(BeNil())
+		Expect(params.Get("string").UintArray()).Should(BeNil())
+		Expect(params.Get("string").BoolArray()).Should(BeNil())
+
 		Expect(params.Exists()).Should(Equal(true))
 		Expect(payload.Create(nil).Exists()).Should(Equal(false))
 
