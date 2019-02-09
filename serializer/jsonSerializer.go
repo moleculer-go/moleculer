@@ -1,6 +1,7 @@
 package serializer
 
 import (
+	"errors"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -228,11 +229,11 @@ func (payload JSONPayload) Float32() float32 {
 }
 
 func (payload JSONPayload) IsError() bool {
-	return false
+	return payload.IsMap() && payload.Get("error").Exists()
 }
 
 func (payload JSONPayload) Error() error {
-	return nil
+	return errors.New(payload.Get("error").String())
 }
 
 func (payload JSONPayload) String() string {

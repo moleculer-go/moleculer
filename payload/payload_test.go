@@ -2,12 +2,12 @@ package payload_test
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/payload"
 	. "github.com/moleculer-go/moleculer/payload"
 )
@@ -83,8 +83,12 @@ var _ = test.Describe("Payload", func() {
 			"boolArray":    []bool{true, false, true},
 		}
 		params = Create(source)
-		fmt.Println("StringArray: ", params.Get("stringArray").StringArray())
+		Expect(params.Get("notFound").Value()).Should(BeNil())
 		Expect(params.Get("string").String()).Should(Equal("Hellow Night!"))
+
+		moreOfTheSame := Create(params)
+		Expect(moreOfTheSame.Get("notFound").Value()).Should(BeNil())
+		Expect(moreOfTheSame.Get("string").String()).Should(Equal("Hellow Night!"))
 
 		Expect(params.Get("stringArray").StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
 		Expect(payload.Create([]string{"value1", "value2", "value3"}).StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
@@ -96,6 +100,7 @@ var _ = test.Describe("Payload", func() {
 
 		Expect(params.Get("boolArray").BoolArray()).Should(BeEquivalentTo([]bool{true, false, true}))
 		Expect(payload.Create([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
+		Expect(payload.Create([]int{10, 20, 30}).IsArray()).Should(Equal(true))
 
 		Expect(params.Get("int64Array").Int64Array()).Should(BeEquivalentTo([]int64{100, 200, 300}))
 		Expect(payload.Create([]int64{100, 200, 300}).Int64Array()).Should(Equal([]int64{100, 200, 300}))
@@ -124,6 +129,23 @@ var _ = test.Describe("Payload", func() {
 		Expect(params.Get("float64").Float()).Should(Equal(f64Height))
 		Expect(params.Get("map").Map()["sub1"].String()).Should(Equal("value-sub1"))
 		Expect(params.Get("map").Map()["sub2"].String()).Should(Equal("value-sub2"))
+
+		var items []string
+		params.Get("stringArray").ForEach(func(key interface{}, payload moleculer.Payload) bool {
+			items = append(items, payload.String())
+			return true
+		})
+		Expect(items).Should(Equal([]string{"value1", "value2", "value3"}))
+
+		items = make([]string, 0)
+		params.Get("stringArray").ForEach(func(key interface{}, payload moleculer.Payload) bool {
+			items = append(items, payload.String())
+			return false
+		})
+		Expect(items).Should(Equal([]string{"value1"}))
+
+		Expect(params.Exists()).Should(Equal(true))
+		Expect(payload.Create(nil).Exists()).Should(Equal(false))
 
 		someErrror := errors.New("some error")
 		params = Create(someErrror)

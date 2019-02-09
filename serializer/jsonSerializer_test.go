@@ -1,7 +1,10 @@
 package serializer_test
 
 import (
+	"errors"
 	"time"
+
+	"github.com/moleculer-go/moleculer"
 
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/payload"
@@ -25,6 +28,7 @@ var _ = Describe("JSON Serializer", func() {
 		message := serializer.BytesToPayload(&json)
 
 		Expect(message.Get("name").IsMap()).Should(Equal(true))
+		Expect(message.Get("name").Map()["first"].String()).Should(Equal("Janet"))
 		Expect(message.Get("name").Get("first").String()).Should(Equal("Janet"))
 		Expect(message.Get("name").Get("last").String()).Should(Equal("Prichard"))
 
@@ -40,6 +44,20 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.Get("list").IsArray()).Should(Equal(true))
 		Expect(message.Get("list").StringArray()).Should(Equal([]string{"first", "second", "third"}))
 		Expect(message.Get("list").ValueArray()).Should(Equal([]interface{}{"first", "second", "third"}))
+		Expect(message.Get("list").RawMap()).Should(BeNil())
+		var items []string
+		message.Get("list").ForEach(func(key interface{}, payload moleculer.Payload) bool {
+			items = append(items, payload.String())
+			return true
+		})
+		Expect(items).Should(Equal([]string{"first", "second", "third"}))
+
+		items = make([]string, 0)
+		message.Get("list").ForEach(func(key interface{}, payload moleculer.Payload) bool {
+			items = append(items, payload.String())
+			return false
+		})
+		Expect(items).Should(Equal([]string{"first"}))
 
 		json = []byte(`{"list":[10, 40, 50],"times":["2006-01-02T15:04:05Z", "2007-01-02T15:04:05Z", "2008-01-02T15:04:05Z"]}`)
 		message = serializer.BytesToPayload(&json)
@@ -68,6 +86,22 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.Get("times").TimeArray()[0].Year()).Should(Equal(2006))
 		Expect(message.Get("times").TimeArray()[1].Year()).Should(Equal(2007))
 		Expect(message.Get("times").TimeArray()[2].Year()).Should(Equal(2008))
+
+		json = []byte(`{"list":[true, true, false],"verdade":true}`)
+		message = serializer.BytesToPayload(&json)
+		Expect(message.Get("list").BoolArray()).Should(BeEquivalentTo([]bool{true, true, false}))
+		Expect(message.Get("verdade").Bool()).Should(Equal(true))
+
+		json = []byte(`{"time":"2016-01-02T15:04:05Z"}`)
+		message = serializer.BytesToPayload(&json)
+		t, _ = time.Parse(time.RFC3339, "2016-01-02T15:04:05Z")
+		Expect(message.Get("time").Time()).Should(BeEquivalentTo(t))
+
+		json = []byte(`{"error":"shit happened!"}`)
+		message = serializer.BytesToPayload(&json)
+		Expect(message.IsError()).Should(Equal(true))
+		Expect(message.Error()).Should(BeEquivalentTo(errors.New("shit happened!")))
+
 	})
 
 	It("Should convert between context and Transit Message", func() {
