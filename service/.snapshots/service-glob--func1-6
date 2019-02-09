@@ -2,13 +2,13 @@
   (moleculer.Action) {
     Name: (string) (len=6) "rotate",
     Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
-    Params: (moleculer.ParamsSchema) {
+    Payload: (moleculer.ParamsSchema) {
     }
   },
   (moleculer.Action) {
     Name: (string) (len=4) "tide",
     Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
-    Params: (moleculer.ParamsSchema) {
+    Payload: (moleculer.ParamsSchema) {
     }
   }
 }

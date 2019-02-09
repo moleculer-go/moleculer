@@ -5,7 +5,7 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/options"
-	"github.com/moleculer-go/moleculer/params"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
@@ -18,7 +18,7 @@ type Context struct {
 	parentID     string
 	actionName   string
 	eventName    string
-	params       *interface{}
+	params       moleculer.Payload
 	meta         *map[string]interface{}
 	timeout      int
 	level        int
@@ -38,13 +38,13 @@ func BrokerContext(broker moleculer.BrokerDelegates) moleculer.BrokerContext {
 }
 
 // NewActionContext : create a new context for a specific action call
-func (context *Context) NewActionContext(actionName string, params interface{}, opts ...moleculer.OptionsFunc) moleculer.BrokerContext {
+func (context *Context) NewActionContext(actionName string, params moleculer.Payload, opts ...moleculer.OptionsFunc) moleculer.BrokerContext {
 	parentContext := context
 	actionContext := Context{
 		id:          util.RandomString(12),
 		broker:      parentContext.broker,
 		actionName:  actionName,
-		params:      &params,
+		params:      params,
 		level:       parentContext.level + 1,
 		sendMetrics: parentContext.sendMetrics,
 		parentID:    parentContext.id,
@@ -63,7 +63,7 @@ func RemoteActionContext(broker moleculer.BrokerDelegates, values map[string]int
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
 	actionName := values["action"].(string)
-	params := values["params"]
+	params := payload.Create(values["params"])
 	level := values["level"].(int)
 	sendMetrics := values["metrics"].(bool)
 	parentID := values["parentID"].(string)
@@ -83,7 +83,7 @@ func RemoteActionContext(broker moleculer.BrokerDelegates, values map[string]int
 		id:           id,
 		parentID:     parentID,
 		actionName:   actionName,
-		params:       &params,
+		params:       params,
 		meta:         &meta,
 		timeout:      timeout,
 		level:        level,
@@ -98,7 +98,7 @@ func (context *Context) AsMap() map[string]interface{} {
 
 	mapResult["id"] = context.id
 	mapResult["action"] = context.actionName
-	mapResult["params"] = context.params
+	mapResult["params"] = context.params.Value()
 	mapResult["meta"] = context.meta
 	mapResult["timeout"] = context.timeout
 	mapResult["level"] = context.level
@@ -113,8 +113,8 @@ func (context *Context) AsMap() map[string]interface{} {
 
 // Call : main entry point to call actions.
 // chained action invocation
-func (context *Context) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan interface{} {
-	actionContext := context.NewActionContext(actionName, params, options.Wrap(opts))
+func (context *Context) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+	actionContext := context.NewActionContext(actionName, payload.Create(params), options.Wrap(opts))
 	return context.broker.ActionDelegate(actionContext, options.Wrap(opts))
 }
 
@@ -132,8 +132,8 @@ func (context *Context) ActionName() string {
 	return context.actionName
 }
 
-func (context *Context) Params() moleculer.Params {
-	return params.CreateParams(context.params)
+func (context *Context) Payload() moleculer.Payload {
+	return context.params
 }
 
 func (context *Context) SetTargetNodeID(targetNodeID string) {

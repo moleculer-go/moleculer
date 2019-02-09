@@ -336,7 +336,7 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
-			actionSchema.Params,
+			actionSchema.Payload,
 		)
 	}
 

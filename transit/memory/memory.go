@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/transit"
 	log "github.com/sirupsen/logrus"
 )
@@ -21,10 +22,10 @@ type MemoryTransporter struct {
 
 func CreateTransporter(prefix string, logger *log.Entry, messageIsValid transit.ValidateMsgFunc) MemoryTransporter {
 	mutex.Lock()
-	defer mutex.Unlock()
 	if handlers == nil {
 		handlers = make(map[string][]transit.TransportHandler)
 	}
+	mutex.Unlock()
 	return MemoryTransporter{prefix: prefix, logger: logger, messageIsValid: messageIsValid, connected: false}
 }
 
@@ -62,7 +63,7 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("memory.Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
-	wrapper := func(message transit.Message) {
+	wrapper := func(message moleculer.Payload) {
 		if transporter.connected {
 			handler(message)
 		} else {
@@ -80,14 +81,16 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 	}
 }
 
-func (transporter *MemoryTransporter) Publish(command, nodeID string, message transit.Message) {
+func (transporter *MemoryTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if !transporter.connected {
 		panic(errors.New("Transport is not connected !"))
 	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("memory.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
 
+	mutex.Lock()
 	handlers, exists := handlers[topic]
+	mutex.Unlock()
 	if exists {
 		for _, handler := range handlers {
 			handler(message)

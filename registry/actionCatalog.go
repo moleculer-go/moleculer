@@ -4,8 +4,10 @@ import (
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/service"
 	"github.com/moleculer-go/moleculer/strategy"
+	log "github.com/sirupsen/logrus"
 )
 
 type ActionEntry struct {
@@ -27,18 +29,26 @@ func CreateActionCatalog() *ActionCatalog {
 	return &ActionCatalog{actionsByName: actionsByName, mutex: mutex}
 }
 
-func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan interface{} {
-	result := make(chan interface{})
+func catchError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
+	if err := recover(); err != nil {
+		logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
+		result <- payload.Create(err)
+	}
+}
+
+func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
+	result := make(chan moleculer.Payload)
 
 	logger := context.Logger().WithField("actionCatalog", "invokeLocalAction")
 	logger.Debug("Before Invoking action: ", context.ActionName())
 
 	go func() {
+		defer catchError(context, logger, result)
 		handler := actionEntry.action.Handler()
-		actionResult := handler(context.(moleculer.Context), context.Params())
+		actionResult := handler(context.(moleculer.Context), context.Payload())
 		logger.Debug("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
-		result <- actionResult
+		result <- payload.Create(actionResult)
 	}()
 
 	return result
@@ -47,15 +57,6 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 func (actionEntry ActionEntry) TargetNodeID() string {
 	return actionEntry.targetNodeID
 }
-
-//move the logic to decide between local and remote to the registry
-// func (actionEntry ActionEntry) InvokeAction(ctx moleculer.Context) chan interface{} {
-// 	if actionEntry.isLocal {
-// 		return actionEntry.invokeLocalAction(ctx)
-// 	}
-// 	(*ctx).SetTargetNodeID(actionEntry.TargetNodeID())
-// 	return actionEntry.invokeRemoteAction(ctx)
-// }
 
 func (actionEntry ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal
@@ -66,7 +67,6 @@ func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, lo
 	entry := ActionEntry{nodeID, &action, local}
 	name := action.FullName()
 	actions := actionCatalog.actionsByName
-
 	actions[name] = append(actions[name], entry)
 }
 

@@ -14,7 +14,7 @@ var _ = Describe("Actions Catalog", func() {
 	params := moleculer.ParamsSchema{}
 	node1 := registry.CreateNode("node-test-1")
 	node2 := registry.CreateNode("node-test-2")
-	handler := func(ctx moleculer.Context, params moleculer.Params) interface{} {
+	handler := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 		return "default action result"
 	}
 	bankCreditAction := service.CreateServiceAction("bank", "credit", handler, params)
@@ -24,7 +24,7 @@ var _ = Describe("Actions Catalog", func() {
 
 			msg := "message from action"
 			catalog := registry.CreateActionCatalog()
-			peopleCreate := func(ctx moleculer.Context, params moleculer.Params) interface{} {
+			peopleCreate := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 				return msg
 			}
 			testAction := service.CreateServiceAction("people", "create", peopleCreate, params)

@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type messageHandlerFunc func(message transit.Message)
+type messageHandlerFunc func(message moleculer.Payload)
 
 type ServiceRegistry struct {
 	logger                *log.Entry
@@ -87,7 +87,7 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 	registry.broker.Bus().On("$registry.transit.message", func(args ...interface{}) {
 		registry.logger.Trace("Registry -> $registry.transit.message event - args: ", args)
 		command := args[0].(string)
-		message := args[1].(transit.Message)
+		message := args[1].(moleculer.Payload)
 		handler := messageHandler[command]
 		if handler == nil {
 			panic(errors.New(fmt.Sprint("Registry - $registry.transit.message event - invalid command:", command)))
@@ -100,6 +100,8 @@ func (registry *ServiceRegistry) Stop() {
 	registry.logger.Debug("Registry Stop() ")
 	registry.stoping = true
 	<-registry.transit.Disconnect()
+	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
+
 }
 
 // Start : start the registry background processes.
@@ -130,9 +132,9 @@ func (registry *ServiceRegistry) DelegateBroadcast(context moleculer.BrokerConte
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
 // This call might be local or remote.
-func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan interface{} {
+func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 	actionName := context.ActionName()
-	params := context.Params()
+	params := context.Payload()
 	registry.logger.Trace("DelegateCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	actionEntry := registry.nextAction(actionName, registry.strategy, options.Wrap(opts))
@@ -149,10 +151,10 @@ func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, o
 	return registry.invokeRemoteAction(context, actionEntry)
 }
 
-func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan interface{} {
-	result := make(chan interface{})
+func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan moleculer.Payload {
+	result := make(chan moleculer.Payload)
 	context.SetTargetNodeID(actionEntry.TargetNodeID())
-	registry.logger.Debug("Before invoking remote action: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID())
+	registry.logger.Trace("Before invoking remote action: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID(), " context.Payload(): ", context.Payload())
 
 	go func() {
 		actionResult := <-registry.transit.Request(context)
@@ -204,8 +206,8 @@ func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegat
 	}
 }
 
-func (registry *ServiceRegistry) heartbeatMessageReceived(message transit.Message) {
-	heartbeat := message.AsMap()
+func (registry *ServiceRegistry) heartbeatMessageReceived(message moleculer.Payload) {
+	heartbeat := message.RawMap()
 	succesful := registry.nodes.HeartBeat(heartbeat)
 	if !succesful {
 		sender := heartbeat["sender"].(string)
@@ -215,7 +217,7 @@ func (registry *ServiceRegistry) heartbeatMessageReceived(message transit.Messag
 
 // disconnectMessageReceived handles when a disconnect msg is received.
 // It remove all actions/events from the sender node from the local registry.
-func (registry *ServiceRegistry) disconnectMessageReceived(message transit.Message) {
+func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Payload) {
 	sender := message.Get("sender").String()
 	node, exists := registry.nodes.findNode(sender)
 	registry.logger.Debug("disconnectMessageReceived() sender: ", sender, " exists: ", exists)
@@ -225,8 +227,8 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message transit.Messa
 }
 
 // nodeInfoMessageReceived process the node info message.
-func (registry *ServiceRegistry) nodeInfoMessageReceived(message transit.Message) {
-	nodeInfo := message.AsMap()
+func (registry *ServiceRegistry) nodeInfoMessageReceived(message moleculer.Payload) {
+	nodeInfo := message.RawMap()
 	services := nodeInfo["services"].([]interface{})
 	nodeID := nodeInfo["sender"].(string)
 
@@ -256,7 +258,12 @@ func (registry *ServiceRegistry) nodeInfoMessageReceived(message transit.Message
 		}
 	}
 
-	eventParam := []interface{}{nodeID}
+	var neighbours int64
+	if message.Get("neighbours").Exists() {
+		neighbours = message.Get("neighbours").Int64()
+	}
+
+	eventParam := []interface{}{nodeID, neighbours}
 	eventName := "$node.connected"
 	if exists {
 		eventName = "$node.updated"

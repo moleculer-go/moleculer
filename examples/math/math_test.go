@@ -41,7 +41,7 @@ var _ = test.Describe("Math", func() {
 			"b": 10,
 		})
 
-		Expect(result).Should(Not(BeNil()))
-		Expect(result).Should(Equal(11))
+		Expect(result.Value()).Should(Not(BeNil()))
+		Expect(result.Value()).Should(Equal(11))
 	})
 })

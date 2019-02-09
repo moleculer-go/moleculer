@@ -8,17 +8,39 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Params is wraps the payload sent to an action.
+type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
+
+// Payload contains the data sent/return to actions.
 // I has convinience methods to read action parameters by name with the right type.
-type Params interface {
-	Get(name string) string
-	String(name string) string
-	Int(name string) int
-	Int64(name string) int64
-	Float(name string) float32
-	Float64(name string) float64
-	Map(name string) Params
+type Payload interface {
+	RawMap() map[string]interface{}
+	Map() map[string]Payload
+	Exists() bool
+	IsError() bool
+	Error() error
 	Value() interface{}
+	ValueArray() []interface{}
+	Int() int
+	IntArray() []int
+	Int64() int64
+	Int64Array() []int64
+	Uint() uint64
+	UintArray() []uint64
+	Float32() float32
+	Float32Array() []float32
+	Float() float64
+	FloatArray() []float64
+	String() string
+	StringArray() []string
+	Bool() bool
+	BoolArray() []bool
+	Time() time.Time
+	TimeArray() []time.Time
+	Array() []Payload
+	Get(path string) Payload
+	IsArray() bool
+	IsMap() bool
+	ForEach(iterator func(key interface{}, value Payload) bool)
 }
 
 // ParamsSchema is used by the validation engine to check if parameters sent to the action are valid.
@@ -28,7 +50,7 @@ type ParamsSchema struct {
 type Action struct {
 	Name    string
 	Handler ActionHandler
-	Params  ParamsSchema
+	Payload ParamsSchema
 }
 
 type Event struct {
@@ -63,24 +85,25 @@ type Mixin struct {
 }
 
 type BrokerConfig struct {
-	LogLevel              string
-	LogFormat             string
-	DiscoverNodeID        func() string
-	Transporter           string
-	HeartbeatFrequency    time.Duration
-	HeartbeatTimeout      time.Duration
-	OfflineCheckFrequency time.Duration
+	LogLevel               string
+	LogFormat              string
+	DiscoverNodeID         func() string
+	Transporter            string
+	HeartbeatFrequency     time.Duration
+	HeartbeatTimeout       time.Duration
+	OfflineCheckFrequency  time.Duration
+	NeighboursCheckTimeout time.Duration
 }
 
-type ActionHandler func(context Context, params Params) interface{}
-type EventHandler func(context Context, params Params)
+type ActionHandler func(context Context, params Payload) interface{}
+type EventHandler func(context Context, params Payload)
 type FuncType func()
 
 type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
-type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan interface{}
+type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
 type EventDelegateFunc func(context BrokerContext, groups []string)
 
 type OptionsFunc func(key string) interface{}
@@ -98,18 +121,17 @@ type Node interface {
 
 type Context interface {
 	//context methods used by services
-	Call(actionName string, params interface{}, opts ...OptionsFunc) chan interface{}
+	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
-
 	Logger() *log.Entry
 }
 
 type BrokerContext interface {
-	NewActionContext(actionName string, params interface{}, opts ...OptionsFunc) BrokerContext
+	NewActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
 
 	ActionName() string
-	Params() Params
+	Payload() Payload
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}

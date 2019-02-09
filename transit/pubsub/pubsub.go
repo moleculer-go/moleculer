@@ -1,9 +1,13 @@
 package pubsub
 
 import (
+	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
+
+	"github.com/moleculer-go/moleculer/payload"
 
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/transit"
@@ -17,12 +21,17 @@ import (
 
 // PubSub is a transit implementation.
 type PubSub struct {
-	logger          *log.Entry
-	transport       transit.Transport
-	broker          moleculer.BrokerDelegates
-	isConnected     bool
-	pendingRequests map[string]pendingRequest
-	serializer      serializer.Serializer
+	logger               *log.Entry
+	transport            transit.Transport
+	broker               moleculer.BrokerDelegates
+	isConnected          bool
+	pendingRequests      map[string]pendingRequest
+	pendingRequestsMutex *sync.Mutex
+	serializer           serializer.Serializer
+
+	knownNeighbours   map[string]int64
+	neighboursTimeout time.Duration
+	neighboursMutex   *sync.Mutex
 }
 
 func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
@@ -33,15 +42,21 @@ func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
 
 func Create(broker moleculer.BrokerDelegates) transit.Transit {
 	pendingRequests := make(map[string]pendingRequest)
+	knownNeighbours := make(map[string]int64)
 	transitImpl := PubSub{
-		broker:          broker,
-		isConnected:     false,
-		pendingRequests: pendingRequests,
-		logger:          broker.Logger("Transit", ""),
-		serializer:      serializer.FromConfig(broker),
+		broker:               broker,
+		isConnected:          false,
+		pendingRequests:      pendingRequests,
+		logger:               broker.Logger("Transit", ""),
+		serializer:           serializer.FromConfig(broker),
+		neighboursTimeout:    broker.Config.NeighboursCheckTimeout,
+		knownNeighbours:      knownNeighbours,
+		neighboursMutex:      &sync.Mutex{},
+		pendingRequestsMutex: &sync.Mutex{},
 	}
 
 	broker.Bus().On("$node.disconnected", transitImpl.onNodeDisconnected)
+	broker.Bus().On("$node.connected", transitImpl.onNodeConnected)
 	broker.Bus().On("$broker.started", transitImpl.onBrokerStarted)
 
 	return &transitImpl
@@ -52,9 +67,19 @@ func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
 	pending, exists := pubsub.pendingRequests[nodeID]
 	if exists {
-		(*pending.resultChan) <- fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID)
+		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
+	delete(pubsub.knownNeighbours, nodeID)
+}
+
+func (pubsub *PubSub) onNodeConnected(values ...interface{}) {
+	nodeID := values[0].(string)
+	neighbours := values[1].(int64)
+	pubsub.logger.Debug("onNodeConnected() nodeID: ", nodeID, " neighbours: ", neighbours)
+	pubsub.neighboursMutex.Lock()
+	pubsub.knownNeighbours[nodeID] = neighbours
+	pubsub.neighboursMutex.Unlock()
 }
 
 // CreateTransport : based on config it will load the transporter
@@ -76,7 +101,7 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	prefix := "MOL"
 	logger := log.WithField("transport", "memory")
 	localNodeID := broker.LocalNode().GetID()
-	transport := memory.CreateTransporter(prefix, logger, func(message transit.Message) bool {
+	transport := memory.CreateTransporter(prefix, logger, func(message moleculer.Payload) bool {
 		sender := message.Get("sender").String()
 		return sender != localNodeID
 	})
@@ -101,7 +126,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 		localNodeID,
 		logger,
 		pubsub.serializer,
-		func(message transit.Message) bool {
+		func(message moleculer.Payload) bool {
 			sender := message.Get("sender").String()
 			return sender != localNodeID
 		},
@@ -114,20 +139,37 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 
 type pendingRequest struct {
 	context    moleculer.BrokerContext
-	resultChan *chan interface{}
+	resultChan *chan moleculer.Payload
 }
 
 func (pubsub *PubSub) checkMaxQueueSize() {
 	//TODO: check transit.js line 524
 }
 
+// waitForNeighbours this function will wait for neighbour nodes or timeout if the expected number is not received after a time out.
+func (pubsub *PubSub) waitForNeighbours() bool {
+	start := time.Now()
+	for {
+		expected := pubsub.expectedNeighbours()
+		neighbours := pubsub.neighbours()
+		if expected <= neighbours && expected > 0 && neighbours > 0 {
+			pubsub.logger.Info("waitForNeighbours() - received info from all expected neighbours :) -> expected: ", expected)
+			return true
+		}
+		if time.Since(start) > pubsub.neighboursTimeout {
+			pubsub.logger.Warn("waitForNeighbours() - Time out ! did not receive info from all expected neighbours: ", expected, "  INFOs received: ", neighbours)
+			return false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 //DiscoverNodes will check if there are neighbours and return true if any are found ;).
 func (pubsub *PubSub) DiscoverNodes() chan bool {
 	result := make(chan bool)
 	go func() {
-		//TODO: implement the discover protocol usinga  request pattern so we wait for response OR timeout.
 		pubsub.DiscoverNode("")
-		result <- true
+		result <- pubsub.waitForNeighbours()
 	}()
 	return result
 }
@@ -139,7 +181,7 @@ func (pubsub *PubSub) SendHeartbeat() {
 		"cpu":    node["cpu"],
 		"cpuSeq": node["cpuSeq"],
 	}
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err == nil {
 		pubsub.transport.Publish("HEARTBEAT", "", message)
 	}
@@ -147,16 +189,16 @@ func (pubsub *PubSub) SendHeartbeat() {
 
 func (pubsub *PubSub) DiscoverNode(nodeID string) {
 	payload := map[string]interface{}{"sender": pubsub.broker.LocalNode().GetID()}
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err == nil {
 		pubsub.transport.Publish("DISCOVER", nodeID, message)
 	}
 }
 
-func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan interface{} {
+func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Payload {
 	pubsub.checkMaxQueueSize()
 
-	resultChan := make(chan interface{})
+	resultChan := make(chan moleculer.Payload)
 
 	targetNodeID := context.TargetNodeID()
 	payload := context.AsMap()
@@ -164,29 +206,37 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan interface{} 
 
 	pubsub.logger.Trace("Request() targetNodeID: ", targetNodeID, " payload: ", payload)
 
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	message, err := pubsub.serializer.MapToPayload(&payload)
 	if err != nil {
 		pubsub.logger.Error("Request() Error serializing the payload: ", payload, " error: ", err)
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
+	pubsub.pendingRequestsMutex.Lock()
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
 	}
+	pubsub.pendingRequestsMutex.Unlock()
 
 	pubsub.transport.Publish("REQ", targetNodeID, message)
 	return resultChan
 }
 
 func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		id := message.Get("id").String()
 		sender := message.Get("sender").String()
 		pubsub.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " context id: ", id)
 
 		request := pubsub.pendingRequests[id]
 		delete(pubsub.pendingRequests, id)
-		result := message.Get("data").Value()
+
+		var result moleculer.Payload
+		if message.Get("success").Bool() {
+			result = message.Get("data")
+		} else {
+			result = payload.Create(errors.New(message.Get("error").String()))
+		}
 
 		pubsub.logger.Trace("reponseHandler() id: ", id, " result: ", result)
 		go func() {
@@ -195,23 +245,31 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 	}
 }
 
-func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response interface{}) {
+func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response moleculer.Payload) {
 	targetNodeID := context.TargetNodeID()
 
-	payload := make(map[string]interface{})
-	payload["sender"] = pubsub.broker.LocalNode().GetID()
-	payload["id"] = context.ID()
-	payload["meta"] = context.Meta()
-	payload["success"] = true
-	payload["data"] = response
+	pubsub.logger.Tracef("sendResponse() reponse type: %T ", response)
 
-	message, err := pubsub.serializer.MapToMessage(&payload)
+	values := make(map[string]interface{})
+	values["sender"] = pubsub.broker.LocalNode().GetID()
+	values["id"] = context.ID()
+	values["meta"] = context.Meta()
+
+	if response.IsError() {
+		values["error"] = response.String()
+		values["success"] = false
+	} else {
+		values["success"] = true
+		values["data"] = response.Value()
+	}
+
+	message, err := pubsub.serializer.MapToPayload(&values)
 	if err != nil {
-		pubsub.logger.Error("sendResponse() Erro serializing the payload: ", payload, " error: ", err)
+		pubsub.logger.Error("sendResponse() Erro serializing the values: ", values, " error: ", err)
 		panic(err)
 	}
 
-	pubsub.logger.Debug("sendResponse() targetNodeID: ", targetNodeID, " payload: ", payload)
+	pubsub.logger.Trace("sendResponse() targetNodeID: ", targetNodeID, " values: ", values, " message: ", message)
 
 	pubsub.transport.Publish("RES", targetNodeID, message)
 }
@@ -221,17 +279,36 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response int
 // 2: invoke the action
 // 3: send a response
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
-	return func(message transit.Message) {
-		values := pubsub.serializer.MessageToContextMap(message)
+	return func(message moleculer.Payload) {
+		values := pubsub.serializer.PayloadToContextMap(message)
 		context := context.RemoteActionContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)
 		pubsub.sendResponse(context, result)
 	}
 }
 
+// expectedNeighbours calculate the expected number of neighbours
+func (pubsub *PubSub) expectedNeighbours() int64 {
+	neighbours := pubsub.neighbours()
+	if neighbours == 0 {
+		return 0
+	}
+
+	var total int64
+	for _, value := range pubsub.knownNeighbours {
+		total = total + value
+	}
+	return total / neighbours
+}
+
+// neighbours return the total number of known neighbours.
+func (pubsub *PubSub) neighbours() int64 {
+	return int64(len(pubsub.knownNeighbours))
+}
+
 //TODO
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		//moleculer.Context := pubsub.serializer.MessageTomoleculer.Context(&message)
 		// result := <-moleculer.Context.InvokeAction()
 		// transit.sendResponse(&moleculer.Context, result)
@@ -241,19 +318,21 @@ func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]
-	message, _ := pubsub.serializer.MapToMessage(&payload)
+	payload["neighbours"] = pubsub.neighbours()
+
+	message, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
 }
 
 func (pubsub *PubSub) discoverHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		sender := message.Get("sender").String()
 		pubsub.broadcastNodeInfo(sender)
 	}
 }
 
 func (pubsub *PubSub) emitRegistryEvent(command string) transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		pubsub.logger.Trace("emitRegistryEvent() command: ", command, " message: ", message)
 		pubsub.broker.Bus().EmitAsync("$registry.transit.message", []interface{}{command, message})
 	}
@@ -264,29 +343,29 @@ func (pubsub *PubSub) SendPing() {
 	sender := pubsub.broker.LocalNode().GetID()
 	ping["sender"] = sender
 	ping["time"] = time.Now().Unix()
-	pingMessage, _ := pubsub.serializer.MapToMessage(&ping)
+	pingMessage, _ := pubsub.serializer.MapToPayload(&ping)
 	pubsub.transport.Publish("PING", sender, pingMessage)
 
 }
 
 func (pubsub *PubSub) pingHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		pong := make(map[string]interface{})
 		sender := message.Get("sender").String()
 		pong["sender"] = sender
 		pong["time"] = message.Get("time").Int()
 		pong["arrived"] = time.Now().Unix()
 
-		pongMessage, _ := pubsub.serializer.MapToMessage(&pong)
+		pongMessage, _ := pubsub.serializer.MapToPayload(&pong)
 		pubsub.transport.Publish("PONG", sender, pongMessage)
 	}
 }
 
 func (pubsub *PubSub) pongHandler() transit.TransportHandler {
-	return func(message transit.Message) {
+	return func(message moleculer.Payload) {
 		now := time.Now().Unix()
-		elapsed := now - message.Get("time").Int()
-		arrived := message.Get("arrived").Int()
+		elapsed := now - message.Get("time").Int64()
+		arrived := message.Get("arrived").Int64()
 		timeDiff := math.Round(
 			float64(now) - float64(arrived) - float64(elapsed)/2)
 
@@ -320,7 +399,7 @@ func (pubsub *PubSub) subscribe() {
 func (pubsub *PubSub) sendDisconnect() {
 	payload := make(map[string]interface{})
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
-	msg, _ := pubsub.serializer.MapToMessage(&payload)
+	msg, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("DISCONNECT", "", msg)
 }
 
@@ -333,9 +412,8 @@ func (pubsub *PubSub) Disconnect() chan bool {
 	}
 	pubsub.logger.Info("PubSub - Disconnecting transport...")
 	pubsub.sendDisconnect()
-	endChan = pubsub.transport.Disconnect()
 	pubsub.isConnected = false
-	return endChan
+	return pubsub.transport.Disconnect()
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
@@ -349,7 +427,7 @@ func (pubsub *PubSub) Connect() chan bool {
 	pubsub.transport = pubsub.createTransport(pubsub.broker)
 	go func() {
 		pubsub.isConnected = <-pubsub.transport.Connect()
-		pubsub.logger.Debug("Transport Connected!")
+		pubsub.logger.Debug("PubSub - Transport Connected!")
 		if pubsub.isConnected {
 			pubsub.subscribe()
 		}

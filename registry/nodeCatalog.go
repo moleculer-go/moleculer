@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -9,12 +10,14 @@ import (
 // NodeCatalog catalog of nodes
 type NodeCatalog struct {
 	nodes map[string]moleculer.Node
+	mutex *sync.Mutex
 }
 
 // CreateNodesCatalog create a node catalog
 func CreateNodesCatalog() *NodeCatalog {
 	nodes := make(map[string]moleculer.Node)
-	return &NodeCatalog{nodes: nodes}
+	mutex := &sync.Mutex{}
+	return &NodeCatalog{nodes, mutex}
 }
 
 // HeartBeat delegate the heart beat to the node in question payload.sender
@@ -59,7 +62,9 @@ func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 		reconnected = node.Update(info)
 	} else {
 		newNode := CreateNode(sender)
+		catalog.mutex.Lock()
 		catalog.nodes[sender] = newNode
+		catalog.mutex.Unlock()
 	}
 	return exists, reconnected
 }
