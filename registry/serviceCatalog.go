@@ -45,6 +45,7 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 
 // RemoveByNode remove services for the given nodeID.
 func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
+	serviceCatalog.mutex.Lock()
 	keys, exists := serviceCatalog.servicesByNode[nodeID]
 	if exists {
 		for _, key := range keys {
@@ -52,20 +53,21 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
 		}
 		delete(serviceCatalog.servicesByNode, nodeID)
 	}
+	serviceCatalog.mutex.Unlock()
 }
 
 // Add : add a service to the catalog.
 func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *service.Service) {
-	serviceCatalog.mutex.Lock()
-	defer serviceCatalog.mutex.Unlock()
-
 	key := createKey(service.Name(), service.Version(), nodeID)
+
+	serviceCatalog.mutex.Lock()
 	serviceCatalog.services[key] = service
 	if serviceCatalog.servicesByNode[nodeID] == nil {
 		serviceCatalog.servicesByNode[nodeID] = []string{key}
 	} else {
 		serviceCatalog.servicesByNode[nodeID] = append(serviceCatalog.servicesByNode[nodeID], key)
 	}
+	serviceCatalog.mutex.Unlock()
 }
 
 func serviceActionExists(name string, actions []service.Action) bool {
@@ -153,7 +155,9 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 // updateRemote : update remote service info and return what actions are new, updated and deleted
 func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) ([]map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
+	serviceCatalog.mutex.Lock()
 	current, serviceExists := serviceCatalog.services[key]
+	serviceCatalog.mutex.Unlock()
 
 	if serviceExists {
 		current.UpdateFromMap(serviceInfo)

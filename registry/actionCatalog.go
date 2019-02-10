@@ -67,7 +67,9 @@ func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, lo
 	entry := ActionEntry{nodeID, &action, local}
 	name := action.FullName()
 	actions := actionCatalog.actionsByName
+	actionCatalog.mutex.Lock()
 	actions[name] = append(actions[name], entry)
+	actionCatalog.mutex.Unlock()
 }
 
 func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updates map[string]interface{}) {
@@ -76,6 +78,7 @@ func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updat
 
 // RemoveByNode remove actions for the given nodeID.
 func (actionCatalog *ActionCatalog) RemoveByNode(nodeID string) {
+	actionCatalog.mutex.Lock()
 	for name, actions := range actionCatalog.actionsByName {
 		var actionsToKeep []ActionEntry
 		for _, action := range actions {
@@ -85,6 +88,7 @@ func (actionCatalog *ActionCatalog) RemoveByNode(nodeID string) {
 		}
 		actionCatalog.actionsByName[name] = actionsToKeep
 	}
+	actionCatalog.mutex.Unlock()
 }
 
 func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
@@ -98,7 +102,9 @@ func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
 			newList = append(newList, action)
 		}
 	}
+	actionCatalog.mutex.Lock()
 	actions[name] = newList
+	actionCatalog.mutex.Unlock()
 }
 
 func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID string) *ActionEntry {

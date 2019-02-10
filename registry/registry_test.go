@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var logLevel = "INFO"
+var logLevel = "ERROR"
 
 func createPrinterBroker() broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{

@@ -137,11 +137,13 @@ func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerConte
 	}
 }
 
+// LoadBalanceEvent load balance an event based on the known targetNodes.
 func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) {
 	name := context.EventName()
 	params := context.Payload()
 	groups := context.Groups()
-	registry.logger.Debug("LoadBalanceEvent() - name: ", name, " params: ", params, " groups: ", groups)
+	eventSig := fmt.Sprint("name: ", name, " groups: ", groups)
+	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " params: ", params)
 
 	entries := registry.events.Next(name, registry.strategy, groups, false)
 	if entries == nil {
@@ -150,21 +152,14 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 		return
 	}
 
-	nodes := make([]string, 0)
 	for _, eventEntry := range entries {
-		nodes = append(nodes, eventEntry.TargetNodeID())
-	}
-
-	registry.logger.Debug("LoadBalanceEvent() - name: ", name, " len(entries): ", len(entries), " nodes: ", nodes)
-	for _, eventEntry := range entries {
-		registry.logger.Debug("LoadBalanceEvent() - name: ", name, " eventEntry.targetNodeID: ", eventEntry.targetNodeID)
 		if eventEntry.isLocal {
-			eventEntry.emitLocalEvent(context)
+			go eventEntry.emitLocalEvent(context)
 		} else {
-			registry.emitRemoteEvent(context, eventEntry)
+			go registry.emitRemoteEvent(context, eventEntry)
 		}
 	}
-	registry.logger.Debug("LoadBalanceEvent() - name: ", name, " End.")
+	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " End.")
 }
 
 func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) {

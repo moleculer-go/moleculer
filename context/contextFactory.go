@@ -1,6 +1,7 @@
 package context
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
@@ -76,8 +77,8 @@ func checkMaxCalls(context *Context) {
 
 }
 
-// RemoteContext create a context for a remote call
-func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+// ActionContext create an action context for remote call.
+func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	var level int
 	var sendMetrics bool
 	var parentID string
@@ -87,13 +88,12 @@ func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
 	actionName, isAction := values["action"]
-	eventName, isEvent := values["event"]
-
-	if isAction {
-		level = values["level"].(int)
-		sendMetrics = values["metrics"].(bool)
-		parentID = values["parentID"].(string)
+	if !isAction {
+		panic(errors.New("Can't create an action context, you need a action field!"))
 	}
+	level = values["level"].(int)
+	sendMetrics = values["metrics"].(bool)
+	parentID = values["parentID"].(string)
 	params := payload.Create(values["params"])
 
 	if values["timeout"] != nil {
@@ -107,6 +107,7 @@ func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface
 		broker:       broker,
 		targetNodeID: sourceNodeID,
 		id:           id,
+		actionName:   actionName.(string),
 		parentID:     parentID,
 		params:       params,
 		meta:         &meta,
@@ -115,14 +116,40 @@ func RemoteContext(broker moleculer.BrokerDelegates, values map[string]interface
 		sendMetrics:  sendMetrics,
 	}
 
-	if isAction {
-		newContext.actionName = actionName.(string)
-	} else if isEvent {
-		newContext.eventName = eventName.(string)
-		if values["groups"] != nil {
-			newContext.groups = values["groups"].([]string)
-		}
-		newContext.broadcast = values["broadcast"].(bool)
+	return &newContext
+}
+
+// EventContext create an event context for a remote call.
+func EventContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+	var level int
+	var sendMetrics bool
+	var parentID string
+	var timeout int
+	var meta map[string]interface{}
+
+	sourceNodeID := values["sender"].(string)
+	id := values["id"].(string)
+	eventName, isEvent := values["event"]
+	if !isEvent {
+		panic(errors.New("Can't create an event context, you need an event field!"))
+	}
+	params := payload.Create(values["params"])
+
+	newContext := Context{
+		broker:       broker,
+		targetNodeID: sourceNodeID,
+		id:           id,
+		eventName:    eventName.(string),
+		broadcast:    values["broadcast"].(bool),
+		parentID:     parentID,
+		params:       params,
+		meta:         &meta,
+		timeout:      timeout,
+		level:        level,
+		sendMetrics:  sendMetrics,
+	}
+	if values["groups"] != nil {
+		newContext.groups = values["groups"].([]string)
 	}
 	return &newContext
 }

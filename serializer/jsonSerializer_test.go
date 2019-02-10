@@ -133,7 +133,7 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.Get("params.lastName").String()).Should(Equal("Snow"))
 
 		values := serializer.PayloadToContextMap(message)
-		contextAgain := context.RemoteContext(brokerDelegates, values)
+		contextAgain := context.ActionContext(brokerDelegates, values)
 
 		Expect(contextAgain.TargetNodeID()).Should(Equal("original_sender"))
 		Expect(contextAgain.ActionName()).Should(Equal(actionName))

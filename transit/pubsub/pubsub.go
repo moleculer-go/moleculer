@@ -68,11 +68,13 @@ func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	var nodeID string = values[0].(string)
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
 	pending, exists := pubsub.pendingRequests[nodeID]
+	pubsub.neighboursMutex.Lock()
 	if exists {
 		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
 	delete(pubsub.knownNeighbours, nodeID)
+	pubsub.neighboursMutex.Unlock()
 }
 
 func (pubsub *PubSub) onNodeConnected(values ...interface{}) {
@@ -318,7 +320,7 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
-		context := context.RemoteContext(pubsub.broker, values)
+		context := context.ActionContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)
 		pubsub.sendResponse(context, result)
 	}
@@ -328,7 +330,7 @@ func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
-		context := context.RemoteContext(pubsub.broker, values)
+		context := context.EventContext(pubsub.broker, values)
 		pubsub.broker.HandleRemoteEvent(context)
 	}
 }
@@ -341,9 +343,11 @@ func (pubsub *PubSub) expectedNeighbours() int64 {
 	}
 
 	var total int64
+	pubsub.neighboursMutex.Lock()
 	for _, value := range pubsub.knownNeighbours {
 		total = total + value
 	}
+	pubsub.neighboursMutex.Unlock()
 	return total / neighbours
 }
 

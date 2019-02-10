@@ -44,6 +44,8 @@ func (catalog *NodeCatalog) expiredNodes(timeout time.Duration) []moleculer.Node
 
 // findNode : return a Node instance from the catalog
 func (catalog *NodeCatalog) findNode(nodeID string) (moleculer.Node, bool) {
+	catalog.mutex.Lock()
+	defer catalog.mutex.Unlock()
 	node, exists := catalog.nodes[nodeID]
 	return node, exists
 }

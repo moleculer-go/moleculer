@@ -142,7 +142,6 @@ func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interfac
 }
 
 func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
-
 	if strings.ToUpper(broker.config.LogFormat) == "JSON" {
 		log.SetFormatter(&log.JSONFormatter{})
 	} else {
@@ -167,8 +166,7 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 	brokerLogger := log.WithFields(log.Fields{
 		"broker": nodeID,
 	})
-	fmt.Println("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
-
+	//fmt.Println("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
 	return brokerLogger
 }
 
