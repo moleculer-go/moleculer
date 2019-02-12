@@ -25,4 +25,6 @@ type Transport interface {
 	Disconnect() chan bool
 	Subscribe(command, nodeID string, handler TransportHandler)
 	Publish(command, nodeID string, message moleculer.Payload)
+
+	SetPrefix(prefix string)
 }

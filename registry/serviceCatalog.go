@@ -5,23 +5,24 @@ import (
 	"sync"
 
 	"github.com/moleculer-go/moleculer/service"
+	log "github.com/sirupsen/logrus"
 )
 
 type ServiceCatalog struct {
-	services       map[string]*service.Service
-	servicesByNode map[string][]string
-	mutex          *sync.Mutex
+	services       sync.Map
+	servicesByName sync.Map
+	logger         *log.Entry
 }
 
-func CreateServiceCatalog() *ServiceCatalog {
-	services := make(map[string]*service.Service)
-	servicesByNode := make(map[string][]string)
-	mutex := &sync.Mutex{}
-	return &ServiceCatalog{services, servicesByNode, mutex}
+type ServiceEntry struct {
+	service *service.Service
+	nodeID  string
 }
 
-func (serviceCatalog *ServiceCatalog) getLocalNodeServices() []map[string]interface{} {
-	return nil //TODO
+func CreateServiceCatalog(logger *log.Entry) *ServiceCatalog {
+	services := sync.Map{}
+	servicesByName := sync.Map{}
+	return &ServiceCatalog{services, servicesByName, logger}
 }
 
 // createKey creates the catalogy key used in the map
@@ -30,44 +31,74 @@ func createKey(name string, version string, nodeID string) string {
 }
 
 // Has : Checks if a service for the given name, version and nodeID already exists in the catalog.
-func (serviceCatalog *ServiceCatalog) Has(name string, version string, nodeID string) bool {
+func (serviceCatalog *ServiceCatalog) Find(name string, version string, nodeID string) bool {
 	key := createKey(name, version, nodeID)
-	_, exists := serviceCatalog.services[key]
+	_, exists := serviceCatalog.services.Load(key)
+	return exists
+}
+
+func (serviceCatalog *ServiceCatalog) FindByName(name string) bool {
+	_, exists := serviceCatalog.servicesByName.Load(name)
+	serviceCatalog.logger.Debug("FindByName name: ", name, " exists: ", exists, " map: ", serviceCatalog.servicesByName)
 	return exists
 }
 
 // Get : Return the service for the given name, version and nodeID if it exists in the catalog.
 func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID string) *service.Service {
 	key := createKey(name, version, nodeID)
-	service := serviceCatalog.services[key]
-	return service
+	item, exists := serviceCatalog.services.Load(key)
+	if exists {
+		svc := item.(service.Service)
+		return &svc
+	}
+	return nil
 }
 
 // RemoveByNode remove services for the given nodeID.
 func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
-	serviceCatalog.mutex.Lock()
-	keys, exists := serviceCatalog.servicesByNode[nodeID]
-	if exists {
-		for _, key := range keys {
-			delete(serviceCatalog.services, key)
+	serviceCatalog.logger.Debug("RemoveByNode() nodeID: ", nodeID)
+	var keysRemove []string
+	var namesRemove []string
+	serviceCatalog.services.Range(func(key, value interface{}) bool {
+		service := value.(ServiceEntry)
+		if service.nodeID == nodeID {
+			keysRemove = append(keysRemove, key.(string))
+			namesRemove = append(namesRemove, service.service.Name())
+			namesRemove = append(namesRemove, service.service.FullName())
 		}
-		delete(serviceCatalog.servicesByNode, nodeID)
+		return true
+	})
+	for _, key := range keysRemove {
+		serviceCatalog.services.Delete(key)
 	}
-	serviceCatalog.mutex.Unlock()
+	for _, name := range namesRemove {
+		value, exists := serviceCatalog.servicesByName.Load(name)
+		if exists {
+			counter := value.(int)
+			counter = counter - 1
+			if counter < 0 {
+				counter = 0
+			}
+			serviceCatalog.servicesByName.Store(name, counter)
+		}
+	}
 }
 
 // Add : add a service to the catalog.
 func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *service.Service) {
 	key := createKey(service.Name(), service.Version(), nodeID)
+	serviceCatalog.services.Store(key, ServiceEntry{service, nodeID})
 
-	serviceCatalog.mutex.Lock()
-	serviceCatalog.services[key] = service
-	if serviceCatalog.servicesByNode[nodeID] == nil {
-		serviceCatalog.servicesByNode[nodeID] = []string{key}
+	serviceCatalog.logger.Debug("Add() nodeID: ", nodeID, " name: ", service.Name(), " fullName: ", service.FullName())
+
+	value, exists := serviceCatalog.servicesByName.Load(service.FullName())
+	if exists {
+		serviceCatalog.servicesByName.Store(service.FullName(), value.(int)+1)
+		serviceCatalog.servicesByName.Store(service.Name(), value.(int)+1)
 	} else {
-		serviceCatalog.servicesByNode[nodeID] = append(serviceCatalog.servicesByNode[nodeID], key)
+		serviceCatalog.servicesByName.Store(service.FullName(), 1)
+		serviceCatalog.servicesByName.Store(service.Name(), 1)
 	}
-	serviceCatalog.mutex.Unlock()
 }
 
 func serviceActionExists(name string, actions []service.Action) bool {
@@ -155,11 +186,10 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 // updateRemote : update remote service info and return what actions are new, updated and deleted
 func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) ([]map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
-	serviceCatalog.mutex.Lock()
-	current, serviceExists := serviceCatalog.services[key]
-	serviceCatalog.mutex.Unlock()
-
+	item, serviceExists := serviceCatalog.services.Load(key)
 	if serviceExists {
+		entry := item.(ServiceEntry)
+		current := entry.service
 		current.UpdateFromMap(serviceInfo)
 		updatedActions, newActions, deletedActions := serviceCatalog.updateActions(serviceInfo, current)
 		updatedEvents, newEvents, deletedEvents := serviceCatalog.updateEvents(serviceInfo, current)

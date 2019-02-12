@@ -38,16 +38,21 @@ func (event *Event) Group() string {
 }
 
 type Service struct {
-	fullname string
-	name     string
-	version  string
-	settings map[string]interface{}
-	metadata map[string]interface{}
-	actions  []Action
-	events   []Event
-	created  []moleculer.FuncType
-	started  []moleculer.FuncType
-	stopped  []moleculer.FuncType
+	fullname     string
+	name         string
+	version      string
+	dependencies []string
+	settings     map[string]interface{}
+	metadata     map[string]interface{}
+	actions      []Action
+	events       []Event
+	created      []moleculer.FuncType
+	started      []moleculer.FuncType
+	stopped      []moleculer.FuncType
+}
+
+func (service *Service) Dependencies() []string {
+	return service.dependencies
 }
 
 func (serviceAction *Action) Handler() moleculer.ActionHandler {
@@ -360,7 +365,7 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 	service.name = schema.Name
 	service.version = schema.Version
 	service.fullname = joinVersionToName(service.name, service.version)
-
+	service.dependencies = schema.Dependencies
 	service.settings = schema.Settings
 	if service.settings == nil {
 		service.settings = make(map[string]interface{})
