@@ -96,6 +96,10 @@ func topicName(transporter *StanTransporter, command string, nodeID string) stri
 	return fmt.Sprint(transporter.prefix, ".", command)
 }
 
+func (transporter *StanTransporter) SetPrefix(prefix string) {
+	transporter.prefix = prefix
+}
+
 func (transporter *StanTransporter) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Subscribe() No connection :( -> command: ", command, " nodeID: ", nodeID)

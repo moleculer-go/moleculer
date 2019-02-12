@@ -23,14 +23,15 @@ import (
 )
 
 var defaultConfig = moleculer.BrokerConfig{
-	LogLevel:               "INFO",
-	LogFormat:              "TEXT",
-	DiscoverNodeID:         DiscoverNodeID,
-	Transporter:            "MEMORY",
-	HeartbeatFrequency:     5 * time.Second,
-	HeartbeatTimeout:       30 * time.Second,
-	OfflineCheckFrequency:  20 * time.Second,
-	NeighboursCheckTimeout: 2 * time.Second,
+	LogLevel:                   "INFO",
+	LogFormat:                  "TEXT",
+	DiscoverNodeID:             DiscoverNodeID,
+	Transporter:                "MEMORY",
+	HeartbeatFrequency:         5 * time.Second,
+	HeartbeatTimeout:           30 * time.Second,
+	OfflineCheckFrequency:      20 * time.Second,
+	NeighboursCheckTimeout:     2 * time.Second,
+	WaitForDependenciesTimeout: 2 * time.Second,
 }
 
 // DiscoverNodeID - should return the node id for this machine
@@ -46,23 +47,25 @@ func DiscoverNodeID() string {
 }
 
 func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.BrokerConfig) moleculer.BrokerConfig {
-
 	if len(userConfig) > 0 {
-		config := userConfig[0]
-		if config.LogLevel != "" {
-			baseConfig.LogLevel = config.LogLevel
-		}
-		if config.LogFormat != "" {
-			baseConfig.LogFormat = config.LogFormat
-		}
-		if config.DiscoverNodeID != nil {
-			baseConfig.DiscoverNodeID = config.DiscoverNodeID
-		}
-		if config.Transporter != "" {
-			baseConfig.Transporter = config.Transporter
+		for _, config := range userConfig {
+			if config.LogLevel != "" {
+				baseConfig.LogLevel = config.LogLevel
+			}
+			if config.LogFormat != "" {
+				baseConfig.LogFormat = config.LogFormat
+			}
+			if config.DiscoverNodeID != nil {
+				baseConfig.DiscoverNodeID = config.DiscoverNodeID
+			}
+			if config.Transporter != "" {
+				baseConfig.Transporter = config.Transporter
+			}
+			if config.TransporterFactory != nil {
+				baseConfig.TransporterFactory = config.TransporterFactory
+			}
 		}
 	}
-
 	return baseConfig
 }
 
@@ -113,7 +116,7 @@ func (broker *ServiceBroker) startService(service *service.Service) {
 
 	broker.middlewares.CallHandlers("serviceStarting", service)
 
-	waitForDependencies(service)
+	broker.waitForDependencies(service)
 
 	service.Start()
 
@@ -124,9 +127,31 @@ func (broker *ServiceBroker) startService(service *service.Service) {
 	broker.middlewares.CallHandlers("serviceStarted", service)
 }
 
-// wait for all service dependencies to load
-func waitForDependencies(service *service.Service) {
-	//TODO
+// waitForDependencies wait for all services listed in the service dependencies to be discovered.
+func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
+	if len(service.Dependencies()) == 0 {
+		return
+	}
+	start := time.Now()
+	for {
+		found := true
+		for _, dependency := range service.Dependencies() {
+			known := broker.registry.KnowService(dependency)
+			if !known {
+				found = false
+				break
+			}
+		}
+		if found {
+			broker.logger.Debug("waitForDependencies() - All dependencies were found :) -> service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // notify a service when it is started
@@ -176,6 +201,9 @@ func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	for _, schema := range schemas {
 		serviceInstance := service.FromSchema(schema)
 		broker.services = append(broker.services, serviceInstance)
+		if broker.started {
+			broker.startService(serviceInstance)
+		}
 	}
 }
 
@@ -205,11 +233,11 @@ func (broker *ServiceBroker) Start() {
 
 	broker.middlewares.CallHandlers("starting", broker)
 
+	broker.registry.Start()
+
 	for _, service := range broker.services {
 		broker.startService(service)
 	}
-
-	broker.registry.Start()
 
 	broker.logger.Debug("Broker -> registry started!")
 

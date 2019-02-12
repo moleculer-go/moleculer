@@ -60,17 +60,18 @@ type Event struct {
 }
 
 type Service struct {
-	Name     string
-	Version  string
-	Settings map[string]interface{}
-	Metadata map[string]interface{}
-	Hooks    map[string]interface{}
-	Mixins   []Mixin
-	Actions  []Action
-	Events   []Event
-	Created  FuncType
-	Started  FuncType
-	Stopped  FuncType
+	Name         string
+	Version      string
+	Dependencies []string
+	Settings     map[string]interface{}
+	Metadata     map[string]interface{}
+	Hooks        map[string]interface{}
+	Mixins       []Mixin
+	Actions      []Action
+	Events       []Event
+	Created      FuncType
+	Started      FuncType
+	Stopped      FuncType
 }
 
 type Mixin struct {
@@ -85,15 +86,19 @@ type Mixin struct {
 	Stopped  FuncType
 }
 
+type TransporterFactoryFunc func() interface{}
+
 type BrokerConfig struct {
-	LogLevel               string
-	LogFormat              string
-	DiscoverNodeID         func() string
-	Transporter            string
-	HeartbeatFrequency     time.Duration
-	HeartbeatTimeout       time.Duration
-	OfflineCheckFrequency  time.Duration
-	NeighboursCheckTimeout time.Duration
+	LogLevel                   string
+	LogFormat                  string
+	DiscoverNodeID             func() string
+	Transporter                string
+	TransporterFactory         TransporterFactoryFunc
+	HeartbeatFrequency         time.Duration
+	HeartbeatTimeout           time.Duration
+	OfflineCheckFrequency      time.Duration
+	NeighboursCheckTimeout     time.Duration
+	WaitForDependenciesTimeout time.Duration
 }
 
 type ActionHandler func(context Context, params Payload) interface{}
@@ -136,6 +141,7 @@ type BrokerContext interface {
 	EventName() string
 	Payload() Payload
 	Groups() []string
+	IsBroadcast() bool
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}

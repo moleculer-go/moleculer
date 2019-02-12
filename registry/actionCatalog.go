@@ -19,14 +19,12 @@ type ActionEntry struct {
 type actionsMap map[string][]ActionEntry
 
 type ActionCatalog struct {
-	actionsByName actionsMap
-	mutex         *sync.Mutex
+	actions sync.Map
 }
 
 func CreateActionCatalog() *ActionCatalog {
-	actionsByName := make(actionsMap)
-	mutex := &sync.Mutex{}
-	return &ActionCatalog{actionsByName: actionsByName, mutex: mutex}
+	actions := sync.Map{}
+	return &ActionCatalog{actions: actions}
 }
 
 func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
@@ -66,10 +64,14 @@ func (actionEntry ActionEntry) IsLocal() bool {
 func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, local bool) {
 	entry := ActionEntry{nodeID, &action, local}
 	name := action.FullName()
-	actions := actionCatalog.actionsByName
-	actionCatalog.mutex.Lock()
-	actions[name] = append(actions[name], entry)
-	actionCatalog.mutex.Unlock()
+
+	list, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		list = []ActionEntry{entry}
+	} else {
+		list = append(list.([]ActionEntry), entry)
+	}
+	actionCatalog.actions.Store(name, list)
 }
 
 func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updates map[string]interface{}) {
@@ -78,37 +80,41 @@ func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updat
 
 // RemoveByNode remove actions for the given nodeID.
 func (actionCatalog *ActionCatalog) RemoveByNode(nodeID string) {
-	actionCatalog.mutex.Lock()
-	for name, actions := range actionCatalog.actionsByName {
-		var actionsToKeep []ActionEntry
+	actionCatalog.actions.Range(func(key, value interface{}) bool {
+		name := key.(string)
+		actions := value.([]ActionEntry)
+		var toKeep []ActionEntry
 		for _, action := range actions {
 			if action.targetNodeID != nodeID {
-				actionsToKeep = append(actionsToKeep, action)
+				toKeep = append(toKeep, action)
 			}
 		}
-		actionCatalog.actionsByName[name] = actionsToKeep
-	}
-	actionCatalog.mutex.Unlock()
+		actionCatalog.actions.Store(name, toKeep)
+		return true
+	})
 }
 
 func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
-	var newList []ActionEntry
-	actions := actionCatalog.actionsByName
-	//fmt.Println("\nRemove() nodeID: ", nodeID, " name: ", name, " actions: ", actions)
-
-	options := actions[name]
-	for _, action := range options {
+	value, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		return
+	}
+	actions := value.([]ActionEntry)
+	var toKeep []ActionEntry
+	for _, action := range actions {
 		if action.targetNodeID != nodeID {
-			newList = append(newList, action)
+			toKeep = append(toKeep, action)
 		}
 	}
-	actionCatalog.mutex.Lock()
-	actions[name] = newList
-	actionCatalog.mutex.Unlock()
+	actionCatalog.actions.Store(name, toKeep)
 }
 
 func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID string) *ActionEntry {
-	actions := actionCatalog.actionsByName[actionName]
+	list, exists := actionCatalog.actions.Load(actionName)
+	if !exists {
+		return nil
+	}
+	actions := list.([]ActionEntry)
 	for _, action := range actions {
 		if action.targetNodeID == nodeID {
 			return &action
@@ -119,19 +125,18 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 
 // Next find all actions registered in this node and use the strategy to select and return the best one to be called.
 func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
-	actions := actionCatalog.actionsByName[actionName]
+	list, exists := actionCatalog.actions.Load(actionName)
+	if !exists {
+		return nil
+	}
+	actions := list.([]ActionEntry)
 	nodes := make([]strategy.Selector, len(actions))
 	for index, action := range actions {
 		nodes[index] = action
 	}
-	//return actionCatalog.NextFromNode(actionName, strategy.SelectTargetNode(nodes))
 	if selected := stg.Select(nodes); selected != nil {
 		entry := (*selected).(ActionEntry)
 		return &entry
 	}
 	return nil
-}
-
-func (actionCatalog *ActionCatalog) Size() int {
-	return len(actionCatalog.actionsByName)
 }

@@ -1,6 +1,7 @@
 (moleculer.Service) {
   Name: (string) (len=5) "earth",
   Version: (string) (len=3) "0.2",
+  Dependencies: ([]string) <nil>,
   Settings: (map[string]interface {}) (len=2) {
     (string) (len=7) "craters": (bool) true,
     (string) (len=10) "dinosauros": (bool) true

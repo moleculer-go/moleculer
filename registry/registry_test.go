@@ -5,16 +5,22 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
+	"github.com/moleculer-go/moleculer/transit/memory"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	log "github.com/sirupsen/logrus"
 )
 
 var logLevel = "ERROR"
 
-func createPrinterBroker() broker.ServiceBroker {
+func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_printerBroker" },
 		LogLevel:       logLevel,
+		TransporterFactory: func() interface{} {
+			transport := memory.Create(log.WithField("transport", "memory"), mem)
+			return &transport
+		},
 	})
 
 	broker.AddService(moleculer.Service{
@@ -33,10 +39,14 @@ func createPrinterBroker() broker.ServiceBroker {
 	return (*broker)
 }
 
-func createScannerBroker() broker.ServiceBroker {
+func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_scannerBroker" },
 		LogLevel:       logLevel,
+		TransporterFactory: func() interface{} {
+			transport := memory.Create(log.WithField("transport", "memory"), mem)
+			return &transport
+		},
 	})
 	broker.AddService(moleculer.Service{
 		Name: "scanner",
@@ -55,10 +65,14 @@ func createScannerBroker() broker.ServiceBroker {
 	return (*broker)
 }
 
-func createCpuBroker() broker.ServiceBroker {
+func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
 		DiscoverNodeID: func() string { return "node_cpuBroker" },
 		LogLevel:       logLevel,
+		TransporterFactory: func() interface{} {
+			transport := memory.Create(log.WithField("transport", "memory"), mem)
+			return &transport
+		},
 	})
 	broker.AddService(moleculer.Service{
 		Name: "cpu",
@@ -89,19 +103,22 @@ var _ = Describe("Registry", func() {
 
 		It("Should call action from printerBroker to scannerBroker and retun results", func() {
 
-			printerBroker := createPrinterBroker()
+			mem := &memory.SharedMemory{}
+
+			printerBroker := createPrinterBroker(mem)
 			Expect(printerBroker.LocalNode().GetID()).Should(Equal("node_printerBroker"))
 
-			scannerBroker := createScannerBroker()
+			scannerBroker := createScannerBroker(mem)
 			Expect(scannerBroker.LocalNode().GetID()).Should(Equal("node_scannerBroker"))
 
-			cpuBroker := createCpuBroker()
+			cpuBroker := createCpuBroker(mem)
 			Expect(cpuBroker.LocalNode().GetID()).Should(Equal("node_cpuBroker"))
 
 			printerBroker.Start()
 
 			printText := "TEXT TO PRINT"
 			printResult := <-printerBroker.Call("printer.print", printText)
+			Expect(printResult.IsError()).ShouldNot(Equal(true))
 			Expect(printResult.Value()).Should(Equal(printText))
 
 			scanText := "TEXT TO SCAN"
@@ -113,9 +130,11 @@ var _ = Describe("Registry", func() {
 			time.Sleep(time.Second)
 
 			scanResult := <-scannerBroker.Call("scanner.scan", scanText)
+			Expect(scanResult.IsError()).ShouldNot(Equal(true))
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			scanResult = <-printerBroker.Call("scanner.scan", scanText)
+			Expect(scanResult.IsError()).ShouldNot(Equal(true))
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			cpuBroker.Start()
@@ -123,6 +142,7 @@ var _ = Describe("Registry", func() {
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-cpuBroker.Call("cpu.compute", contentToCompute)
+			Expect(computeResult.IsError()).ShouldNot(Equal(true))
 			Expect(computeResult.Value()).Should(Equal(contentToCompute))
 
 			//stopping broker B

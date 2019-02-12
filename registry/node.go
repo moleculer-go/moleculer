@@ -52,6 +52,7 @@ func discoverHostname() string {
 func CreateNode(id string) moleculer.Node {
 	ipList := discoverIpList()
 	hostname := discoverHostname()
+	services := make([]map[string]interface{}, 0)
 	node := Node{
 		id: id,
 		client: map[string]interface{}{
@@ -61,6 +62,7 @@ func CreateNode(id string) moleculer.Node {
 		},
 		ipList:   ipList,
 		hostname: hostname,
+		services: services,
 	}
 	var result moleculer.Node = &node
 	return result
@@ -82,7 +84,11 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	node.hostname = info["hostname"].(string)
 	node.client = info["client"].(map[string]interface{})
 
-	items := info["services"].([]interface{})
+	item := info["services"]
+	items := make([]interface{}, 0)
+	if item != nil {
+		items = item.([]interface{})
+	}
 	services := make([]map[string]interface{}, len(items))
 	for index, item := range items {
 		services[index] = item.(map[string]interface{})

@@ -154,6 +154,10 @@ func EventContext(broker moleculer.BrokerDelegates, values map[string]interface{
 	return &newContext
 }
 
+func (context *Context) IsBroadcast() bool {
+	return context.broadcast
+}
+
 // AsMap : export context info in a map[string]
 func (context *Context) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
