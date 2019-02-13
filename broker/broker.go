@@ -33,6 +33,18 @@ var defaultConfig = moleculer.BrokerConfig{
 	OfflineCheckFrequency:      20 * time.Second,
 	NeighboursCheckTimeout:     2 * time.Second,
 	WaitForDependenciesTimeout: 2 * time.Second,
+	Metrics:                    false,
+	MetricsRate:                1,
+	InternalServices:           true,
+	InternalMiddlewares:        true,
+	Created:                    func() {},
+	Started:                    func() {},
+	Stoped:                     func() {},
+	MaxCallLevel:               100,
+	RetryPolicy: moleculer.RetryPolicy{
+		Enabled: false,
+	},
+	RequestTimeout: 0,
 }
 
 // DiscoverNodeID - should return the node id for this machine
@@ -258,7 +270,7 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before making calls :("))
 	}
-	actionContext := broker.rootContext.NewActionContext(actionName, payload.Create(params), options.Wrap(opts))
+	actionContext := broker.rootContext.ChildActionContext(actionName, payload.Create(params), options.Wrap(opts))
 	return broker.registry.LoadBalanceCall(actionContext, options.Wrap(opts))
 }
 
@@ -267,7 +279,7 @@ func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...st
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before emiting events :("))
 	}
-	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups, false)
+	newContext := broker.rootContext.ChildEventContext(event, payload.Create(params), groups, false)
 	broker.registry.LoadBalanceEvent(newContext)
 }
 
@@ -276,7 +288,7 @@ func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups 
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before broadcasting events :("))
 	}
-	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups, true)
+	newContext := broker.rootContext.ChildEventContext(event, payload.Create(params), groups, true)
 	broker.registry.BroadcastEvent(newContext)
 }
 
