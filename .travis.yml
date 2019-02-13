@@ -28,7 +28,7 @@ before_install:
 
 script:
   - echo $TRAVIS_OS_NAME | grep windows && nats-streaming-server-v0.11.2-windows-amd64/nats-streaming-server || nohup nats-*/nats-streaming-server -mc 0 &
-  - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --progress
+  - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --progress --covermode=count --coverprofile=coverage.out
 
 after_script:
   - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash || echo "Skipping Fossa Binary Download"
