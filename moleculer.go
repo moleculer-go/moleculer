@@ -99,6 +99,7 @@ type BrokerConfig struct {
 	OfflineCheckFrequency      time.Duration
 	NeighboursCheckTimeout     time.Duration
 	WaitForDependenciesTimeout time.Duration
+	Middlewares                []Middlewares
 }
 
 type ActionHandler func(context Context, params Payload) interface{}
@@ -114,6 +115,13 @@ type EmitEventFunc func(context BrokerContext)
 
 type OptionsFunc func(key string) interface{}
 
+type MiddlewareHandler func(params interface{}, next func(...interface{}))
+
+type Middlewares map[string]MiddlewareHandler
+
+type Middleware interface {
+	CallHandlers(name string, params interface{}) interface{}
+}
 type Node interface {
 	GetID() string
 	IncreaseSequence()
@@ -135,7 +143,7 @@ type Context interface {
 
 type BrokerContext interface {
 	NewActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
-	EventContext(actionName string, params Payload, groups []string, broadcast bool) BrokerContext
+	EventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext
 
 	ActionName() string
 	EventName() string
@@ -165,4 +173,5 @@ type BrokerDelegates struct {
 	EmitEvent         EmitEventFunc
 	BroadcastEvent    EmitEventFunc
 	HandleRemoteEvent EmitEventFunc
+	Middlewares       func() Middleware
 }

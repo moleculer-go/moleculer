@@ -2,19 +2,75 @@ package middleware
 
 import (
 	"github.com/moleculer-go/moleculer"
-	"github.com/moleculer-go/moleculer/service"
+	log "github.com/sirupsen/logrus"
 )
 
-type MiddlewareHandler struct {
+type Dispatch struct {
+	handlers map[string][]moleculer.MiddlewareHandler
+	logger   *log.Entry
 }
 
-func (middlewareHandler *MiddlewareHandler) CallHandlers(name string, broker interface{}) {
-	//called from broker start
+func Dispatcher(logger *log.Entry) *Dispatch {
+	handlers := make(map[string][]moleculer.MiddlewareHandler)
+	return &Dispatch{handlers, logger}
 }
 
-func (middlewareHandler *MiddlewareHandler) WrapHandler(name string, actionHandler moleculer.ActionHandler, serviceAction *service.Action) moleculer.ActionHandler {
-	return func(ctx moleculer.Context, params moleculer.Payload) interface{} {
-		//TODO : call middle wares
-		return actionHandler(ctx, params)
+var validHandlers = []string{"brokerStoping", "brokerStoped", "brokerStarting", "brokerStarted", "serviceStoping", "serviceStoped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
+
+// validHandler check if the name of handlers midlewares are tryignt o register exists!
+func (dispatch *Dispatch) validHandler(name string) bool {
+	for _, item := range validHandlers {
+		if name == item {
+			return true
+		}
 	}
+	return false
+}
+
+func (dispatch *Dispatch) Add(mwares moleculer.Middlewares) {
+	for name, handler := range mwares {
+		if dispatch.validHandler(name) {
+			dispatch.handlers[name] = append(dispatch.handlers[name], handler)
+		}
+	}
+}
+
+// nextHandler return a next function that invoke next midlewares until the end of the stack.
+func nextHandler(handlers *[]moleculer.MiddlewareHandler, index *int, params interface{}, resultChanel chan interface{}) func(result ...interface{}) {
+	return func(newResult ...interface{}) {
+		newIndex := (*index) + 1
+		index = &newIndex
+		if newIndex < len((*handlers)) {
+			var value interface{}
+			if newResult != nil && len(newResult) > 0 {
+				value = newResult[0]
+			} else {
+				value = params
+			}
+			(*handlers)[newIndex](value, nextHandler(handlers, index, value, resultChanel))
+		} else {
+			if newResult != nil && len(newResult) > 0 {
+				resultChanel <- newResult[0]
+			} else {
+				resultChanel <- params
+			}
+		}
+	}
+}
+
+// CallHandlers invoke handlers that subscribe to this topic.
+func (dispatch *Dispatch) CallHandlers(name string, params interface{}) interface{} {
+	handlers := dispatch.handlers[name]
+	if len(handlers) > 0 {
+		result := make(chan interface{})
+		index := 0
+		go func() {
+			//starts the chain reaction ...
+			handlers[0](params, nextHandler(&handlers, &index, params, result))
+		}()
+		return <-result
+	} else {
+		dispatch.logger.Debug("No Handlers found for -> ", name)
+	}
+	return params
 }
