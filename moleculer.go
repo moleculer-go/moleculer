@@ -100,6 +100,26 @@ type BrokerConfig struct {
 	NeighboursCheckTimeout     time.Duration
 	WaitForDependenciesTimeout time.Duration
 	Middlewares                []Middlewares
+	Namespace                  string
+	RequestTimeout             time.Duration
+	RetryPolicy                RetryPolicy
+	MaxCallLevel               int
+	Metrics                    bool
+	MetricsRate                int
+	InternalServices           bool
+	InternalMiddlewares        bool
+	Created                    func()
+	Started                    func()
+	Stoped                     func()
+}
+
+type RetryPolicy struct {
+	Enabled  bool
+	Retries  int
+	Delay    int
+	MaxDelay int
+	Factor   int
+	Check    func(error) bool
 }
 
 type ActionHandler func(context Context, params Payload) interface{}
@@ -124,12 +144,14 @@ type Middleware interface {
 }
 type Node interface {
 	GetID() string
-	IncreaseSequence()
+
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
-	HeartBeat(heartbeat map[string]interface{})
 	IsExpired(timeout time.Duration) bool
 	Update(info map[string]interface{}) bool
+
+	IncreaseSequence()
+	HeartBeat(heartbeat map[string]interface{})
 	AddService(service map[string]interface{})
 }
 
@@ -142,8 +164,8 @@ type Context interface {
 }
 
 type BrokerContext interface {
-	NewActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
-	EventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext
+	ChildActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
+	ChildEventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext
 
 	ActionName() string
 	EventName() string

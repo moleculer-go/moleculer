@@ -198,7 +198,7 @@ var _ = Describe("Transit", func() {
 		}
 
 		actionName := "some.service.action"
-		actionContext := contextA.NewActionContext(actionName, payload.Create(params))
+		actionContext := contextA.ChildActionContext(actionName, payload.Create(params))
 
 		transporter := nats.CreateStanTransporter(options)
 		<-transporter.Connect()

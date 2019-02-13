@@ -122,7 +122,7 @@ var _ = Describe("JSON Serializer", func() {
 			"name":     "John",
 			"lastName": "Snow",
 		}
-		actionContext := contextA.NewActionContext(actionName, payload.Create(params))
+		actionContext := contextA.ChildActionContext(actionName, payload.Create(params))
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "original_sender"
