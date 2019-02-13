@@ -15,21 +15,44 @@ type Action struct {
 }
 
 type Event struct {
-	name    string
-	handler moleculer.EventHandler
+	name        string
+	serviceName string
+	group       string
+	handler     moleculer.EventHandler
+}
+
+func (event *Event) Handler() moleculer.EventHandler {
+	return event.handler
+}
+
+func (event *Event) Name() string {
+	return event.name
+}
+
+func (event *Event) ServiceName() string {
+	return event.serviceName
+}
+
+func (event *Event) Group() string {
+	return event.group
 }
 
 type Service struct {
-	fullname string
-	name     string
-	version  string
-	settings map[string]interface{}
-	metadata map[string]interface{}
-	actions  []Action
-	events   []Event
-	created  []moleculer.FuncType
-	started  []moleculer.FuncType
-	stopped  []moleculer.FuncType
+	fullname     string
+	name         string
+	version      string
+	dependencies []string
+	settings     map[string]interface{}
+	metadata     map[string]interface{}
+	actions      []Action
+	events       []Event
+	created      []moleculer.FuncType
+	started      []moleculer.FuncType
+	stopped      []moleculer.FuncType
+}
+
+func (service *Service) Dependencies() []string {
+	return service.dependencies
 }
 
 func (serviceAction *Action) Handler() moleculer.ActionHandler {
@@ -204,6 +227,15 @@ func joinVersionToName(name string, version string) string {
 	return name
 }
 
+func CreateServiceEvent(eventName, serviceName, group string, handler moleculer.EventHandler) Event {
+	return Event{
+		eventName,
+		serviceName,
+		group,
+		handler,
+	}
+}
+
 func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ParamsSchema) Action {
 	return Action{
 		actionName,
@@ -235,6 +267,8 @@ func (service *Service) AsMap() map[string]interface{} {
 	for index, serviceEvent := range service.events {
 		eventInfo := make(map[string]interface{})
 		eventInfo["name"] = serviceEvent.name
+		eventInfo["serviceName"] = serviceEvent.serviceName
+		eventInfo["group"] = serviceEvent.group
 		events[index] = eventInfo
 	}
 	serviceInfo["events"] = events
@@ -268,6 +302,16 @@ func (service *Service) AddActionMap(actionInfo map[string]interface{}) *Action 
 	return &action
 }
 
+func (service *Service) RemoteEvent(name string) {
+	var newEvents []Event
+	for _, event := range service.events {
+		if event.name != name {
+			newEvents = append(newEvents, event)
+		}
+	}
+	service.events = newEvents
+}
+
 func (service *Service) RemoveAction(fullname string) {
 	var newActions []Action
 	for _, action := range service.actions {
@@ -280,8 +324,9 @@ func (service *Service) RemoveAction(fullname string) {
 
 func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 	serviceEvent := Event{
-		eventInfo["name"].(string),
-		nil,
+		name:        eventInfo["name"].(string),
+		serviceName: eventInfo["serviceName"].(string),
+		group:       eventInfo["group"].(string),
 	}
 	service.events = append(service.events, serviceEvent)
 	return &serviceEvent
@@ -320,7 +365,7 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 	service.name = schema.Name
 	service.version = schema.Version
 	service.fullname = joinVersionToName(service.name, service.version)
-
+	service.dependencies = schema.Dependencies
 	service.settings = schema.Settings
 	if service.settings == nil {
 		service.settings = make(map[string]interface{})
@@ -342,9 +387,15 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 
 	service.events = make([]Event, len(schema.Events))
 	for index, eventSchema := range schema.Events {
+		group := eventSchema.Group
+		if group == "" {
+			group = service.Name()
+		}
 		service.events[index] = Event{
-			eventSchema.Name,
-			eventSchema.Handler,
+			name:        eventSchema.Name,
+			serviceName: service.Name(),
+			group:       group,
+			handler:     eventSchema.Handler,
 		}
 	}
 

@@ -28,12 +28,12 @@ func CreateServiceSchema() Service {
 		},
 		Events: []Event{
 			{
-				"math.add.called",
-				onAddEvent,
+				Name:    "math.add.called",
+				Handler: onAddEvent,
 			},
 			{
-				"math.sub.called",
-				onSubEvent,
+				Name:    "math.sub.called",
+				Handler: onSubEvent,
 			},
 		},
 		//Mixins: []*Mixin(helloWorldSchema),

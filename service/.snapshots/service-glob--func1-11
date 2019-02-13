@@ -1,6 +1,7 @@
 (moleculer.Service) {
   Name: (string) (len=5) "earth",
   Version: (string) (len=3) "0.2",
+  Dependencies: ([]string) <nil>,
   Settings: (map[string]interface {}) (len=2) {
     (string) (len=7) "craters": (bool) true,
     (string) (len=10) "dinosauros": (bool) true
@@ -36,10 +37,12 @@
       Events: ([]moleculer.Event) (len=2) {
         (moleculer.Event) {
           Name: (string) (len=13) "earth.rotates",
+          Group: (string) "",
           Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
         },
         (moleculer.Event) {
           Name: (string) (len=12) "moon.isClose",
+          Group: (string) "",
           Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
         }
       },
@@ -65,14 +68,17 @@
   Events: ([]moleculer.Event) (len=3) {
     (moleculer.Event) {
       Name: (string) (len=13) "earth.rotates",
+      Group: (string) "",
       Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
     },
     (moleculer.Event) {
       Name: (string) (len=13) "earth.rotates",
+      Group: (string) "",
       Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
     },
     (moleculer.Event) {
       Name: (string) (len=12) "moon.isClose",
+      Group: (string) "",
       Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
     }
   },

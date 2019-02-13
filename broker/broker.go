@@ -23,14 +23,15 @@ import (
 )
 
 var defaultConfig = moleculer.BrokerConfig{
-	LogLevel:               "INFO",
-	LogFormat:              "TEXT",
-	DiscoverNodeID:         DiscoverNodeID,
-	Transporter:            "MEMORY",
-	HeartbeatFrequency:     5 * time.Second,
-	HeartbeatTimeout:       30 * time.Second,
-	OfflineCheckFrequency:  20 * time.Second,
-	NeighboursCheckTimeout: 2 * time.Second,
+	LogLevel:                   "INFO",
+	LogFormat:                  "TEXT",
+	DiscoverNodeID:             DiscoverNodeID,
+	Transporter:                "MEMORY",
+	HeartbeatFrequency:         5 * time.Second,
+	HeartbeatTimeout:           30 * time.Second,
+	OfflineCheckFrequency:      20 * time.Second,
+	NeighboursCheckTimeout:     2 * time.Second,
+	WaitForDependenciesTimeout: 2 * time.Second,
 }
 
 // DiscoverNodeID - should return the node id for this machine
@@ -46,23 +47,25 @@ func DiscoverNodeID() string {
 }
 
 func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.BrokerConfig) moleculer.BrokerConfig {
-
 	if len(userConfig) > 0 {
-		config := userConfig[0]
-		if config.LogLevel != "" {
-			baseConfig.LogLevel = config.LogLevel
-		}
-		if config.LogFormat != "" {
-			baseConfig.LogFormat = config.LogFormat
-		}
-		if config.DiscoverNodeID != nil {
-			baseConfig.DiscoverNodeID = config.DiscoverNodeID
-		}
-		if config.Transporter != "" {
-			baseConfig.Transporter = config.Transporter
+		for _, config := range userConfig {
+			if config.LogLevel != "" {
+				baseConfig.LogLevel = config.LogLevel
+			}
+			if config.LogFormat != "" {
+				baseConfig.LogFormat = config.LogFormat
+			}
+			if config.DiscoverNodeID != nil {
+				baseConfig.DiscoverNodeID = config.DiscoverNodeID
+			}
+			if config.Transporter != "" {
+				baseConfig.Transporter = config.Transporter
+			}
+			if config.TransporterFactory != nil {
+				baseConfig.TransporterFactory = config.TransporterFactory
+			}
 		}
 	}
-
 	return baseConfig
 }
 
@@ -113,7 +116,7 @@ func (broker *ServiceBroker) startService(service *service.Service) {
 
 	broker.middlewares.CallHandlers("serviceStarting", service)
 
-	waitForDependencies(service)
+	broker.waitForDependencies(service)
 
 	service.Start()
 
@@ -124,9 +127,34 @@ func (broker *ServiceBroker) startService(service *service.Service) {
 	broker.middlewares.CallHandlers("serviceStarted", service)
 }
 
-// wait for all service dependencies to load
-func waitForDependencies(service *service.Service) {
-	//TODO
+// waitForDependencies wait for all services listed in the service dependencies to be discovered.
+func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
+	if len(service.Dependencies()) == 0 {
+		return
+	}
+	start := time.Now()
+	for {
+		found := true
+		for _, dependency := range service.Dependencies() {
+			known := broker.registry.KnowService(dependency)
+			if !known {
+				found = false
+				break
+			}
+		}
+		if found {
+			broker.logger.Debug("waitForDependencies() - All dependencies were found :) -> service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
+			break
+		}
+		if !broker.started {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // notify a service when it is started
@@ -142,7 +170,6 @@ func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interfac
 }
 
 func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
-
 	if strings.ToUpper(broker.config.LogFormat) == "JSON" {
 		log.SetFormatter(&log.JSONFormatter{})
 	} else {
@@ -167,8 +194,7 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 	brokerLogger := log.WithFields(log.Fields{
 		"broker": nodeID,
 	})
-	fmt.Println("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
-
+	//fmt.Println("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
 	return brokerLogger
 }
 
@@ -178,6 +204,9 @@ func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	for _, schema := range schemas {
 		serviceInstance := service.FromSchema(schema)
 		broker.services = append(broker.services, serviceInstance)
+		if broker.started {
+			broker.startService(serviceInstance)
+		}
 	}
 }
 
@@ -207,11 +236,11 @@ func (broker *ServiceBroker) Start() {
 
 	broker.middlewares.CallHandlers("starting", broker)
 
+	broker.registry.Start()
+
 	for _, service := range broker.services {
 		broker.startService(service)
 	}
-
-	broker.registry.Start()
 
 	broker.logger.Debug("Broker -> registry started!")
 
@@ -229,11 +258,25 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 		panic(errors.New("Broker must be started before making calls :("))
 	}
 	actionContext := broker.rootContext.NewActionContext(actionName, payload.Create(params), options.Wrap(opts))
-	return broker.registry.DelegateCall(actionContext, options.Wrap(opts))
+	return broker.registry.LoadBalanceCall(actionContext, options.Wrap(opts))
 }
 
-func (broker *ServiceBroker) Emit(event string, params interface{}) {
-	broker.logger.Debug("Broker - emit !")
+func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...string) {
+	broker.logger.Trace("Broker - Emit() event: ", event, " params: ", params, " groups: ", groups)
+	if !broker.IsStarted() {
+		panic(errors.New("Broker must be started before emiting events :("))
+	}
+	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups, false)
+	broker.registry.LoadBalanceEvent(newContext)
+}
+
+func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups ...string) {
+	broker.logger.Trace("Broker - Broadcast() event: ", event, " params: ", params, " groups: ", groups)
+	if !broker.IsStarted() {
+		panic(errors.New("Broker must be started before broadcasting events :("))
+	}
+	newContext := broker.rootContext.EventContext(event, payload.Create(params), groups, true)
+	broker.registry.BroadcastEvent(newContext)
 }
 
 func (broker *ServiceBroker) IsStarted() bool {
@@ -265,13 +308,16 @@ func (broker *ServiceBroker) init() {
 		broker.IsStarted,
 		broker.config,
 		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-			return broker.registry.DelegateCall(context, options.Wrap(opts))
+			return broker.registry.LoadBalanceCall(context, options.Wrap(opts))
 		},
-		func(context moleculer.BrokerContext, groups []string) {
-			broker.registry.DelegateEvent(context, groups)
+		func(context moleculer.BrokerContext) {
+			broker.registry.LoadBalanceEvent(context)
 		},
-		func(context moleculer.BrokerContext, groups []string) {
-			broker.registry.DelegateBroadcast(context, groups)
+		func(context moleculer.BrokerContext) {
+			broker.registry.BroadcastEvent(context)
+		},
+		func(context moleculer.BrokerContext) {
+			broker.registry.HandleRemoteEvent(context)
 		},
 	}
 	broker.registry = registry.CreateRegistry(broker.delegates)
@@ -289,11 +335,9 @@ func (broker *ServiceBroker) setupLocalBus() {
 // FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
 func FromConfig(userConfig ...*moleculer.BrokerConfig) *ServiceBroker {
-
 	config := mergeConfigs(defaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
-
 	broker.logger.Info("Broker - FromConfig() ")
 	return &broker
 }

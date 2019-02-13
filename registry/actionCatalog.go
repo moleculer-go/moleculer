@@ -19,17 +19,15 @@ type ActionEntry struct {
 type actionsMap map[string][]ActionEntry
 
 type ActionCatalog struct {
-	actionsByName actionsMap
-	mutex         *sync.Mutex
+	actions sync.Map
 }
 
 func CreateActionCatalog() *ActionCatalog {
-	actionsByName := make(actionsMap)
-	mutex := &sync.Mutex{}
-	return &ActionCatalog{actionsByName: actionsByName, mutex: mutex}
+	actions := sync.Map{}
+	return &ActionCatalog{actions: actions}
 }
 
-func catchError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
+func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
 	if err := recover(); err != nil {
 		logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
 		result <- payload.Create(err)
@@ -43,7 +41,7 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 	logger.Debug("Before Invoking action: ", context.ActionName())
 
 	go func() {
-		defer catchError(context, logger, result)
+		defer catchActionError(context, logger, result)
 		handler := actionEntry.action.Handler()
 		actionResult := handler(context.(moleculer.Context), context.Payload())
 		logger.Debug("local action invoked ! action: ", context.ActionName(),
@@ -66,8 +64,14 @@ func (actionEntry ActionEntry) IsLocal() bool {
 func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, local bool) {
 	entry := ActionEntry{nodeID, &action, local}
 	name := action.FullName()
-	actions := actionCatalog.actionsByName
-	actions[name] = append(actions[name], entry)
+
+	list, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		list = []ActionEntry{entry}
+	} else {
+		list = append(list.([]ActionEntry), entry)
+	}
+	actionCatalog.actions.Store(name, list)
 }
 
 func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updates map[string]interface{}) {
@@ -76,33 +80,41 @@ func (actionCatalog *ActionCatalog) Update(nodeID string, fullname string, updat
 
 // RemoveByNode remove actions for the given nodeID.
 func (actionCatalog *ActionCatalog) RemoveByNode(nodeID string) {
-	for name, actions := range actionCatalog.actionsByName {
-		var actionsToKeep []ActionEntry
+	actionCatalog.actions.Range(func(key, value interface{}) bool {
+		name := key.(string)
+		actions := value.([]ActionEntry)
+		var toKeep []ActionEntry
 		for _, action := range actions {
 			if action.targetNodeID != nodeID {
-				actionsToKeep = append(actionsToKeep, action)
+				toKeep = append(toKeep, action)
 			}
 		}
-		actionCatalog.actionsByName[name] = actionsToKeep
-	}
+		actionCatalog.actions.Store(name, toKeep)
+		return true
+	})
 }
 
 func (actionCatalog *ActionCatalog) Remove(nodeID string, name string) {
-	var newList []ActionEntry
-	actions := actionCatalog.actionsByName
-	//fmt.Println("\nRemove() nodeID: ", nodeID, " name: ", name, " actions: ", actions)
-
-	options := actions[name]
-	for _, action := range options {
+	value, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		return
+	}
+	actions := value.([]ActionEntry)
+	var toKeep []ActionEntry
+	for _, action := range actions {
 		if action.targetNodeID != nodeID {
-			newList = append(newList, action)
+			toKeep = append(toKeep, action)
 		}
 	}
-	actions[name] = newList
+	actionCatalog.actions.Store(name, toKeep)
 }
 
 func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID string) *ActionEntry {
-	actions := actionCatalog.actionsByName[actionName]
+	list, exists := actionCatalog.actions.Load(actionName)
+	if !exists {
+		return nil
+	}
+	actions := list.([]ActionEntry)
 	for _, action := range actions {
 		if action.targetNodeID == nodeID {
 			return &action
@@ -111,16 +123,20 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 	return nil
 }
 
-// NextEndpoint find all actions registered in this node and use the strategy to select and return the best one to be called.
-func (actionCatalog *ActionCatalog) Next(actionName string, strategy strategy.Strategy) *ActionEntry {
-	actions := actionCatalog.actionsByName[actionName]
-	nodes := make([]string, len(actions))
-	for index, action := range actions {
-		nodes[index] = action.targetNodeID
+// Next find all actions registered in this node and use the strategy to select and return the best one to be called.
+func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
+	list, exists := actionCatalog.actions.Load(actionName)
+	if !exists {
+		return nil
 	}
-	return actionCatalog.NextFromNode(actionName, strategy.SelectTargetNode(nodes))
-}
-
-func (actionCatalog *ActionCatalog) Size() int {
-	return len(actionCatalog.actionsByName)
+	actions := list.([]ActionEntry)
+	nodes := make([]strategy.Selector, len(actions))
+	for index, action := range actions {
+		nodes[index] = action
+	}
+	if selected := stg.Select(nodes); selected != nil {
+		entry := (*selected).(ActionEntry)
+		return &entry
+	}
+	return nil
 }

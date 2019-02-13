@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/moleculer-go/moleculer/payload"
+
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/service"
@@ -55,7 +57,8 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 		strategy:              strategy,
 		logger:                broker.Logger("registry", "Service Registry"),
 		actions:               CreateActionCatalog(),
-		services:              CreateServiceCatalog(),
+		events:                CreateEventCatalog(broker.Logger("catalog", "Events")),
+		services:              CreateServiceCatalog(broker.Logger("catalog", "Services")),
 		nodes:                 CreateNodesCatalog(),
 		localNode:             broker.LocalNode(),
 		heartbeatFrequency:    config.HeartbeatFrequency,
@@ -78,11 +81,15 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 	return registry
 }
 
+func (registry *ServiceRegistry) KnowService(name string) bool {
+	return registry.services.FindByName(name)
+}
+
 func (registry *ServiceRegistry) setupMessageHandlers() {
 	messageHandler := map[string]messageHandlerFunc{
-		"HEARTBEAT":  registry.heartbeatMessageReceived,
-		"DISCONNECT": registry.disconnectMessageReceived,
-		"INFO":       registry.nodeInfoMessageReceived,
+		"HEARTBEAT":  registry.filterMessages(registry.heartbeatMessageReceived),
+		"DISCONNECT": registry.filterMessages(registry.disconnectMessageReceived),
+		"INFO":       registry.filterMessages(registry.remoteNodeInfoReceived),
 	}
 	registry.broker.Bus().On("$registry.transit.message", func(args ...interface{}) {
 		registry.logger.Trace("Registry -> $registry.transit.message event - args: ", args)
@@ -97,7 +104,7 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 }
 
 func (registry *ServiceRegistry) Stop() {
-	registry.logger.Debug("Registry Stop() ")
+	registry.logger.Debug("Registry Stoping...")
 	registry.stoping = true
 	<-registry.transit.Disconnect()
 	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
@@ -107,11 +114,13 @@ func (registry *ServiceRegistry) Stop() {
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
+	registry.stoping = false
 	connected := <-registry.transit.Connect()
 	if !connected {
 		panic(errors.New("Could not connect to the transit. Check logs for more details."))
 	}
 	<-registry.transit.DiscoverNodes()
+
 	if registry.heartbeatFrequency > 0 {
 		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.transit.SendHeartbeat)
 	}
@@ -120,22 +129,84 @@ func (registry *ServiceRegistry) Start() {
 	}
 	if registry.offlineCheckFrequency > 0 {
 		go registry.loopWhileAlive(registry.offlineCheckFrequency, registry.checkOfflineNodes)
-
 	}
 }
 
-func (registry *ServiceRegistry) DelegateEvent(context moleculer.BrokerContext, groups []string) {
+// HandleRemoteEvent handle when a remote event is delivered and call all the local handlers.
+func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerContext) {
+	name := context.EventName()
+	groups := context.Groups()
+	if registry.stoping {
+		registry.logger.Error("HandleRemoteEvent() - registry is stoping. Discarding event -> name: ", name, " groups: ", groups)
+		return
+	}
+	broadcast := context.IsBroadcast()
+	registry.logger.Debug("HandleRemoteEvent() - name: ", name, " groups: ", groups)
+
+	var stg strategy.Strategy
+	if !broadcast {
+		stg = registry.strategy
+	}
+	entries := registry.events.Find(name, groups, true, true, stg)
+	for _, localEvent := range entries {
+		localEvent.emitLocalEvent(context)
+	}
 }
 
-func (registry *ServiceRegistry) DelegateBroadcast(context moleculer.BrokerContext, groups []string) {
+// LoadBalanceEvent load balance an event based on the known targetNodes.
+func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) {
+	name := context.EventName()
+	params := context.Payload()
+	groups := context.Groups()
+	eventSig := fmt.Sprint("name: ", name, " groups: ", groups)
+	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " params: ", params)
+
+	entries := registry.events.Find(name, groups, true, false, registry.strategy)
+	if entries == nil {
+		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
+		registry.logger.Warn(msg)
+		return
+	}
+
+	for _, eventEntry := range entries {
+		if eventEntry.isLocal {
+			go eventEntry.emitLocalEvent(context)
+		} else {
+			go registry.emitRemoteEvent(context, eventEntry)
+		}
+	}
+	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " End.")
+}
+
+func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) {
+	name := context.EventName()
+	groups := context.Groups()
+	eventSig := fmt.Sprint("name: ", name, " groups: ", groups)
+	registry.logger.Trace("BroadcastEvent() - ", eventSig, " payload: ", context.Payload())
+
+	entries := registry.events.Find(name, groups, false, false, nil)
+	if entries == nil {
+		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
+		registry.logger.Warn(msg)
+		return
+	}
+
+	for _, eventEntry := range entries {
+		if eventEntry.isLocal {
+			go eventEntry.emitLocalEvent(context)
+		} else {
+			go registry.emitRemoteEvent(context, eventEntry)
+		}
+	}
+	registry.logger.Trace("BroadcastEvent() - ", eventSig, " End.")
 }
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
 // This call might be local or remote.
-func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 	actionName := context.ActionName()
 	params := context.Payload()
-	registry.logger.Trace("DelegateCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
+	registry.logger.Trace("LoadBalanceCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
 	actionEntry := registry.nextAction(actionName, registry.strategy, options.Wrap(opts))
 	if actionEntry == nil {
@@ -143,12 +214,18 @@ func (registry *ServiceRegistry) DelegateCall(context moleculer.BrokerContext, o
 		registry.logger.Error(msg)
 		panic(errors.New(msg))
 	}
-	registry.logger.Debug("DelegateCall() - actionName: ", actionName, " target nodeID: ", actionEntry.TargetNodeID())
+	registry.logger.Debug("LoadBalanceCall() - actionName: ", actionName, " target nodeID: ", actionEntry.TargetNodeID())
 
 	if actionEntry.isLocal {
 		return actionEntry.invokeLocalAction(context)
 	}
 	return registry.invokeRemoteAction(context, actionEntry)
+}
+
+func (registry *ServiceRegistry) emitRemoteEvent(context moleculer.BrokerContext, eventEntry *EventEntry) {
+	context.SetTargetNodeID(eventEntry.TargetNodeID())
+	registry.logger.Trace("Before invoking remote event: ", context.EventName(), " context.TargetNodeID: ", context.TargetNodeID(), " context.Payload(): ", context.Payload())
+	registry.transit.Emit(context)
 }
 
 func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan moleculer.Payload {
@@ -159,7 +236,12 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 	go func() {
 		actionResult := <-registry.transit.Request(context)
 		registry.logger.Trace("remote request done! action: ", context.ActionName(), " results: ", actionResult)
-		result <- actionResult
+		if registry.stoping {
+			registry.logger.Error("invokeRemoteAction() - registry is stoping. Discarding action result -> name: ", context.ActionName())
+			result <- payload.Create(errors.New("can't complete request! registry stoping..."))
+		} else {
+			result <- actionResult
+		}
 	}()
 	return result
 }
@@ -168,6 +250,7 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
 	registry.services.RemoveByNode(nodeID)
 	registry.actions.RemoveByNode(nodeID)
+	registry.events.RemoveByNode(nodeID)
 }
 
 // disconnectNode remove node info (actions, events) from local registry.
@@ -206,6 +289,20 @@ func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegat
 	}
 }
 
+func (registry *ServiceRegistry) filterMessages(handler func(message moleculer.Payload)) func(message moleculer.Payload) {
+	return func(message moleculer.Payload) {
+		if registry.stoping {
+			registry.logger.Error("filterMessages() - registry is stoping. Discarding message: ", message)
+			return
+		}
+		if message.Get("sender").Exists() && message.Get("sender").String() == registry.localNode.GetID() {
+			registry.logger.Debug("filterMessages() - Same host message (sender == localNodeID). discarding... ", message)
+			return
+		}
+		handler(message)
+	}
+}
+
 func (registry *ServiceRegistry) heartbeatMessageReceived(message moleculer.Payload) {
 	heartbeat := message.RawMap()
 	succesful := registry.nodes.HeartBeat(heartbeat)
@@ -226,17 +323,19 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 	}
 }
 
-// nodeInfoMessageReceived process the node info message.
-func (registry *ServiceRegistry) nodeInfoMessageReceived(message moleculer.Payload) {
+// remoteNodeInfoReceived process the remote node info message and add to local registry.
+func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
 	nodeInfo := message.RawMap()
-	services := nodeInfo["services"].([]interface{})
 	nodeID := nodeInfo["sender"].(string)
-
+	item := nodeInfo["services"]
+	var services []interface{}
+	if item != nil {
+		services = item.([]interface{})
+	}
 	exists, reconnected := registry.nodes.Info(nodeInfo)
-
 	for _, item := range services {
 		serviceInfo := item.(map[string]interface{})
-		updatedActions, newActions, deletedActions := registry.services.updateRemote(nodeID, serviceInfo)
+		updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {
 			serviceAction := service.CreateServiceAction(
@@ -255,6 +354,25 @@ func (registry *ServiceRegistry) nodeInfoMessageReceived(message moleculer.Paylo
 		for _, deleted := range deletedActions {
 			fullname := deleted.FullName()
 			registry.actions.Remove(nodeID, fullname)
+		}
+
+		for _, newEvent := range newEvents {
+			serviceEvent := service.CreateServiceEvent(
+				newEvent.Name(),
+				serviceInfo["name"].(string),
+				newEvent.Group(),
+				newEvent.Handler())
+			registry.events.Add(nodeID, serviceEvent, false)
+		}
+
+		for _, updates := range updatedEvents {
+			name := updates["name"].(string)
+			registry.events.Update(nodeID, name, updates)
+		}
+
+		for _, deleted := range deletedEvents {
+			name := deleted.Name()
+			registry.events.Remove(nodeID, name)
 		}
 	}
 
@@ -276,7 +394,7 @@ func (registry *ServiceRegistry) nodeInfoMessageReceived(message moleculer.Paylo
 // AddLocalService : add a local service to the registry
 // it will create endpoints for all service actions.
 func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
-	if registry.services.Has(service.Name(), service.Version(), registry.localNode.GetID()) {
+	if registry.services.Find(service.Name(), service.Version(), registry.localNode.GetID()) {
 		return
 	}
 
@@ -289,9 +407,9 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 		registry.actions.Add(nodeID, action, true)
 	}
 
-	// for _, event := range service.GetEvents() {
-	// 	registry.registerEvent(&event)
-	// }
+	for _, event := range service.Events() {
+		registry.events.Add(nodeID, event, true)
+	}
 
 	registry.localNode.AddService(service.AsMap())
 

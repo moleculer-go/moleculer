@@ -55,21 +55,23 @@ type Action struct {
 
 type Event struct {
 	Name    string
+	Group   string
 	Handler EventHandler
 }
 
 type Service struct {
-	Name     string
-	Version  string
-	Settings map[string]interface{}
-	Metadata map[string]interface{}
-	Hooks    map[string]interface{}
-	Mixins   []Mixin
-	Actions  []Action
-	Events   []Event
-	Created  FuncType
-	Started  FuncType
-	Stopped  FuncType
+	Name         string
+	Version      string
+	Dependencies []string
+	Settings     map[string]interface{}
+	Metadata     map[string]interface{}
+	Hooks        map[string]interface{}
+	Mixins       []Mixin
+	Actions      []Action
+	Events       []Event
+	Created      FuncType
+	Started      FuncType
+	Stopped      FuncType
 }
 
 type Mixin struct {
@@ -84,15 +86,19 @@ type Mixin struct {
 	Stopped  FuncType
 }
 
+type TransporterFactoryFunc func() interface{}
+
 type BrokerConfig struct {
-	LogLevel               string
-	LogFormat              string
-	DiscoverNodeID         func() string
-	Transporter            string
-	HeartbeatFrequency     time.Duration
-	HeartbeatTimeout       time.Duration
-	OfflineCheckFrequency  time.Duration
-	NeighboursCheckTimeout time.Duration
+	LogLevel                   string
+	LogFormat                  string
+	DiscoverNodeID             func() string
+	Transporter                string
+	TransporterFactory         TransporterFactoryFunc
+	HeartbeatFrequency         time.Duration
+	HeartbeatTimeout           time.Duration
+	OfflineCheckFrequency      time.Duration
+	NeighboursCheckTimeout     time.Duration
+	WaitForDependenciesTimeout time.Duration
 }
 
 type ActionHandler func(context Context, params Payload) interface{}
@@ -104,7 +110,7 @@ type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
-type EventDelegateFunc func(context BrokerContext, groups []string)
+type EmitEventFunc func(context BrokerContext)
 
 type OptionsFunc func(key string) interface{}
 
@@ -129,9 +135,13 @@ type Context interface {
 
 type BrokerContext interface {
 	NewActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
+	EventContext(actionName string, params Payload, groups []string, broadcast bool) BrokerContext
 
 	ActionName() string
+	EventName() string
 	Payload() Payload
+	Groups() []string
+	IsBroadcast() bool
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}
@@ -152,6 +162,7 @@ type BrokerDelegates struct {
 	IsStarted         isStartedFunc
 	Config            BrokerConfig
 	ActionDelegate    ActionDelegateFunc
-	EventDelegate     EventDelegateFunc
-	BroadcastDelegate EventDelegateFunc
+	EmitEvent         EmitEventFunc
+	BroadcastEvent    EmitEventFunc
+	HandleRemoteEvent EmitEventFunc
 }

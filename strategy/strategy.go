@@ -1,6 +1,9 @@
 package strategy
 
-// Strategy exports the node selection function via an interface
+type Selector interface {
+	TargetNodeID() string
+}
+
 type Strategy interface {
-	SelectTargetNode([]string) string
+	Select([]Selector) *Selector
 }

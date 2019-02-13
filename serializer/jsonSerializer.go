@@ -25,7 +25,9 @@ func CreateJSONSerializer(logger *log.Entry) JSONSerializer {
 
 // mapToContext make sure all value types are compatible with the context fields.
 func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[string]interface{} {
-	values["level"] = int(values["level"].(float64))
+	if values["level"] != nil {
+		values["level"] = int(values["level"].(float64))
+	}
 	if values["timeout"] != nil {
 		values["timeout"] = int(values["timeout"].(float64))
 	}
