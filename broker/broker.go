@@ -10,6 +10,7 @@ import (
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/cache"
 	"github.com/moleculer-go/moleculer/context"
+	"github.com/moleculer-go/moleculer/metrics"
 	"github.com/moleculer-go/moleculer/middleware"
 	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/payload"
@@ -78,7 +79,7 @@ type ServiceBroker struct {
 
 	registry *registry.ServiceRegistry
 
-	middlewares *middleware.MiddlewareHandler
+	middlewares *middleware.Dispatch
 
 	cache cache.Cache
 
@@ -105,26 +106,26 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 }
 
 // stopService stop the service.
-func (broker *ServiceBroker) stopService(service *service.Service) {
-	broker.middlewares.CallHandlers("serviceStoping", service)
-	service.Stop()
-	broker.middlewares.CallHandlers("serviceStoped", service)
+func (broker *ServiceBroker) stopService(svc *service.Service) {
+	broker.middlewares.CallHandlers("serviceStoping", svc)
+	svc.Stop()
+	broker.middlewares.CallHandlers("serviceStoped", svc)
 }
 
 // startService start a service.
-func (broker *ServiceBroker) startService(service *service.Service) {
+func (broker *ServiceBroker) startService(svc *service.Service) {
 
-	broker.middlewares.CallHandlers("serviceStarting", service)
+	broker.middlewares.CallHandlers("serviceStarting", svc)
 
-	broker.waitForDependencies(service)
+	broker.waitForDependencies(svc)
 
-	service.Start()
+	svc.Start()
 
-	notifyServiceStarted(service)
+	notifyServiceStarted(svc)
 
-	broker.registry.AddLocalService(service)
+	broker.registry.AddLocalService(svc)
 
-	broker.middlewares.CallHandlers("serviceStarted", service)
+	broker.middlewares.CallHandlers("serviceStarted", svc)
 }
 
 // waitForDependencies wait for all services listed in the service dependencies to be discovered.
@@ -213,7 +214,7 @@ func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 func (broker *ServiceBroker) Stop() {
 	broker.logger.Info("Broker -> Stoping...")
 
-	broker.middlewares.CallHandlers("stoping", broker)
+	broker.middlewares.CallHandlers("brokerStoping", broker)
 
 	for _, service := range broker.services {
 		broker.stopService(service)
@@ -224,7 +225,7 @@ func (broker *ServiceBroker) Stop() {
 	broker.started = false
 	broker.broadcastLocal("$broker.stoped")
 
-	broker.middlewares.CallHandlers("stoped", broker)
+	broker.middlewares.CallHandlers("brokerStoped", broker)
 }
 
 func (broker *ServiceBroker) Start() {
@@ -234,7 +235,7 @@ func (broker *ServiceBroker) Start() {
 	}
 	broker.logger.Info("Broker -> Starting...")
 
-	broker.middlewares.CallHandlers("starting", broker)
+	broker.middlewares.CallHandlers("brokerStarting", broker)
 
 	broker.registry.Start()
 
@@ -245,7 +246,7 @@ func (broker *ServiceBroker) Start() {
 	broker.logger.Debug("Broker -> registry started!")
 
 	defer broker.broadcastLocal("$broker.started")
-	defer broker.middlewares.CallHandlers("started", broker)
+	defer broker.middlewares.CallHandlers("brokerStarted", broker)
 
 	broker.started = true
 	broker.logger.Info("Broker -> Started !!!")
@@ -295,6 +296,21 @@ func (broker *ServiceBroker) newLogger(name string, value string) *log.Entry {
 	return broker.logger.WithField(name, value)
 }
 
+func (broker *ServiceBroker) setupLocalBus() {
+	broker.localBus = bus.Construct()
+
+	broker.localBus.On("$registry.service.added", func(args ...interface{}) {
+		//TODO check code from -> this.broker.servicesChanged(true)
+	})
+}
+
+func (broker *ServiceBroker) registerMiddlewares() {
+	for _, mware := range broker.config.Middlewares {
+		broker.middlewares.Add(mware)
+	}
+	broker.middlewares.Add(metrics.Middlewares())
+}
+
 func (broker *ServiceBroker) init() {
 	broker.logger = broker.createBrokerLogger()
 	broker.strategy = strategy.RoundRobinStrategy{}
@@ -319,17 +335,14 @@ func (broker *ServiceBroker) init() {
 		func(context moleculer.BrokerContext) {
 			broker.registry.HandleRemoteEvent(context)
 		},
+		func() moleculer.Middleware {
+			return broker.middlewares
+		},
 	}
+	broker.middlewares = middleware.Dispatcher(broker.logger.WithField("middleware", "dispatcher"))
 	broker.registry = registry.CreateRegistry(broker.delegates)
 	broker.rootContext = context.BrokerContext(broker.delegates)
-}
-
-func (broker *ServiceBroker) setupLocalBus() {
-	broker.localBus = bus.Construct()
-
-	broker.localBus.On("$registry.service.added", func(args ...interface{}) {
-		//TODO check code from -> this.broker.servicesChanged(true)
-	})
+	broker.registerMiddlewares()
 }
 
 // FromConfig : returns a valid broker based on environment configuration

@@ -477,7 +477,7 @@ var _ = Describe("Broker", func() {
 				//remove one dj service
 				stormBroker.Stop()
 
-				time.Sleep(400 * time.Millisecond)
+				time.Sleep(500 * time.Millisecond)
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
