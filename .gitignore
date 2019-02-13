@@ -10,7 +10,9 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.coverprofile
 .vscode/settings.json
 
 .idea
 .DS_Store
+broker/broker.coverprofile

@@ -169,6 +169,9 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 			pubsub.logger.Warn("waitForNeighbours() - Time out ! did not receive info from all expected neighbours: ", expected, "  INFOs received: ", neighbours)
 			return false
 		}
+		if !pubsub.isConnected {
+			return false
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 }

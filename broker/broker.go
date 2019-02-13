@@ -150,6 +150,9 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
 			break
 		}
+		if !broker.started {
+			break
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 }

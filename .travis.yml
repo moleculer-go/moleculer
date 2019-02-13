@@ -19,6 +19,8 @@ before_install:
   - go get -v golang.org/x/tools/cmd/cover
   - go get -v github.com/mattn/goveralls
   - go get -v github.com/nats-io/gnatsd
+  - go get -v github.com/onsi/ginkgo/ginkgo
+  - go get -v github.com/onsi/gomega
   - echo $TRAVIS_OS_NAME | grep osx && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-darwin-amd64.zip -o nats.zip || echo "Skipping OSX"
   - echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip || echo "Skipping Linux"
   - echo $TRAVIS_OS_NAME | grep windows && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-windows-amd64.zip -o nats.zip || echo "Skipping Windows"
@@ -26,7 +28,7 @@ before_install:
 
 script:
   - echo $TRAVIS_OS_NAME | grep windows && nats-streaming-server-v0.11.2-windows-amd64/nats-streaming-server || nohup nats-*/nats-streaming-server -mc 0 &
-  - go test -v ./... -covermode=count -coverprofile=coverage.out
+  - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --progress
 
 after_script:
   - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash || echo "Skipping Fossa Binary Download"

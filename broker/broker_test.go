@@ -154,7 +154,7 @@ var _ = Describe("Broker", func() {
 	})
 
 	Describe("Measurements", func() {
-		eventsTestSize := 5
+		eventsTestSize := 3
 		Measure("Local and remote events", func(bench Benchmarker) {
 			logLevel := "ERROR"
 			verse := "3 little birds..."
