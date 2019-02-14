@@ -105,9 +105,10 @@ type BrokerConfig struct {
 	RetryPolicy                RetryPolicy
 	MaxCallLevel               int
 	Metrics                    bool
-	MetricsRate                int
-	InternalServices           bool
-	InternalMiddlewares        bool
+	MetricsRate                float32
+	DisableInternalServices    bool
+	DisableInternalMiddlewares bool
+	DontWaitForNeighbours      bool
 	Created                    func()
 	Started                    func()
 	Stoped                     func()
