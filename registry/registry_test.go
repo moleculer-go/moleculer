@@ -118,7 +118,7 @@ var _ = Describe("Registry", func() {
 
 			printText := "TEXT TO PRINT"
 			printResult := <-printerBroker.Call("printer.print", printText)
-			Expect(printResult.IsError()).ShouldNot(Equal(true))
+			Expect(printResult.IsError()).Should(BeFalse())
 			Expect(printResult.Value()).Should(Equal(printText))
 
 			scanText := "TEXT TO SCAN"

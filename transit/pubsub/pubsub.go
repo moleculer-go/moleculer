@@ -263,9 +263,11 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 // validateVersion check that version of the message is correct.
 func (pubsub *PubSub) validate(handler func(message moleculer.Payload)) transit.TransportHandler {
 	return func(msg moleculer.Payload) {
-		valid := pubsub.validateVersion(msg) && pubsub.sameHost(msg)
+		valid := pubsub.validateVersion(msg) && !pubsub.sameHost(msg)
 		if valid {
 			handler(msg)
+		} else {
+			pubsub.logger.Trace("Discarding invalid msg -> ", msg.Value())
 		}
 	}
 }
@@ -273,7 +275,7 @@ func (pubsub *PubSub) validate(handler func(message moleculer.Payload)) transit.
 func (pubsub *PubSub) sameHost(msg moleculer.Payload) bool {
 	sender := msg.Get("sender").String()
 	localNodeID := pubsub.broker.LocalNode().GetID()
-	return sender != localNodeID
+	return sender == localNodeID
 }
 
 // validateVersion check that version of the message is correct.
@@ -287,6 +289,7 @@ func (pubsub *PubSub) validateVersion(msg moleculer.Payload) bool {
 	}
 }
 
+// reponseHandler responsible for whem a reponse arrives form a remote node.
 func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		id := message.Get("id").String()
@@ -316,6 +319,10 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 
 func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response moleculer.Payload) {
 	targetNodeID := context.TargetNodeID()
+
+	if targetNodeID == "" {
+		panic(errors.New("sendResponse() targetNodeID is required !"))
+	}
 
 	pubsub.logger.Tracef("sendResponse() reponse type: %T ", response)
 

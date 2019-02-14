@@ -4,13 +4,22 @@ import (
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/test"
 
-	ginkgo "github.com/onsi/ginkgo"
+	g "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = ginkgo.Describe("Context", func() {
+var _ = g.Describe("Context", func() {
 
-	ginkgo.It("Should create a child context with metrics on", func() {
+	g.It("Should be able to cast into moleculer.Context", func() {
+		delegates := test.DelegatesWithIdAndConfig("x", moleculer.BrokerConfig{})
+		rawContext := BrokerContext(delegates)
+		Expect(func() {
+			moleculerContest := rawContext.(moleculer.Context)
+			Expect(moleculerContest).ShouldNot(BeNil())
+		}).ShouldNot(Panic())
+	})
+
+	g.It("Should create a child context with metrics on", func() {
 
 		config := moleculer.BrokerConfig{
 			Metrics: true,

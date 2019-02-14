@@ -190,10 +190,9 @@ type Node interface {
 	HeartBeat(heartbeat map[string]interface{})
 	AddService(service map[string]interface{})
 }
-type MCallParams map[string]map[string]interface{}
 type Context interface {
 	//context methods used by services
-	MCall(MCallParams) chan map[string]interface{}
+	MCall(map[string]map[string]interface{}) chan map[string]interface{}
 	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
