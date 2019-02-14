@@ -2,7 +2,6 @@ package broker
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -18,46 +17,9 @@ import (
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/service"
 	"github.com/moleculer-go/moleculer/strategy"
-	"github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
 )
-
-var defaultConfig = moleculer.BrokerConfig{
-	LogLevel:                   "INFO",
-	LogFormat:                  "TEXT",
-	DiscoverNodeID:             DiscoverNodeID,
-	Transporter:                "MEMORY",
-	HeartbeatFrequency:         5 * time.Second,
-	HeartbeatTimeout:           30 * time.Second,
-	OfflineCheckFrequency:      20 * time.Second,
-	NeighboursCheckTimeout:     2 * time.Second,
-	WaitForDependenciesTimeout: 2 * time.Second,
-	Metrics:                    false,
-	MetricsRate:                1,
-	DisableInternalServices:    false,
-	DisableInternalMiddlewares: false,
-	Created:                    func() {},
-	Started:                    func() {},
-	Stoped:                     func() {},
-	MaxCallLevel:               100,
-	RetryPolicy: moleculer.RetryPolicy{
-		Enabled: false,
-	},
-	RequestTimeout: 0,
-}
-
-// DiscoverNodeID - should return the node id for this machine
-func DiscoverNodeID() string {
-	// TODO: Check moleculer JS algo for this..
-	// hostname, err := os.Hostname()
-	// if err != nil {
-	// 	fmt.Errorf("Error trying to get the machine hostname - error: %s", err)
-	// 	hostname = ""
-	// }
-	// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
-	return fmt.Sprint("Node_", util.RandomString(8))
-}
 
 func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.BrokerConfig) moleculer.BrokerConfig {
 	if len(userConfig) > 0 {
@@ -86,6 +48,11 @@ func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.Bro
 			if config.Metrics {
 				baseConfig.Metrics = config.Metrics
 			}
+
+			if config.MetricsRate > 0 {
+				baseConfig.MetricsRate = config.MetricsRate
+			}
+
 			if config.DontWaitForNeighbours {
 				baseConfig.DontWaitForNeighbours = config.DontWaitForNeighbours
 			}
@@ -385,7 +352,7 @@ func (broker *ServiceBroker) init() {
 // FromConfig : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
 func FromConfig(userConfig ...*moleculer.BrokerConfig) *ServiceBroker {
-	config := mergeConfigs(defaultConfig, userConfig)
+	config := mergeConfigs(moleculer.DefaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
 	broker.logger.Info("Broker - FromConfig() ")
