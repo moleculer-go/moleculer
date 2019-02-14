@@ -116,8 +116,6 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	svc.Start()
 
-	notifyServiceStarted(svc)
-
 	broker.registry.AddLocalService(svc)
 
 	broker.middlewares.CallHandlers("serviceStarted", svc)
@@ -151,14 +149,6 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-}
-
-// notify a service when it is started
-func notifyServiceStarted(service *service.Service) {
-	// if service.Started != nil {
-	// 	service.Started()
-	// }
-	//TODO: notify mixins also.. that might have the started method
 }
 
 func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interface{}) {
@@ -198,7 +188,7 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 // a service instance in the broker.
 func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	for _, schema := range schemas {
-		serviceInstance := service.FromSchema(schema)
+		serviceInstance := service.FromSchema(schema, broker.GetLogger("service", schema.Name))
 		broker.services = append(broker.services, serviceInstance)
 		if broker.started {
 			broker.startService(serviceInstance)
