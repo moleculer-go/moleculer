@@ -184,7 +184,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 }
 
 // updateRemote : update remote service info and return what actions are new, updated and deleted
-func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) ([]map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
+func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) (*service.Service, []map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
 	item, serviceExists := serviceCatalog.services.Load(key)
 	if serviceExists {
@@ -193,7 +193,7 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 		current.UpdateFromMap(serviceInfo)
 		updatedActions, newActions, deletedActions := serviceCatalog.updateActions(serviceInfo, current)
 		updatedEvents, newEvents, deletedEvents := serviceCatalog.updateEvents(serviceInfo, current)
-		return updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
+		return nil, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 	}
 
 	serviceInstance := service.CreateServiceFromMap(serviceInfo)
@@ -206,6 +206,6 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 	newEvents := serviceInstance.Events()
 	updatedEvents := make([]map[string]interface{}, 0)
 	deletedEvents := make([]service.Event, 0)
-	return updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
+	return serviceInstance, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 
 }

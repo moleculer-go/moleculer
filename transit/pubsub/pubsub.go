@@ -361,7 +361,7 @@ func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
-		context := context.ChildEventContext(pubsub.broker, values)
+		context := context.EventContext(pubsub.broker, values)
 		pubsub.broker.HandleRemoteEvent(context)
 	}
 }

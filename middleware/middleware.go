@@ -5,6 +5,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type AfterActionParams struct {
+	BrokerContext moleculer.BrokerContext
+	Result        moleculer.Payload
+}
+
 type Dispatch struct {
 	handlers map[string][]moleculer.MiddlewareHandler
 	logger   *log.Entry

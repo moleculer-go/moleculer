@@ -321,32 +321,40 @@ func (broker *ServiceBroker) init() {
 	broker.setupLocalBus()
 	broker.localNode = registry.CreateNode(broker.config.DiscoverNodeID())
 
-	broker.delegates = moleculer.BrokerDelegates{
-		broker.LocalNode,
-		broker.newLogger,
-		broker.LocalBus,
-		broker.IsStarted,
-		broker.config,
-		func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-			return broker.registry.LoadBalanceCall(context, options.Wrap(opts))
-		},
-		func(context moleculer.BrokerContext) {
-			broker.registry.LoadBalanceEvent(context)
-		},
-		func(context moleculer.BrokerContext) {
-			broker.registry.BroadcastEvent(context)
-		},
-		func(context moleculer.BrokerContext) {
-			broker.registry.HandleRemoteEvent(context)
-		},
-		func() moleculer.Middleware {
-			return broker.middlewares
-		},
-	}
+	broker.delegates = broker.createDelegates()
 	broker.middlewares = middleware.Dispatcher(broker.logger.WithField("middleware", "dispatcher"))
 	broker.registry = registry.CreateRegistry(broker.delegates)
 	broker.rootContext = context.BrokerContext(broker.delegates)
 	broker.registerMiddlewares()
+}
+
+func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
+	return moleculer.BrokerDelegates{
+		LocalNode: broker.LocalNode,
+		Logger:    broker.newLogger,
+		Bus:       broker.LocalBus,
+		IsStarted: broker.IsStarted,
+		Config:    broker.config,
+		ActionDelegate: func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+			return broker.registry.LoadBalanceCall(context, options.Wrap(opts))
+		},
+		EmitEvent: func(context moleculer.BrokerContext) {
+			broker.registry.LoadBalanceEvent(context)
+		},
+		BroadcastEvent: func(context moleculer.BrokerContext) {
+			broker.registry.BroadcastEvent(context)
+		},
+		HandleRemoteEvent: func(context moleculer.BrokerContext) {
+			broker.registry.HandleRemoteEvent(context)
+		},
+		ServiceForAction: func(name string) *moleculer.Service {
+			svc := broker.registry.ServiceForAction(name)
+			if svc != nil {
+				return svc.Schema()
+			}
+			return nil
+		},
+	}
 }
 
 // FromConfig : returns a valid broker based on environment configuration
