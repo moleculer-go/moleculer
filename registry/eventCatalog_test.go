@@ -27,7 +27,7 @@ var _ = Describe("Event Catalog", func() {
 					Handler: handler,
 				},
 			},
-		})
+		}, CreateLogger("service", "test"))
 		catalog.Add("node-test-1", srv.Events()[0], true)
 		Expect(catalog).ShouldNot(BeNil())
 	})

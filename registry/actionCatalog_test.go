@@ -27,9 +27,10 @@ var _ = Describe("Actions Catalog", func() {
 			peopleCreate := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 				return msg
 			}
+			testService := service.Service{}
 			testAction := service.CreateServiceAction("people", "create", peopleCreate, params)
 
-			catalog.Add(node1.GetID(), testAction, true)
+			catalog.Add(node1.GetID(), testAction, &testService, true)
 
 			actionName := "people.create"
 			actionEntry := catalog.Next(actionName, strategy)
@@ -56,8 +57,8 @@ var _ = Describe("Actions Catalog", func() {
 
 			nextActionEntry := catalog.Next("bank.credit", strategy)
 			Expect(nextActionEntry).Should(BeNil())
-
-			catalog.Add(node1.GetID(), bankCreditAction, true)
+			testService := service.Service{}
+			catalog.Add(node1.GetID(), bankCreditAction, &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(1))
 
@@ -74,7 +75,9 @@ var _ = Describe("Actions Catalog", func() {
 			nextAction := catalog.Next("bank.credit", strategy)
 			Expect(nextAction).Should(BeNil())
 
-			catalog.Add(node1.GetID(), bankCreditAction, true)
+			testService := service.Service{}
+
+			catalog.Add(node1.GetID(), bankCreditAction, &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(1))
 
@@ -85,14 +88,14 @@ var _ = Describe("Actions Catalog", func() {
 			nextAction = catalog.Next("user.signUp", strategy)
 			Expect(nextAction).Should(BeNil())
 
-			catalog.Add(node1.GetID(), service.CreateServiceAction("user", "signUp", handler, params), true)
+			catalog.Add(node1.GetID(), service.CreateServiceAction("user", "signUp", handler, params), &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(2))
 			nextAction = catalog.Next("user.signUp", strategy)
 			Expect(nextAction).Should(Not(BeNil()))
 			Expect(nextAction.IsLocal()).Should(Equal(true))
 
-			catalog.Add(node2.GetID(), service.CreateServiceAction("user", "signUp", handler, params), false)
+			catalog.Add(node2.GetID(), service.CreateServiceAction("user", "signUp", handler, params), &testService, false)
 			//Expect(catalog.Size()).Should(Equal(2))
 
 			//local action on node 1

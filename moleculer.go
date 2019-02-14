@@ -104,6 +104,7 @@ type BrokerConfig struct {
 	Middlewares                []Middlewares
 	Namespace                  string
 	RequestTimeout             time.Duration
+	MCallTimeout               time.Duration
 	RetryPolicy                RetryPolicy
 	MaxCallLevel               int
 	Metrics                    bool
@@ -138,6 +139,7 @@ var DefaultConfig = BrokerConfig{
 		Enabled: false,
 	},
 	RequestTimeout: 0,
+	MCallTimeout:   5 * time.Second,
 }
 
 // discoverNodeID - should return the node id for this machine
@@ -188,9 +190,10 @@ type Node interface {
 	HeartBeat(heartbeat map[string]interface{})
 	AddService(service map[string]interface{})
 }
-
+type MCallParams map[string]map[string]interface{}
 type Context interface {
 	//context methods used by services
+	MCall(MCallParams) chan map[string]interface{}
 	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
