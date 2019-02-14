@@ -157,6 +157,9 @@ func (pubsub *PubSub) checkMaxQueueSize() {
 
 // waitForNeighbours this function will wait for neighbour nodes or timeout if the expected number is not received after a time out.
 func (pubsub *PubSub) waitForNeighbours() bool {
+	if pubsub.broker.Config.DontWaitForNeighbours {
+		return true
+	}
 	start := time.Now()
 	for {
 		expected := pubsub.expectedNeighbours()
@@ -182,6 +185,7 @@ func (pubsub *PubSub) DiscoverNodes() chan bool {
 	go func() {
 		pubsub.DiscoverNode("")
 		result <- pubsub.waitForNeighbours()
+
 	}()
 	return result
 }

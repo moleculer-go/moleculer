@@ -35,8 +35,8 @@ var defaultConfig = moleculer.BrokerConfig{
 	WaitForDependenciesTimeout: 2 * time.Second,
 	Metrics:                    false,
 	MetricsRate:                1,
-	InternalServices:           true,
-	InternalMiddlewares:        true,
+	DisableInternalServices:    false,
+	DisableInternalMiddlewares: false,
 	Created:                    func() {},
 	Started:                    func() {},
 	Stoped:                     func() {},
@@ -76,6 +76,22 @@ func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.Bro
 			}
 			if config.TransporterFactory != nil {
 				baseConfig.TransporterFactory = config.TransporterFactory
+			}
+			if config.DisableInternalMiddlewares {
+				baseConfig.DisableInternalMiddlewares = config.DisableInternalMiddlewares
+			}
+			if config.DisableInternalServices {
+				baseConfig.DisableInternalServices = config.DisableInternalServices
+			}
+			if config.Metrics {
+				baseConfig.Metrics = config.Metrics
+			}
+			if config.DontWaitForNeighbours {
+				baseConfig.DontWaitForNeighbours = config.DontWaitForNeighbours
+			}
+
+			if config.Middlewares != nil {
+				baseConfig.Middlewares = config.Middlewares
 			}
 		}
 	}
@@ -226,7 +242,7 @@ func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 func (broker *ServiceBroker) Stop() {
 	broker.logger.Info("Broker -> Stoping...")
 
-	broker.middlewares.CallHandlers("brokerStoping", broker)
+	broker.middlewares.CallHandlers("brokerStoping", broker.delegates)
 
 	for _, service := range broker.services {
 		broker.stopService(service)
@@ -237,7 +253,7 @@ func (broker *ServiceBroker) Stop() {
 	broker.started = false
 	broker.broadcastLocal("$broker.stoped")
 
-	broker.middlewares.CallHandlers("brokerStoped", broker)
+	broker.middlewares.CallHandlers("brokerStoped", broker.delegates)
 }
 
 func (broker *ServiceBroker) Start() {
@@ -247,7 +263,9 @@ func (broker *ServiceBroker) Start() {
 	}
 	broker.logger.Info("Broker -> Starting...")
 
-	broker.middlewares.CallHandlers("brokerStarting", broker)
+	broker.config = broker.middlewares.CallHandlers("brokerConfig", broker.config).(moleculer.BrokerConfig)
+
+	broker.middlewares.CallHandlers("brokerStarting", broker.delegates)
 
 	broker.registry.Start()
 
@@ -258,7 +276,7 @@ func (broker *ServiceBroker) Start() {
 	broker.logger.Debug("Broker -> registry started!")
 
 	defer broker.broadcastLocal("$broker.started")
-	defer broker.middlewares.CallHandlers("brokerStarted", broker)
+	defer broker.middlewares.CallHandlers("brokerStarted", broker.delegates)
 
 	broker.started = true
 	broker.logger.Info("Broker -> Started !!!")
@@ -320,6 +338,13 @@ func (broker *ServiceBroker) registerMiddlewares() {
 	for _, mware := range broker.config.Middlewares {
 		broker.middlewares.Add(mware)
 	}
+	if broker.config.DisableInternalMiddlewares {
+		return
+	}
+	broker.registerInternalMiddlewares()
+}
+
+func (broker *ServiceBroker) registerInternalMiddlewares() {
 	broker.middlewares.Add(metrics.Middlewares())
 }
 
