@@ -132,6 +132,14 @@ func (registry *ServiceRegistry) Start() {
 	}
 }
 
+func (registry *ServiceRegistry) ServiceForAction(name string) *service.Service {
+	action := registry.actions.Find(name, true)
+	if action != nil {
+		return action.Service()
+	}
+	return nil
+}
+
 // HandleRemoteEvent handle when a remote event is delivered and call all the local handlers.
 func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerContext) {
 	name := context.EventName()
@@ -335,7 +343,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	exists, reconnected := registry.nodes.Info(nodeInfo)
 	for _, item := range services {
 		serviceInfo := item.(map[string]interface{})
-		updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
+		svc, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {
 			serviceAction := service.CreateServiceAction(
@@ -343,7 +351,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 				newAction.Name(),
 				nil,
 				moleculer.ParamsSchema{})
-			registry.actions.Add(nodeID, serviceAction, false)
+			registry.actions.Add(nodeID, serviceAction, svc, false)
 		}
 
 		for _, updates := range updatedActions {
@@ -404,7 +412,7 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	registry.services.Add(nodeID, service)
 
 	for _, action := range service.Actions() {
-		registry.actions.Add(nodeID, action, true)
+		registry.actions.Add(nodeID, action, service, true)
 	}
 
 	for _, event := range service.Events() {

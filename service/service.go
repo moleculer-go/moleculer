@@ -49,6 +49,11 @@ type Service struct {
 	created      []moleculer.FuncType
 	started      []moleculer.FuncType
 	stopped      []moleculer.FuncType
+	schema       *moleculer.Service
+}
+
+func (service *Service) Schema() *moleculer.Service {
+	return service.schema
 }
 
 func (service *Service) Dependencies() []string {
@@ -361,7 +366,8 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 }
 
 // populateFromSchema populate a service with data from a moleculer.Service.
-func populateFromSchema(service *Service, schema *moleculer.Service) {
+func (service *Service) populateFromSchema() {
+	schema := service.schema
 	service.name = schema.Name
 	service.version = schema.Version
 	service.fullname = joinVersionToName(service.name, service.version)
@@ -414,8 +420,8 @@ func FromSchema(schema moleculer.Service) *Service {
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
-	service := &Service{}
-	populateFromSchema(service, &schema)
+	service := &Service{schema: &schema}
+	service.populateFromSchema()
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
 	}

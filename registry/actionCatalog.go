@@ -14,6 +14,7 @@ type ActionEntry struct {
 	targetNodeID string
 	action       *service.Action
 	isLocal      bool
+	service      *service.Service
 }
 
 type actionsMap map[string][]ActionEntry
@@ -60,9 +61,30 @@ func (actionEntry ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal
 }
 
+func (actionEntry ActionEntry) Service() *service.Service {
+	return actionEntry.service
+}
+
+func (actionCatalog *ActionCatalog) Find(name string, local bool) *ActionEntry {
+	list, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		return nil
+	}
+	actions := list.([]ActionEntry)
+	if !local && len(actions) > 0 {
+		return &actions[0]
+	}
+	for _, action := range actions {
+		if action.isLocal {
+			return &action
+		}
+	}
+	return nil
+}
+
 // Add a new action to the catalog.
-func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, local bool) {
-	entry := ActionEntry{nodeID, &action, local}
+func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, service *service.Service, local bool) {
+	entry := ActionEntry{nodeID, &action, local, service}
 	name := action.FullName()
 
 	list, exists := actionCatalog.actions.Load(name)

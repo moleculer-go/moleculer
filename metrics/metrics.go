@@ -1,107 +1,61 @@
 package metrics
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/context"
+	"github.com/moleculer-go/moleculer/middleware"
 )
 
-/**
- * Start metrics & send metric event.
- *
- * @param {Context} ctx
- *
- * @private
- */
-//  function metricStart(ctx) {
-// 	ctx.startTime = Date.now();
-// 	ctx.startHrTime = process.hrtime();
-// 	ctx.duration = 0;
+func metricEnd(brokerContext moleculer.BrokerContext, result moleculer.Payload) {
+	rawContext := brokerContext.(*context.Context)
+	if rawContext.Meta() == nil || (*rawContext.Meta())["startTime"] == nil {
+		return
+	}
 
-// 	if (ctx.metrics) {
-// 		const payload = generateMetricPayload(ctx);
-// 		ctx.broker.emit("metrics.trace.span.start", payload);
-// 	}
-// }
-
-// /**
-//  * Generate metrics payload
-//  *
-//  * @param {Context} ctx
-//  * @returns {Object}
-//  */
-// function generateMetricPayload(ctx) {
-// 	let payload = {
-// 		id: ctx.id,
-// 		requestID: ctx.requestID,
-// 		level: ctx.level,
-// 		startTime: ctx.startTime,
-// 		remoteCall: ctx.nodeID !== ctx.broker.nodeID
-// 	};
-
-// 	// Process extra metrics
-// 	processExtraMetrics(ctx, payload);
-
-// 	if (ctx.action) {
-// 		payload.action = {
-// 			name: ctx.action.name
-// 		};
-// 	}
-// 	if (ctx.service) {
-// 		payload.service = {
-// 			name: ctx.service.name,
-// 			version: ctx.service.version
-// 		};
-// 	}
-
-// 	if (ctx.parentID)
-// 		payload.parent = ctx.parentID;
-
-// 	payload.nodeID = ctx.broker.nodeID;
-// 	if (payload.remoteCall)
-// 		payload.callerNodeID = ctx.nodeID;
-
-// 	return payload;
-// }
-
-// /**
-//  * Stop metrics & send finish metric event.
-//  *
-//  * @param {Context} ctx
-//  * @param {Error} error
-//  *
-//  * @private
-//  */
-// function metricFinish(ctx, error) {
-// 	if (ctx.startHrTime) {
-// 		let diff = process.hrtime(ctx.startHrTime);
-// 		ctx.duration = (diff[0] * 1e3) + (diff[1] / 1e6); // milliseconds
-// 	}
-// 	ctx.stopTime = ctx.startTime + ctx.duration;
-
-// 	if (ctx.metrics) {
-// 		const payload = generateMetricPayload(ctx);
-// 		payload.endTime = ctx.stopTime;
-// 		payload.duration = ctx.duration;
-// 		payload.fromCache = ctx.cachedResult;
-
-// 		if (error) {
-// 			payload.error = {
-// 				name: error.name,
-// 				code: error.code,
-// 				type: error.type,
-// 				message: error.message
-// 			};
-// 		}
-
-// 		ctx.broker.emit("metrics.trace.span.finish", payload);
-// 	}
-// }
-
-func metricStart(context moleculer.BrokerContext) {
-
+	startTime := (*rawContext.Meta())["startTime"].(time.Time)
+	payload := metricsPayload(brokerContext)
+	payload["duration"] = int(time.Since(startTime).Nanoseconds() / 1000000)
+	payload["endTime"] = time.Now().Format(time.RFC3339)
+	if result.IsError() {
+		payload["error"] = map[string]string{
+			"message": fmt.Sprintf("%s", result.Error()),
+		}
+	}
+	rawContext.Emit("metrics.trace.span.finish", payload)
 }
 
-func metricEnd(context moleculer.BrokerContext) {
-	//context.
+func metricStart(context moleculer.BrokerContext) {
+	(*context.Meta())["startTime"] = time.Now()
+	(*context.Meta())["duration"] = 0
+	context.(moleculer.Context).Emit("metrics.trace.span.start", metricsPayload(context))
+}
+
+// metricsPayload generate the payload for the metrics event
+func metricsPayload(brokerContext moleculer.BrokerContext) map[string]interface{} {
+	rawContext := brokerContext.(*context.Context)
+	contextMap := brokerContext.AsMap()
+	if rawContext.Meta() != nil && (*rawContext.Meta())["startTime"] != nil {
+		contextMap["startTime"] = (*rawContext.Meta())["startTime"].(time.Time).Format(time.RFC3339)
+	}
+	nodeID := rawContext.BrokerDelegates().LocalNode().GetID()
+	contextMap["nodeID"] = nodeID
+	if rawContext.SourceNodeID() == nodeID {
+		contextMap["remoteCall"] = false
+	} else {
+		contextMap["remoteCall"] = true
+		contextMap["callerNodeID"] = rawContext.SourceNodeID()
+	}
+	_, isAction := contextMap["action"]
+	if isAction {
+		action := contextMap["action"].(string)
+		svc := rawContext.BrokerDelegates().ServiceForAction(action)
+		contextMap["action"] = map[string]string{"name": action}
+		contextMap["service"] = map[string]string{"name": svc.Name, "version": svc.Version}
+	}
+	return contextMap
 }
 
 var callsCount = 0
@@ -128,9 +82,11 @@ func Middlewares() moleculer.Middlewares {
 			next()
 		},
 		"afterLocalAction": func(params interface{}, next func(...interface{})) {
-			context := params.(moleculer.BrokerContext)
+			payload := params.(middleware.AfterActionParams)
+			context := payload.BrokerContext
+			result := payload.Result
 			if shouldMetric(context) {
-				metricEnd(context)
+				metricEnd(context, result)
 			}
 			next()
 		},

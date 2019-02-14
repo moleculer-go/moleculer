@@ -14,8 +14,10 @@ import (
 
 type Context struct {
 	id           string
+	requestID    string
 	broker       moleculer.BrokerDelegates
 	targetNodeID string
+	sourceNodeID string
 	parentID     string
 	actionName   string
 	eventName    string
@@ -50,8 +52,16 @@ func (context *Context) ChildEventContext(eventName string, params moleculer.Pay
 	if context.broker.Config.Metrics {
 		(*meta)["metrics"] = true
 	}
+	id := util.RandomString(12)
+	var requestID string
+	if parentContext.requestID != "" {
+		requestID = parentContext.requestID
+	} else {
+		requestID = id
+	}
 	eventContext := Context{
-		id:        util.RandomString(12),
+		id:        id,
+		requestID: requestID,
 		broker:    parentContext.broker,
 		eventName: eventName,
 		groups:    groups,
@@ -62,6 +72,11 @@ func (context *Context) ChildEventContext(eventName string, params moleculer.Pay
 		parentID:  parentContext.id,
 	}
 	return &eventContext
+}
+
+// Config return the broker config attached to this context.
+func (context *Context) BrokerDelegates() moleculer.BrokerDelegates {
+	return context.broker
 }
 
 // ChildActionContext : create a chiold context for a specific action call.
@@ -75,8 +90,16 @@ func (context *Context) ChildActionContext(actionName string, params moleculer.P
 	if context.broker.Config.Metrics {
 		(*meta)["metrics"] = true
 	}
+	id := util.RandomString(12)
+	var requestID string
+	if parentContext.requestID != "" {
+		requestID = parentContext.requestID
+	} else {
+		requestID = id
+	}
 	actionContext := Context{
-		id:         util.RandomString(12),
+		id:         id,
+		requestID:  requestID,
 		broker:     parentContext.broker,
 		actionName: actionName,
 		params:     params,
@@ -118,7 +141,7 @@ func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface
 
 	newContext := Context{
 		broker:       broker,
-		targetNodeID: sourceNodeID,
+		sourceNodeID: sourceNodeID,
 		id:           id,
 		actionName:   actionName.(string),
 		parentID:     parentID,
@@ -131,8 +154,8 @@ func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface
 	return &newContext
 }
 
-// ChildEventContext create an event context for a remote call.
-func ChildEventContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+// EventContext create an event context for a remote call.
+func EventContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	var level int
 	var parentID string
 	var timeout int
@@ -148,7 +171,7 @@ func ChildEventContext(broker moleculer.BrokerDelegates, values map[string]inter
 
 	newContext := Context{
 		broker:       broker,
-		targetNodeID: sourceNodeID,
+		sourceNodeID: sourceNodeID,
 		id:           id,
 		eventName:    eventName.(string),
 		broadcast:    values["broadcast"].(bool),
@@ -168,6 +191,10 @@ func (context *Context) IsBroadcast() bool {
 	return context.broadcast
 }
 
+func (context *Context) RequestID() string {
+	return context.requestID
+}
+
 // AsMap : export context info in a map[string]
 func (context *Context) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
@@ -178,13 +205,15 @@ func (context *Context) AsMap() map[string]interface{} {
 	}
 
 	mapResult["id"] = context.id
+	mapResult["requestID"] = context.requestID
+
 	mapResult["params"] = context.params.Value()
+	mapResult["level"] = context.level
 	if context.actionName != "" {
 		mapResult["action"] = context.actionName
-		mapResult["level"] = context.level
 		mapResult["metrics"] = metrics
 		mapResult["parentID"] = context.parentID
-		mapResult["meta"] = context.meta
+		mapResult["meta"] = (*context.meta)
 		mapResult["timeout"] = context.timeout
 	}
 	if context.eventName != "" {
@@ -242,6 +271,10 @@ func (context *Context) SetTargetNodeID(targetNodeID string) {
 
 func (context *Context) TargetNodeID() string {
 	return context.targetNodeID
+}
+
+func (context *Context) SourceNodeID() string {
+	return context.sourceNodeID
 }
 
 func (context *Context) ID() string {

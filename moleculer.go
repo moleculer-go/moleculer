@@ -165,6 +165,7 @@ type isStartedFunc func() bool
 type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
 type EmitEventFunc func(context BrokerContext)
+type ServiceForActionFunc func(string) *Service
 
 type OptionsFunc func(key string) interface{}
 
@@ -228,5 +229,5 @@ type BrokerDelegates struct {
 	EmitEvent         EmitEventFunc
 	BroadcastEvent    EmitEventFunc
 	HandleRemoteEvent EmitEventFunc
-	Middlewares       func() Middleware
+	ServiceForAction  ServiceForActionFunc
 }

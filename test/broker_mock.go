@@ -8,18 +8,18 @@ import (
 
 var logger = log.WithField("unit test", "<root>")
 
-func createLogger(name string, value string) *log.Entry {
+func Logger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
 func DelegatesWithIdAndConfig(nodeID string, config moleculer.BrokerConfig) moleculer.BrokerDelegates {
 	localBus := bus.Construct()
-	localNode := NodeMock{}
+	localNode := NodeMock{ID: nodeID}
 	broker := moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
 			return &localNode
 		},
-		Logger: createLogger,
+		Logger: Logger,
 		Bus: func() *bus.Emitter {
 			return localBus
 		},
