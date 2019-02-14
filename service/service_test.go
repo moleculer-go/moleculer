@@ -80,7 +80,7 @@ var _ = test.Describe("MergeActions", func() {
 		Expect(serviceSchema).Should(Not(BeNil()))
 		Expect(moonMixIn).Should(Not(BeNil()))
 
-		thisService := service.FromSchema(serviceSchema)
+		thisService := service.FromSchema(serviceSchema, logger)
 		thisName := thisService.Name()
 		Expect(thisName).Should(Equal(serviceSchema.Name))
 		Expect(thisName).Should(Not(Equal(moonMixIn.Name)))

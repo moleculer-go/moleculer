@@ -3,6 +3,7 @@ package registry_test
 import (
 	"time"
 
+	snap "github.com/moleculer-go/cupaloy"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/transit/memory"
@@ -99,9 +100,35 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 
 var _ = Describe("Registry", func() {
 
-	Describe("Heartbeat", func() {
+	Describe("Local services", func() {
+		XIt("Should expose the $node.list local service action", func() {
 
-		It("Should call action from printerBroker to scannerBroker and retun results", func() {
+			mem := &memory.SharedMemory{}
+
+			printerBroker := createPrinterBroker(mem)
+			printerBroker.Start()
+
+			result := <-printerBroker.Call("$node.list", nil)
+			Expect(snap.Snapshot(result)).Should(Succeed())
+
+			scannerBroker := createScannerBroker(mem)
+			scannerBroker.Start()
+
+			result = <-scannerBroker.Call("$node.list", nil)
+			Expect(snap.Snapshot(result)).Should(Succeed())
+
+			cpuBroker := createCpuBroker(mem)
+			cpuBroker.Start()
+
+			result = <-cpuBroker.Call("$node.list", nil)
+			Expect(snap.Snapshot(result)).Should(Succeed())
+
+		})
+	})
+
+	Describe("Auto discovery", func() {
+
+		It("3 brokers should auto discovery and perform local and remote Calls", func() {
 
 			mem := &memory.SharedMemory{}
 
