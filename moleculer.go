@@ -1,9 +1,11 @@
 package moleculer
 
 import (
+	"fmt"
 	"time"
 
 	bus "github.com/moleculer-go/goemitter"
+	"github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -112,6 +114,36 @@ type BrokerConfig struct {
 	Created                    func()
 	Started                    func()
 	Stoped                     func()
+}
+
+var DefaultConfig = BrokerConfig{
+	LogLevel:                   "INFO",
+	LogFormat:                  "TEXT",
+	DiscoverNodeID:             discoverNodeID,
+	Transporter:                "MEMORY",
+	HeartbeatFrequency:         5 * time.Second,
+	HeartbeatTimeout:           30 * time.Second,
+	OfflineCheckFrequency:      20 * time.Second,
+	NeighboursCheckTimeout:     2 * time.Second,
+	WaitForDependenciesTimeout: 2 * time.Second,
+	Metrics:                    false,
+	MetricsRate:                1,
+	DisableInternalServices:    false,
+	DisableInternalMiddlewares: false,
+	Created:                    func() {},
+	Started:                    func() {},
+	Stoped:                     func() {},
+	MaxCallLevel:               100,
+	RetryPolicy: RetryPolicy{
+		Enabled: false,
+	},
+	RequestTimeout: 0,
+}
+
+// discoverNodeID - should return the node id for this machine
+func discoverNodeID() string {
+	// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
+	return fmt.Sprint("Node_", util.RandomString(5))
 }
 
 type RetryPolicy struct {
