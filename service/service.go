@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
 
 type Action struct {
@@ -46,10 +47,11 @@ type Service struct {
 	metadata     map[string]interface{}
 	actions      []Action
 	events       []Event
-	created      []moleculer.FuncType
-	started      []moleculer.FuncType
-	stopped      []moleculer.FuncType
+	created      []moleculer.LifecycleFunc
+	started      []moleculer.LifecycleFunc
+	stopped      []moleculer.LifecycleFunc
 	schema       *moleculer.Service
+	logger       *log.Entry
 }
 
 func (service *Service) Schema() *moleculer.Service {
@@ -416,14 +418,18 @@ func (service *Service) populateFromSchema() {
 	}
 }
 
-func FromSchema(schema moleculer.Service) *Service {
+func FromSchema(schema moleculer.Service, logger *log.Entry) *Service {
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
-	service := &Service{schema: &schema}
+	service := &Service{schema: &schema, logger: logger}
 	service.populateFromSchema()
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
+	}
+
+	for _, handler := range service.created {
+		go handler((*service.schema), service.logger)
 	}
 	return service
 }
@@ -439,10 +445,15 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 
 // Start called by the broker when the service is starting.
 func (service *Service) Start() {
-	//TODO implement service lifecycle
+
+	for _, handler := range service.started {
+		go handler((*service.schema), service.logger)
+	}
 }
 
 // Stop called by the broker when the service is stoping.
 func (service *Service) Stop() {
-	//TODO implement service lifecycle
+	for _, handler := range service.stopped {
+		go handler((*service.schema), service.logger)
+	}
 }
