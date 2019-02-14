@@ -153,7 +153,7 @@ var _ = Describe("Broker", func() {
 		Expect(result.Value()).Should(Equal(actionResult))
 	})
 
-	XDescribe("Broker events", func() {
+	Describe("Broker events", func() {
 		eventsTestSize := 3
 		Measure("Local and remote events", func(bench Benchmarker) {
 			logLevel := "ERROR"
