@@ -144,6 +144,7 @@ func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface
 	newContext := Context{
 		broker:       broker,
 		sourceNodeID: sourceNodeID,
+		targetNodeID: sourceNodeID,
 		id:           id,
 		actionName:   actionName.(string),
 		parentID:     parentID,

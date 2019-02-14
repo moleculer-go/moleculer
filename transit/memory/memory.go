@@ -92,7 +92,7 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 
 func (transporter *MemoryTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	topic := topicName(transporter, command, nodeID)
-	transporter.logger.Debug("[", transporter.instanceID, "] memory.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
+	transporter.logger.Debug("[Transporter-", transporter.instanceID, "] memory.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
 
 	transporter.mutex.Lock()
 	subscriptions, exists := transporter.memory.handlers[topic]
