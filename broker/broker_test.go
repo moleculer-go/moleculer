@@ -172,19 +172,34 @@ var _ = Describe("Broker", func() {
 			bench.Time("start broker and send events", func() {
 				fmt.Println("############# New Test Cycle #############")
 
-				musicVerseList := make([]string, 0)
-				musicChorusList := make([]string, 0)
-				djMusicVerseList := make([]string, 0)
-				djMusicChorusList := make([]string, 0)
-				vjMusicVerseList := make([]string, 0)
-				vjMusicChorusList := make([]string, 0)
+				musicVerseCount := 0
+				musicChorusCount := 0
+				djMusicVerseCount := 0
+				djMusicChorusCount := 0
+				djToneCount := 0
+				vjMusicVerseCount := 0
+				vjChorusCount := 0
+				vjToneCount := 0
 
-				verseReceived := make(chan bool)
-				djVerseReceived := make(chan bool)
-				vjVerseReceived := make(chan bool)
+				resetCounts := func() {
+					musicVerseCount = 0
+					musicChorusCount = 0
+					djMusicVerseCount = 0
+					djMusicChorusCount = 0
+					djToneCount = 0
+					vjMusicVerseCount = 0
+					vjChorusCount = 0
+					vjToneCount = 0
+				}
 
-				chorusReceived := make(chan bool)
-				djChorusReceived := make(chan bool)
+				verseReceived := make(chan int)
+				djVerseReceived := make(chan int)
+				vjVerseReceived := make(chan int)
+				chorusReceived := make(chan int)
+				djChorusReceived := make(chan int)
+				vjChorusReceived := make(chan int)
+				vjToneReceived := make(chan int)
+				djToneReceived := make(chan int)
 
 				soundsBroker := broker.FromConfig(baseConfig, &moleculer.BrokerConfig{
 					DiscoverNodeID: func() string { return fmt.Sprint("SoundsBroker-", util.RandomString(4)) },
@@ -212,24 +227,22 @@ var _ = Describe("Broker", func() {
 						moleculer.Event{
 							Name: "music.verse",
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
-								ctx.Logger().Debug("music.verse --> ", verse.String(), " len(musicVerseList): ", len(musicVerseList))
+								ctx.Logger().Debug("music.verse --> ", verse.String(), " musicVerseCount: ", musicVerseCount)
 								ctx.Emit("music.chorus", verse)
-								musicVerseList = append(musicVerseList, verse.String())
-								verseReceived <- true
+								musicVerseCount = musicVerseCount + 1
+								verseReceived <- musicVerseCount
 							},
 						},
 						moleculer.Event{
 							Name: "music.chorus",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
 								ctx.Logger().Debug("music.chorus --> ", chorus.String())
-								musicChorusList = append(musicChorusList, chorus.String())
-								chorusReceived <- true
+								musicChorusCount = musicChorusCount + 1
+								chorusReceived <- musicChorusCount
 							},
 						},
 					},
 				})
-				djToneReceived := make(chan int)
-				djToneCount := 0
 				djService := moleculer.Service{
 					Name:         "dj",
 					Dependencies: []string{"music"},
@@ -239,16 +252,16 @@ var _ = Describe("Broker", func() {
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
 								ctx.Logger().Debug("DJ music.verse --> ", verse.String())
 								ctx.Emit("music.chorus", verse)
-								djMusicVerseList = append(djMusicVerseList, verse.String())
-								djVerseReceived <- true
+								djMusicVerseCount = djMusicVerseCount + 1
+								djVerseReceived <- djMusicVerseCount
 							},
 						},
 						moleculer.Event{
 							Name: "music.chorus",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
 								ctx.Logger().Debug("DJ  music.chorus --> ", chorus.String())
-								djMusicChorusList = append(djMusicChorusList, chorus.String())
-								djChorusReceived <- true
+								djMusicChorusCount = djMusicChorusCount + 1
+								djChorusReceived <- djMusicChorusCount
 							},
 						},
 						moleculer.Event{
@@ -266,44 +279,25 @@ var _ = Describe("Broker", func() {
 
 				<-soundsBroker.Call("music.start", verse)
 
-				<-verseReceived
-				<-djVerseReceived
-				Expect(len(musicVerseList)).Should(Equal(1))
-				Expect(len(djMusicVerseList)).Should(Equal(1))
+				Expect(<-verseReceived).Should(Equal(1))
+				Expect(<-djVerseReceived).Should(Equal(1))
 
-				Expect(musicVerseList[0]).Should(Equal(verse))
-				Expect(djMusicVerseList[0]).Should(Equal(verse))
-
-				<-chorusReceived
-				<-chorusReceived
-				<-djChorusReceived
-				<-djChorusReceived
-				Expect(len(musicChorusList)).Should(Equal(2))
-				Expect(len(djMusicChorusList)).Should(Equal(2))
-
-				Expect(musicChorusList[0]).Should(Equal(verse))
-				Expect(djMusicChorusList[0]).Should(Equal(verse))
+				Expect(<-chorusReceived).Should(Equal(1))
+				Expect(<-chorusReceived).Should(Equal(2))
+				Expect(<-djChorusReceived).Should(Equal(1))
+				Expect(<-djChorusReceived).Should(Equal(2))
 
 				<-soundsBroker.Call("music.end", chorus)
 
-				Expect(len(musicVerseList)).Should(Equal(1))
-				Expect(len(djMusicVerseList)).Should(Equal(1))
+				Expect(musicVerseCount).Should(Equal(1))
+				Expect(djMusicVerseCount).Should(Equal(1))
 
-				<-chorusReceived
-				<-djChorusReceived
-				Expect(len(musicChorusList)).Should(Equal(3))
-				Expect(len(djMusicChorusList)).Should(Equal(3))
-
-				Expect(musicChorusList[2]).Should(Equal(chorus))
-				Expect(djMusicChorusList[2]).Should(Equal(chorus))
+				Expect(<-chorusReceived).Should(Equal(3))
+				Expect(<-djChorusReceived).Should(Equal(3))
 
 				visualBroker := broker.FromConfig(baseConfig, &moleculer.BrokerConfig{
 					DiscoverNodeID: func() string { return fmt.Sprint("VisualBroker-", util.RandomString(4)) },
 				})
-				vjChorusReceived := make(chan int)
-				vjToneReceived := make(chan int)
-				vjChorusCount := 0
-				vjToneCount := 0
 				vjService := moleculer.Service{
 					Name:         "vj",
 					Dependencies: []string{"music", "dj"},
@@ -312,15 +306,14 @@ var _ = Describe("Broker", func() {
 							Name: "music.verse",
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
 								ctx.Logger().Debug("VJ music.verse --> ", verse.String())
-								vjMusicVerseList = append(vjMusicVerseList, verse.String())
-								vjVerseReceived <- true
+								vjMusicVerseCount = vjMusicVerseCount + 1
+								vjVerseReceived <- vjMusicVerseCount
 							},
 						},
 						moleculer.Event{
 							Name: "music.chorus",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
 								ctx.Logger().Debug("VJ  music.chorus --> ", chorus.String())
-								vjMusicChorusList = append(vjMusicChorusList, chorus.String())
 								vjChorusCount = vjChorusCount + 1
 								vjChorusReceived <- vjChorusCount
 							},
@@ -341,80 +334,64 @@ var _ = Describe("Broker", func() {
 
 				time.Sleep(400 * time.Millisecond)
 
+				resetCounts()
+
 				visualBroker.Call("music.start", verse)
 
-				<-verseReceived
-				<-djVerseReceived
-				<-vjVerseReceived
-				Expect(len(musicVerseList)).Should(Equal(2))
-				Expect(len(djMusicVerseList)).Should(Equal(2))
-				Expect(len(vjMusicVerseList)).Should(Equal(1))
+				Expect(<-verseReceived).Should(Equal(1))
+				Expect(<-djVerseReceived).Should(Equal(1))
+				Expect(<-vjVerseReceived).Should(Equal(1))
 
-				Expect(musicVerseList[1]).Should(Equal(verse))
-				Expect(djMusicVerseList[1]).Should(Equal(verse))
-				Expect(vjMusicVerseList[0]).Should(Equal(verse))
+				Expect(<-chorusReceived).Should(Equal(1))
+				Expect(<-chorusReceived).Should(Equal(2))
 
-				<-chorusReceived
-				<-chorusReceived
-				Expect(len(musicChorusList)).Should(Equal(5))
+				Expect(<-djChorusReceived).Should(Equal(1))
+				Expect(<-djChorusReceived).Should(Equal(2))
 
-				<-djChorusReceived
-				<-djChorusReceived
-				Expect(len(djMusicChorusList)).Should(Equal(5))
-
-				<-vjChorusReceived
+				Expect(<-vjChorusReceived).Should(Equal(1))
 				Expect(<-vjChorusReceived).Should(Equal(2))
-
-				Expect(musicChorusList[4]).Should(Equal(verse))
-				Expect(djMusicChorusList[4]).Should(Equal(verse))
-				Expect(vjMusicChorusList[1]).Should(Equal(verse))
 
 				<-visualBroker.Call("music.end", chorus)
 
-				<-chorusReceived
-				<-vjChorusReceived
-				<-djChorusReceived
-				Expect(len(musicVerseList)).Should(Equal(2))
-				Expect(len(djMusicVerseList)).Should(Equal(2))
-				Expect(len(vjMusicVerseList)).Should(Equal(1))
+				Expect(musicVerseCount).Should(Equal(1))
+				Expect(djMusicVerseCount).Should(Equal(1))
 
-				Expect(len(musicChorusList)).Should(Equal(6))
-				Expect(len(djMusicChorusList)).Should(Equal(6))
-				Expect(len(vjMusicChorusList)).Should(Equal(3))
+				Expect(<-chorusReceived).Should(Equal(3))
+				Expect(<-vjChorusReceived).Should(Equal(3))
+				Expect(<-djChorusReceived).Should(Equal(3))
 
-				Expect(musicChorusList[5]).Should(Equal(chorus))
-				Expect(djMusicChorusList[5]).Should(Equal(chorus))
-				Expect(vjMusicChorusList[2]).Should(Equal(chorus))
-
-				//add a second instance of the vj service, to only one should receive emit events.
+				//add a second instance of the vj service, but only one should receive emit events.
 				aquaBroker := broker.FromConfig(baseConfig, &moleculer.BrokerConfig{
 					DiscoverNodeID: func() string { return fmt.Sprint("AquaBroker-", util.RandomString(4)) },
 				})
 				aquaBroker.AddService(vjService)
 				aquaBroker.Start()
+
+				resetCounts()
+
 				aquaBroker.Call("music.start", chorus)
 
-				<-verseReceived
-				<-djVerseReceived
-				<-vjVerseReceived
-				Expect(len(vjMusicVerseList)).Should(Equal(2))
-				Expect(vjMusicVerseList[1]).Should(Equal(chorus))
+				Expect(<-verseReceived).Should(Equal(1))
+				Expect(<-djVerseReceived).Should(Equal(1))
+				Expect(<-vjVerseReceived).Should(Equal(1))
 
-				<-chorusReceived
-				<-chorusReceived
-				<-djChorusReceived
-				<-djChorusReceived
-				<-vjChorusReceived
-				Expect(<-vjChorusReceived).Should(Equal(5))
+				Expect(<-chorusReceived).Should(Equal(1))
+				Expect(<-chorusReceived).Should(Equal(2))
 
-				<-aquaBroker.Call("music.end", verse)
+				Expect(<-djChorusReceived).Should(Equal(1))
+				Expect(<-djChorusReceived).Should(Equal(2))
 
-				<-chorusReceived
-				<-djChorusReceived
-				<-vjChorusReceived
-				Expect(len(vjMusicVerseList)).Should(Equal(2))
-				Expect(len(vjMusicChorusList)).Should(Equal(6))
-				Expect(vjMusicChorusList[5]).Should(Equal(verse))
+				Expect(<-vjChorusReceived).Should(Equal(1))
+				Expect(<-vjChorusReceived).Should(Equal(2))
+
+				<-visualBroker.Call("music.end", chorus)
+
+				Expect(musicVerseCount).Should(Equal(1))
+				Expect(djMusicVerseCount).Should(Equal(1))
+
+				Expect(<-chorusReceived).Should(Equal(3))
+				Expect(<-vjChorusReceived).Should(Equal(3))
+				Expect(<-djChorusReceived).Should(Equal(3))
 
 				//add a second instance of the dj service
 				stormBroker := broker.FromConfig(baseConfig, &moleculer.BrokerConfig{
@@ -423,38 +400,33 @@ var _ = Describe("Broker", func() {
 				stormBroker.AddService(djService)
 				stormBroker.Start()
 
-				djMusicVerseList = make([]string, 0)
-				djMusicChorusList = make([]string, 0)
+				resetCounts()
 
 				stormBroker.Call("music.start", verse)
 
-				<-verseReceived
-				<-djVerseReceived
-				<-vjVerseReceived
-				Expect(len(djMusicVerseList)).Should(Equal(1))
-				Expect(djMusicVerseList[0]).Should(Equal(verse))
+				Expect(<-verseReceived).Should(Equal(1))
+				Expect(<-djVerseReceived).Should(Equal(1))
+				Expect(<-vjVerseReceived).Should(Equal(1))
 
-				<-chorusReceived
-				<-chorusReceived
-				<-djChorusReceived
-				<-djChorusReceived
-				<-vjChorusReceived
-				<-vjChorusReceived
-				Expect(len(djMusicChorusList)).Should(Equal(2))
+				Expect(<-chorusReceived).Should(Equal(1))
+				Expect(<-chorusReceived).Should(Equal(2))
 
-				Expect(djMusicChorusList[1]).Should(Equal(verse))
+				Expect(<-djChorusReceived).Should(Equal(1))
+				Expect(<-djChorusReceived).Should(Equal(2))
+
+				Expect(<-vjChorusReceived).Should(Equal(1))
+				Expect(<-vjChorusReceived).Should(Equal(2))
 
 				<-visualBroker.Call("music.end", chorus)
 
-				<-chorusReceived
-				<-djChorusReceived
-				<-vjChorusReceived
-				Expect(len(djMusicVerseList)).Should(Equal(1))
+				Expect(musicVerseCount).Should(Equal(1))
+				Expect(djMusicVerseCount).Should(Equal(1))
 
-				Expect(len(djMusicChorusList)).Should(Equal(3))
+				Expect(<-chorusReceived).Should(Equal(3))
+				Expect(<-vjChorusReceived).Should(Equal(3))
+				Expect(<-djChorusReceived).Should(Equal(3))
 
-				Expect(djMusicChorusList[2]).Should(Equal(chorus))
-
+				resetCounts()
 				//now broadcast and every music.tone event listener should receive it.
 				stormBroker.Broadcast("music.tone", "broad< storm >cast")
 
@@ -463,8 +435,7 @@ var _ = Describe("Broker", func() {
 				Expect(<-vjToneReceived).Should(Equal(1))
 				Expect(<-vjToneReceived).Should(Equal(2))
 
-				djToneCount = 0
-				vjToneCount = 0
+				resetCounts()
 
 				//emit and only 2 shuold be accounted
 				stormBroker.Emit("music.tone", "Emit< storm >cast")
