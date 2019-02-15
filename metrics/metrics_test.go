@@ -108,7 +108,10 @@ var _ = Describe("Metrics", func() {
 
 	})
 
-	It("shouldMetric() should be false", func() {
+	It("createShouldMetric() should be false", func() {
+
+		shouldMetric := createShouldMetric(moleculer.BrokerConfig{})
+
 		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.BrokerConfig{}))
 		Expect(shouldMetric(brokerContext)).Should(BeFalse())
 
@@ -119,21 +122,24 @@ var _ = Describe("Metrics", func() {
 		Expect(shouldMetric(actionContext)).Should(BeFalse())
 	})
 
-	It("shouldMetric() should be true", func() {
-		context := context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.BrokerConfig{
-			Metrics: true,
-		}))
+	It("createShouldMetric() should be true", func() {
+		config := moleculer.BrokerConfig{
+			Metrics:     true,
+			MetricsRate: 1,
+		}
+		shouldMetric := createShouldMetric(config)
+		context := context.BrokerContext(test.DelegatesWithIdAndConfig("x", config))
 		actionContext := context.ChildActionContext("a", payload.Create(nil))
 		Expect(shouldMetric(actionContext)).Should(BeTrue())
 	})
 
-	It("shouldMetric() should be true on for half of the requests", func() {
+	It("createShouldMetric() should be true on for half of the requests", func() {
 
 		config := moleculer.BrokerConfig{
 			Metrics:     true,
 			MetricsRate: .5,
 		}
-		brokerConfig = config
+		shouldMetric := createShouldMetric(config)
 
 		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", config))
 		actionContext := brokerContext.ChildActionContext("a", payload.Create(nil))
@@ -143,13 +149,13 @@ var _ = Describe("Metrics", func() {
 		Expect(shouldMetric(actionContext)).Should(BeTrue())
 	})
 
-	It("shouldMetric() should be true 1/10 of the requests", func() {
+	It("createShouldMetric() should be true 1/10 of the requests", func() {
 
 		config := moleculer.BrokerConfig{
 			Metrics:     true,
 			MetricsRate: .1,
 		}
-		brokerConfig = config
+		shouldMetric := createShouldMetric(config)
 
 		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", config))
 		actionContext := brokerContext.ChildActionContext("a", payload.Create(nil))

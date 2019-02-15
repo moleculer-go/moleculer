@@ -163,7 +163,7 @@ func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerConte
 	}
 	entries := registry.events.Find(name, groups, true, true, stg)
 	for _, localEvent := range entries {
-		localEvent.emitLocalEvent(context)
+		go localEvent.emitLocalEvent(context)
 	}
 }
 
