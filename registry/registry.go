@@ -306,7 +306,7 @@ func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegat
 func (registry *ServiceRegistry) filterMessages(handler func(message moleculer.Payload)) func(message moleculer.Payload) {
 	return func(message moleculer.Payload) {
 		if registry.stoping {
-			registry.logger.Error("filterMessages() - registry is stoping. Discarding message: ", message)
+			registry.logger.Warn("filterMessages() - registry is stoping. Discarding message: ", message)
 			return
 		}
 		if message.Get("sender").Exists() && message.Get("sender").String() == registry.localNode.GetID() {
