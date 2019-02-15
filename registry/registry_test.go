@@ -103,7 +103,7 @@ func findById(id string, list []moleculer.Payload) map[string]interface{} {
 	for _, item := range list {
 		if item.Get("id").String() == id {
 			iMap := item.RawMap()
-			iMap["ipList"] = item.Get("ipList").StringArray()
+			iMap["ipList"] = []string{"100.100.0.100"}
 			iMap["seq"] = item.Get("seq").Int64()
 			iMap["cpu"] = item.Get("cpu").Int64()
 			iMap["cpuSeq"] = item.Get("cpuSeq").Int64()
