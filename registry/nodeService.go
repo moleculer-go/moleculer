@@ -35,6 +35,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 						}
 						newList = append(newList, maps)
 					}
+
 					return newList
 				},
 			},
