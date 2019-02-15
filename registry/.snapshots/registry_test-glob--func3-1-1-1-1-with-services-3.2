@@ -14,14 +14,14 @@
   (string) (len=3) "seq": (int64) 0,
   (string) (len=8) "services": ([]map[string]interface {}) (len=2) {
     (map[string]interface {}) (len=6) {
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
+      (string) (len=7) "actions": ([]interface {}) (len=1) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=5) "print",
           (string) (len=6) "params": (map[string]interface {}) {
           }
         }
       },
-      (string) (len=6) "events": ([]map[string]interface {}) {
+      (string) (len=6) "events": ([]interface {}) {
       },
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
@@ -31,14 +31,29 @@
       (string) (len=7) "version": (string) ""
     },
     (map[string]interface {}) (len=6) {
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
+      (string) (len=7) "actions": ([]interface {}) (len=4) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=4) "name": (string) (len=6) "events",
+          (string) (len=6) "params": (map[string]interface {}) {
+          }
+        },
+        (map[string]interface {}) (len=2) {
+          (string) (len=4) "name": (string) (len=7) "actions",
+          (string) (len=6) "params": (map[string]interface {}) {
+          }
+        },
+        (map[string]interface {}) (len=2) {
+          (string) (len=4) "name": (string) (len=8) "services",
+          (string) (len=6) "params": (map[string]interface {}) {
+          }
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=4) "list",
           (string) (len=6) "params": (map[string]interface {}) {
           }
         }
       },
-      (string) (len=6) "events": ([]map[string]interface {}) {
+      (string) (len=6) "events": ([]interface {}) {
       },
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
