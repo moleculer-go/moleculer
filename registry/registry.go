@@ -51,23 +51,26 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)
+	logger := broker.Logger("registry", "Service Registry")
+	nodeID := config.DiscoverNodeID()
+	localNode := CreateNode(nodeID, logger.WithField("Node", nodeID))
 	registry := &ServiceRegistry{
 		broker:                broker,
 		transit:               transit,
 		strategy:              strategy,
-		logger:                broker.Logger("registry", "Service Registry"),
-		actions:               CreateActionCatalog(),
-		events:                CreateEventCatalog(broker.Logger("catalog", "Events")),
-		services:              CreateServiceCatalog(broker.Logger("catalog", "Services")),
-		nodes:                 CreateNodesCatalog(),
-		localNode:             broker.LocalNode(),
+		logger:                logger,
+		localNode:             localNode,
+		actions:               CreateActionCatalog(logger.WithField("catalog", "Actions")),
+		events:                CreateEventCatalog(logger.WithField("catalog", "Events")),
+		services:              CreateServiceCatalog(logger.WithField("catalog", "Services")),
+		nodes:                 CreateNodesCatalog(logger.WithField("catalog", "Nodes")),
 		heartbeatFrequency:    config.HeartbeatFrequency,
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
 		stoping:               false,
 	}
 
-	registry.logger.Info("Service Registry created for broker: ", broker.LocalNode().GetID())
+	registry.logger.Info("Service Registry created for broker: ", nodeID)
 
 	broker.Bus().On("$broker.started", func(args ...interface{}) {
 		registry.logger.Debug("Registry -> $broker.started event")
@@ -83,6 +86,10 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 
 func (registry *ServiceRegistry) KnowService(name string) bool {
 	return registry.services.FindByName(name)
+}
+
+func (registry *ServiceRegistry) LocalNode() moleculer.Node {
+	return registry.localNode
 }
 
 func (registry *ServiceRegistry) setupMessageHandlers() {

@@ -7,13 +7,15 @@ import (
 	"github.com/moleculer-go/moleculer/strategy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	log "github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Actions Catalog", func() {
+	logger := log.WithField("unit test pkg", "registry_test")
 	strategy := strategy.RoundRobinStrategy{}
 	params := moleculer.ParamsSchema{}
-	node1 := registry.CreateNode("node-test-1")
-	node2 := registry.CreateNode("node-test-2")
+	node1 := registry.CreateNode("node-test-1", logger)
+	node2 := registry.CreateNode("node-test-2", logger)
 	handler := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 		return "default action result"
 	}
@@ -23,7 +25,7 @@ var _ = Describe("Actions Catalog", func() {
 		It("Should find next action by name", func() {
 
 			msg := "message from action"
-			catalog := registry.CreateActionCatalog()
+			catalog := registry.CreateActionCatalog(logger)
 			peopleCreate := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 				return msg
 			}
@@ -43,7 +45,7 @@ var _ = Describe("Actions Catalog", func() {
 		//broker := CreateBroker()
 		It("Should create a ActionCatalog and should be size 0", func() {
 
-			catalog := registry.CreateActionCatalog()
+			catalog := registry.CreateActionCatalog(logger)
 
 			Expect(catalog).Should(Not(BeNil()))
 
@@ -53,7 +55,7 @@ var _ = Describe("Actions Catalog", func() {
 
 		It("Should add a local action to Action Catalog", func() {
 
-			catalog := registry.CreateActionCatalog()
+			catalog := registry.CreateActionCatalog(logger)
 
 			nextActionEntry := catalog.Next("bank.credit", strategy)
 			Expect(nextActionEntry).Should(BeNil())
@@ -70,7 +72,7 @@ var _ = Describe("Actions Catalog", func() {
 
 		It("Should add actions and return using Next and NextEndpointFromNode", func() {
 
-			catalog := registry.CreateActionCatalog()
+			catalog := registry.CreateActionCatalog(logger)
 
 			nextAction := catalog.Next("bank.credit", strategy)
 			Expect(nextAction).Should(BeNil())

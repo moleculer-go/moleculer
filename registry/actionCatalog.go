@@ -15,22 +15,23 @@ type ActionEntry struct {
 	action       *service.Action
 	isLocal      bool
 	service      *service.Service
+	logger       *log.Entry
 }
 
 type actionsMap map[string][]ActionEntry
 
 type ActionCatalog struct {
 	actions sync.Map
+	logger  *log.Entry
 }
 
-func CreateActionCatalog() *ActionCatalog {
-	actions := sync.Map{}
-	return &ActionCatalog{actions: actions}
+func CreateActionCatalog(logger *log.Entry) *ActionCatalog {
+	return &ActionCatalog{actions: sync.Map{}, logger: logger}
 }
 
-func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
+func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext, result chan moleculer.Payload) {
 	if err := recover(); err != nil {
-		logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
+		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
 		result <- payload.Create(err)
 	}
 }
@@ -38,15 +39,17 @@ func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result
 func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
 	result := make(chan moleculer.Payload)
 
-	logger := context.Logger().WithField("actionCatalog", "invokeLocalAction")
-	logger.Debug("Before Invoking action: ", context.ActionName())
+	actionEntry.logger.Debug("Before Invoking action: ", context.ActionName())
 
 	go func() {
-		defer catchActionError(context, logger, result)
+		defer actionEntry.catchActionError(context, result)
 		handler := actionEntry.action.Handler()
 		actionResult := handler(context.(moleculer.Context), context.Payload())
-		logger.Debug("local action invoked ! action: ", context.ActionName(),
+
+		actionEntry.logger.Debug("After Invoking action: ", context.ActionName())
+		actionEntry.logger.Trace("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
+
 		result <- payload.Create(actionResult)
 	}()
 
@@ -84,7 +87,7 @@ func (actionCatalog *ActionCatalog) Find(name string, local bool) *ActionEntry {
 
 // Add a new action to the catalog.
 func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, service *service.Service, local bool) {
-	entry := ActionEntry{nodeID, &action, local, service}
+	entry := ActionEntry{nodeID, &action, local, service, actionCatalog.logger}
 	name := action.FullName()
 
 	list, exists := actionCatalog.actions.Load(name)
@@ -149,6 +152,7 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
 	list, exists := actionCatalog.actions.Load(actionName)
 	if !exists {
+		actionCatalog.logger.Debug("actionCatalog.Next() no entries found for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 		return nil
 	}
 	actions := list.([]ActionEntry)
@@ -167,5 +171,6 @@ func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strateg
 		entry := (*selected).(ActionEntry)
 		return &entry
 	}
+	actionCatalog.logger.Debug("actionCatalog.Next() no entries selected for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 	return nil
 }

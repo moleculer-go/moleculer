@@ -16,7 +16,6 @@ import (
 	"github.com/moleculer-go/moleculer/registry"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/service"
-	"github.com/moleculer-go/moleculer/strategy"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -87,8 +86,6 @@ type ServiceBroker struct {
 	rootContext moleculer.BrokerContext
 
 	config moleculer.BrokerConfig
-
-	strategy strategy.Strategy
 
 	delegates moleculer.BrokerDelegates
 
@@ -312,13 +309,11 @@ func (broker *ServiceBroker) registerInternalMiddlewares() {
 
 func (broker *ServiceBroker) init() {
 	broker.logger = broker.createBrokerLogger()
-	broker.strategy = strategy.RoundRobinStrategy{}
 	broker.setupLocalBus()
-	broker.localNode = registry.CreateNode(broker.config.DiscoverNodeID())
-
 	broker.delegates = broker.createDelegates()
 	broker.middlewares = middleware.Dispatcher(broker.logger.WithField("middleware", "dispatcher"))
 	broker.registry = registry.CreateRegistry(broker.delegates)
+	broker.localNode = broker.registry.LocalNode()
 	broker.rootContext = context.BrokerContext(broker.delegates)
 	broker.registerMiddlewares()
 }

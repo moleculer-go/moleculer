@@ -2,11 +2,13 @@ package registry
 
 import (
 	"fmt"
+
 	"net"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/version"
+	log "github.com/sirupsen/logrus"
 )
 
 type Node struct {
@@ -22,6 +24,7 @@ type Node struct {
 	lastHeartBeatTime int64
 	offlineSince      int64
 	isLocal           bool
+	logger            *log.Entry
 }
 
 func discoverIpList() []string {
@@ -45,11 +48,11 @@ func discoverIpList() []string {
 }
 
 func discoverHostname() string {
-	hostname := ""
+	hostname := "" //os.Hostname()
 	return hostname
 }
 
-func CreateNode(id string) moleculer.Node {
+func CreateNode(id string, logger *log.Entry) moleculer.Node {
 	ipList := discoverIpList()
 	hostname := discoverHostname()
 	services := make([]map[string]interface{}, 0)
@@ -63,6 +66,7 @@ func CreateNode(id string) moleculer.Node {
 		ipList:   ipList,
 		hostname: hostname,
 		services: services,
+		logger:   logger,
 	}
 	var result moleculer.Node = &node
 	return result
@@ -73,7 +77,7 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	if id != node.id {
 		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
 	}
-
+	node.logger.Debug("node.Update() info: ", info)
 	reconnected := !node.isAvailable
 
 	node.isAvailable = true
@@ -84,9 +88,9 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	node.hostname = info["hostname"].(string)
 	node.client = info["client"].(map[string]interface{})
 
-	item := info["services"]
+	item, ok := info["services"]
 	items := make([]interface{}, 0)
-	if item != nil {
+	if ok {
 		items = item.([]interface{})
 	}
 	services := make([]map[string]interface{}, len(items))
@@ -94,6 +98,7 @@ func (node *Node) Update(info map[string]interface{}) bool {
 		services[index] = item.(map[string]interface{})
 	}
 	node.services = services
+	node.logger.Debug("node.Update()  node.services: ", node.services)
 
 	node.sequence = int64(info["seq"].(float64))
 	node.cpu = int64(info["cpu"].(float64))

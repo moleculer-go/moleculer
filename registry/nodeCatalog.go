@@ -5,17 +5,18 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
 
 // NodeCatalog catalog of nodes
 type NodeCatalog struct {
-	nodes sync.Map
+	nodes  sync.Map
+	logger *log.Entry
 }
 
 // CreateNodesCatalog create a node catalog
-func CreateNodesCatalog() *NodeCatalog {
-	nodes := sync.Map{}
-	return &NodeCatalog{nodes}
+func CreateNodesCatalog(logger *log.Entry) *NodeCatalog {
+	return &NodeCatalog{sync.Map{}, logger}
 }
 
 // HeartBeat delegate the heart beat to the node in question payload.sender
@@ -81,7 +82,9 @@ func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 	if exists {
 		reconnected = node.Update(info)
 	} else {
-		catalog.Add(CreateNode(sender))
+		node := CreateNode(sender, catalog.logger.WithField("remote-node", sender))
+		node.Update(info)
+		catalog.Add(node)
 	}
 	return exists, reconnected
 }
