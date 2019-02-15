@@ -1,6 +1,7 @@
 package registry_test
 
 import (
+	"fmt"
 	"time"
 
 	snap "github.com/moleculer-go/cupaloy"
@@ -12,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var logLevel = "DEBUG"
+var logLevel = "ERROR"
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
@@ -114,48 +115,74 @@ func findById(id string, list []moleculer.Payload) map[string]interface{} {
 
 var _ = Describe("Registry", func() {
 
-	Describe("Local services", func() {
-		It("Should expose the $node.list local service action", func() {
+	FDescribe("Local services", func() {
 
-			mem := &memory.SharedMemory{}
+		harness := func(label string, withServices bool, onlyAvailable bool) func() {
+			return func() {
 
-			printerBroker := createPrinterBroker(mem)
-			printerBroker.Start()
+				mem := &memory.SharedMemory{}
 
-			result := <-printerBroker.Call("$node.list", nil)
-			nodePrinterBroker := findById("node_printerBroker", result.Array())
+				printerBroker := createPrinterBroker(mem)
+				printerBroker.Start()
 
-			Expect(snap.SnapshotMulti("1", nodePrinterBroker)).Should(Succeed())
+				result := <-printerBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  withServices,
+					"onlyAvailable": onlyAvailable,
+				})
 
-			scannerBroker := createScannerBroker(mem)
-			scannerBroker.Start()
-			time.Sleep(100 * time.Millisecond)
+				nodePrinterBroker := findById("node_printerBroker", result.Array())
+				Expect(nodePrinterBroker).ShouldNot(BeNil())
 
-			result = <-scannerBroker.Call("$node.list", nil)
-			list := result.Array()
-			Expect(len(list)).Should(Equal(2))
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
 
-			nodeScannerBroker := findById("node_scannerBroker", list)
-			nodePrinterBroker = findById("node_printerBroker", list)
+				scannerBroker := createScannerBroker(mem)
+				scannerBroker.Start()
+				time.Sleep(100 * time.Millisecond)
 
-			Expect(snap.SnapshotMulti("2.1", nodeScannerBroker)).Should(Succeed())
-			Expect(snap.SnapshotMulti("2.2", nodePrinterBroker)).Should(Succeed())
+				result = <-scannerBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  withServices,
+					"onlyAvailable": onlyAvailable,
+				})
+				list := result.Array()
+				Expect(len(list)).Should(Equal(2))
 
-			cpuBroker := createCpuBroker(mem)
-			cpuBroker.Start()
-			time.Sleep(100 * time.Millisecond)
+				nodeScannerBroker := findById("node_scannerBroker", list)
+				nodePrinterBroker = findById("node_printerBroker", list)
 
-			result = <-cpuBroker.Call("$node.list", nil)
-			list = result.Array()
-			Expect(len(list)).Should(Equal(3))
-			nodeScannerBroker = findById("node_scannerBroker", list)
-			nodePrinterBroker = findById("node_printerBroker", list)
-			nodeCpuBroker := findById("node_cpuBroker", list)
+				Expect(nodeScannerBroker).ShouldNot(BeNil())
+				Expect(nodePrinterBroker).ShouldNot(BeNil())
 
-			Expect(snap.SnapshotMulti("3.1", nodeScannerBroker)).Should(Succeed())
-			Expect(snap.SnapshotMulti("3.2", nodePrinterBroker)).Should(Succeed())
-			Expect(snap.SnapshotMulti("3.3", nodeCpuBroker)).Should(Succeed())
-		})
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
+
+				cpuBroker := createCpuBroker(mem)
+				cpuBroker.Start()
+				time.Sleep(100 * time.Millisecond)
+
+				result = <-cpuBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  withServices,
+					"onlyAvailable": onlyAvailable,
+				})
+				list = result.Array()
+				Expect(len(list)).Should(Equal(3))
+				nodeScannerBroker = findById("node_scannerBroker", list)
+				nodePrinterBroker = findById("node_printerBroker", list)
+				nodeCpuBroker := findById("node_cpuBroker", list)
+
+				Expect(nodeScannerBroker).ShouldNot(BeNil())
+				Expect(nodePrinterBroker).ShouldNot(BeNil())
+				Expect(nodeCpuBroker).ShouldNot(BeNil())
+
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
+				// })
+			}
+		}
+
+		It("$node.list with default params - no services", harness("no-services-", false, false))
+
+		It("$node.list with services", harness("with-services-", true, false))
 	})
 
 	Describe("Auto discovery", func() {
