@@ -116,134 +116,74 @@ func findById(id string, list []moleculer.Payload) map[string]interface{} {
 var _ = Describe("Registry", func() {
 
 	Describe("Local Service $node", func() {
-		Context("$node.list action", func() {
-			harness := func(label string, withServices bool, onlyAvailable bool) func() {
-				return func() {
-					mem := &memory.SharedMemory{}
+		harness := func(action string, scenario string, params map[string]interface{}) func() {
+			label := fmt.Sprint(scenario, "-", action)
+			return func() {
+				mem := &memory.SharedMemory{}
 
-					printerBroker := createPrinterBroker(mem)
-					printerBroker.Start()
+				printerBroker := createPrinterBroker(mem)
+				printerBroker.Start()
 
-					result := <-printerBroker.Call("$node.list", map[string]interface{}{
-						"withServices":  withServices,
-						"onlyAvailable": onlyAvailable,
-					})
+				result := <-printerBroker.Call(action, params)
 
-					nodePrinterBroker := findById("node_printerBroker", result.Array())
-					Expect(nodePrinterBroker).ShouldNot(BeNil())
+				nodePrinterBroker := findById("node_printerBroker", result.Array())
+				Expect(nodePrinterBroker).ShouldNot(BeNil())
 
-					Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
 
-					scannerBroker := createScannerBroker(mem)
-					scannerBroker.Start()
-					time.Sleep(100 * time.Millisecond)
+				scannerBroker := createScannerBroker(mem)
+				scannerBroker.Start()
+				time.Sleep(100 * time.Millisecond)
 
-					result = <-scannerBroker.Call("$node.list", map[string]interface{}{
-						"withServices":  withServices,
-						"onlyAvailable": onlyAvailable,
-					})
-					list := result.Array()
-					Expect(len(list)).Should(Equal(2))
+				result = <-scannerBroker.Call(action, params)
+				list := result.Array()
+				Expect(len(list)).Should(Equal(2))
 
-					nodeScannerBroker := findById("node_scannerBroker", list)
-					nodePrinterBroker = findById("node_printerBroker", list)
+				nodeScannerBroker := findById("node_scannerBroker", list)
+				nodePrinterBroker = findById("node_printerBroker", list)
 
-					Expect(nodeScannerBroker).ShouldNot(BeNil())
-					Expect(nodePrinterBroker).ShouldNot(BeNil())
+				Expect(nodeScannerBroker).ShouldNot(BeNil())
+				Expect(nodePrinterBroker).ShouldNot(BeNil())
 
-					Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
-					Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
 
-					cpuBroker := createCpuBroker(mem)
-					cpuBroker.Start()
-					time.Sleep(100 * time.Millisecond)
+				cpuBroker := createCpuBroker(mem)
+				cpuBroker.Start()
+				time.Sleep(100 * time.Millisecond)
 
-					result = <-cpuBroker.Call("$node.list", map[string]interface{}{
-						"withServices":  withServices,
-						"onlyAvailable": onlyAvailable,
-					})
-					list = result.Array()
-					Expect(len(list)).Should(Equal(3))
-					nodeScannerBroker = findById("node_scannerBroker", list)
-					nodePrinterBroker = findById("node_printerBroker", list)
-					nodeCpuBroker := findById("node_cpuBroker", list)
+				result = <-cpuBroker.Call(action, params)
+				list = result.Array()
+				Expect(len(list)).Should(Equal(3))
+				nodeScannerBroker = findById("node_scannerBroker", list)
+				nodePrinterBroker = findById("node_printerBroker", list)
+				nodeCpuBroker := findById("node_cpuBroker", list)
 
-					Expect(nodeScannerBroker).ShouldNot(BeNil())
-					Expect(nodePrinterBroker).ShouldNot(BeNil())
-					Expect(nodeCpuBroker).ShouldNot(BeNil())
+				Expect(nodeScannerBroker).ShouldNot(BeNil())
+				Expect(nodePrinterBroker).ShouldNot(BeNil())
+				Expect(nodeCpuBroker).ShouldNot(BeNil())
 
-					Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
-					Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
-					Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
-				}
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
 			}
+		}
 
-			It("$node.list with default params - no services", harness("no-services-", false, false))
+		Context("$node.list action", func() {
 
-			It("$node.list with services", harness("with-services-", true, false))
+			It("$node.list with default params - no services", harness("$node.list", "no-services", map[string]interface{}{
+				"withServices":  false,
+				"onlyAvailable": false,
+			}))
+
+			It("$node.list with services", harness("$node.list", "with-services", map[string]interface{}{
+				"withServices":  true,
+				"onlyAvailable": false,
+			}))
 		})
 
 		Context("$node.services action", func() {
-			// harness := func(label string, withActions bool, skipInternal bool) func() {
-			// 	return func() {
-			// 		mem := &memory.SharedMemory{}
 
-			// 		printerBroker := createPrinterBroker(mem)
-			// 		printerBroker.Start()
-
-			// 		result := <-printerBroker.Call("$node.list", map[string]interface{}{
-			// 			"withServices":  withServices,
-			// 			"onlyAvailable": onlyAvailable,
-			// 		})
-
-			// 		nodePrinterBroker := findById("node_printerBroker", result.Array())
-			// 		Expect(nodePrinterBroker).ShouldNot(BeNil())
-
-			// 		Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
-
-			// 		scannerBroker := createScannerBroker(mem)
-			// 		scannerBroker.Start()
-			// 		time.Sleep(100 * time.Millisecond)
-
-			// 		result = <-scannerBroker.Call("$node.list", map[string]interface{}{
-			// 			"withServices":  withServices,
-			// 			"onlyAvailable": onlyAvailable,
-			// 		})
-			// 		list := result.Array()
-			// 		Expect(len(list)).Should(Equal(2))
-
-			// 		nodeScannerBroker := findById("node_scannerBroker", list)
-			// 		nodePrinterBroker = findById("node_printerBroker", list)
-
-			// 		Expect(nodeScannerBroker).ShouldNot(BeNil())
-			// 		Expect(nodePrinterBroker).ShouldNot(BeNil())
-
-			// 		Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
-			// 		Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
-
-			// 		cpuBroker := createCpuBroker(mem)
-			// 		cpuBroker.Start()
-			// 		time.Sleep(100 * time.Millisecond)
-
-			// 		result = <-cpuBroker.Call("$node.list", map[string]interface{}{
-			// 			"withServices":  withServices,
-			// 			"onlyAvailable": onlyAvailable,
-			// 		})
-			// 		list = result.Array()
-			// 		Expect(len(list)).Should(Equal(3))
-			// 		nodeScannerBroker = findById("node_scannerBroker", list)
-			// 		nodePrinterBroker = findById("node_printerBroker", list)
-			// 		nodeCpuBroker := findById("node_cpuBroker", list)
-
-			// 		Expect(nodeScannerBroker).ShouldNot(BeNil())
-			// 		Expect(nodePrinterBroker).ShouldNot(BeNil())
-			// 		Expect(nodeCpuBroker).ShouldNot(BeNil())
-
-			// 		Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
-			// 		Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
-			// 		Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
-			// 	}
-			// }
 		})
 	})
 
