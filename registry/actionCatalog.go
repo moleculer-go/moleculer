@@ -153,8 +153,15 @@ func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strateg
 	}
 	actions := list.([]ActionEntry)
 	nodes := make([]strategy.Selector, len(actions))
+	var localAction *ActionEntry
 	for index, action := range actions {
 		nodes[index] = action
+		if action.IsLocal() {
+			localAction = &action
+		}
+	}
+	if localAction != nil {
+		return localAction
 	}
 	if selected := stg.Select(nodes); selected != nil {
 		entry := (*selected).(ActionEntry)

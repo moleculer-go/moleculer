@@ -250,6 +250,8 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
 	pubsub.pendingRequestsMutex.Lock()
+	pubsub.logger.Debug("Request() pending request id: ", context.ID())
+
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
@@ -296,13 +298,17 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 		sender := message.Get("sender").String()
 		pubsub.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " context id: ", id)
 
-		request := pubsub.pendingRequests[id]
-		defer delete(pubsub.pendingRequests, id)
+		request, exists := pubsub.pendingRequests[id]
+		if !exists {
+			pubsub.logger.Debug("reponseHandler() - discarding response -> request does not exist for id: ", id, " - message: ", message.Value())
+			return
+		}
 		if request.resultChan == nil {
-			pubsub.logger.Debug("reponseHandler() - discarding response -> request.resultChan is nil! ")
+			pubsub.logger.Debug("reponseHandler() - discarding response -> request.resultChan is nil! - message: ", message.Value(), " pending context: ", request.context)
 			return
 		}
 
+		defer delete(pubsub.pendingRequests, id)
 		var result moleculer.Payload
 		if message.Get("success").Bool() {
 			result = message.Get("data")

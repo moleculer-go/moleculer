@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var logLevel = "ERROR"
+var logLevel = "DEBUG"
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
@@ -98,10 +98,24 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	return (*broker)
 }
 
+func findById(id string, list []moleculer.Payload) map[string]interface{} {
+	for _, item := range list {
+		if item.Get("id").String() == id {
+			iMap := item.RawMap()
+			iMap["ipList"] = item.Get("ipList").StringArray()
+			iMap["seq"] = item.Get("seq").Int64()
+			iMap["cpu"] = item.Get("cpu").Int64()
+			iMap["cpuSeq"] = item.Get("cpuSeq").Int64()
+			return iMap
+		}
+	}
+	return nil
+}
+
 var _ = Describe("Registry", func() {
 
 	Describe("Local services", func() {
-		XIt("Should expose the $node.list local service action", func() {
+		It("Should expose the $node.list local service action", func() {
 
 			mem := &memory.SharedMemory{}
 
@@ -109,20 +123,38 @@ var _ = Describe("Registry", func() {
 			printerBroker.Start()
 
 			result := <-printerBroker.Call("$node.list", nil)
-			Expect(snap.Snapshot(result)).Should(Succeed())
+			nodePrinterBroker := findById("node_printerBroker", result.Array())
+
+			Expect(snap.SnapshotMulti("1", nodePrinterBroker)).Should(Succeed())
 
 			scannerBroker := createScannerBroker(mem)
 			scannerBroker.Start()
+			time.Sleep(100 * time.Millisecond)
 
 			result = <-scannerBroker.Call("$node.list", nil)
-			Expect(snap.Snapshot(result)).Should(Succeed())
+			list := result.Array()
+			Expect(len(list)).Should(Equal(2))
+
+			nodeScannerBroker := findById("node_scannerBroker", list)
+			nodePrinterBroker = findById("node_printerBroker", list)
+
+			Expect(snap.SnapshotMulti("2.1", nodeScannerBroker)).Should(Succeed())
+			Expect(snap.SnapshotMulti("2.2", nodePrinterBroker)).Should(Succeed())
 
 			cpuBroker := createCpuBroker(mem)
 			cpuBroker.Start()
+			time.Sleep(100 * time.Millisecond)
 
 			result = <-cpuBroker.Call("$node.list", nil)
-			Expect(snap.Snapshot(result)).Should(Succeed())
+			list = result.Array()
+			Expect(len(list)).Should(Equal(3))
+			nodeScannerBroker = findById("node_scannerBroker", list)
+			nodePrinterBroker = findById("node_printerBroker", list)
+			nodeCpuBroker := findById("node_cpuBroker", list)
 
+			Expect(snap.SnapshotMulti("3.1", nodeScannerBroker)).Should(Succeed())
+			Expect(snap.SnapshotMulti("3.2", nodePrinterBroker)).Should(Succeed())
+			Expect(snap.SnapshotMulti("3.3", nodeCpuBroker)).Should(Succeed())
 		})
 	})
 
@@ -179,9 +211,6 @@ var _ = Describe("Registry", func() {
 			Expect(func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
 			}).Should(Panic()) //broker B is stoped ... so it should panic
-
 		})
-
 	})
-
 })

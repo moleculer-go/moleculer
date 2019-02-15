@@ -111,6 +111,10 @@ func (registry *ServiceRegistry) Stop() {
 
 }
 
+func (registry *ServiceRegistry) LocalServices() []*service.Service {
+	return []*service.Service{createNodeService(registry)}
+}
+
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
@@ -120,6 +124,8 @@ func (registry *ServiceRegistry) Start() {
 		panic(errors.New("Could not connect to the transit. Check logs for more details."))
 	}
 	<-registry.transit.DiscoverNodes()
+
+	registry.nodes.Add(registry.localNode)
 
 	if registry.heartbeatFrequency > 0 {
 		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.transit.SendHeartbeat)

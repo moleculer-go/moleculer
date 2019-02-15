@@ -1,6 +1,9 @@
 package payload
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type interfaceArrayFunc func(source *interface{}) []interface{}
 
@@ -104,6 +107,17 @@ var arrayTransformers = []arrayTransformer{
 			return result
 		},
 	},
+	arrayTransformer{
+		"[]map[string]interface {}",
+		func(source *interface{}) []interface{} {
+			sourceList := (*source).([]map[string]interface{})
+			result := make([]interface{}, len(sourceList))
+			for index, value := range sourceList {
+				result[index] = value
+			}
+			return result
+		},
+	},
 }
 
 // getMapTransformer : return the map transformer for the specific map type
@@ -114,5 +128,6 @@ func getArrayTransformer(value *interface{}) *arrayTransformer {
 			return &transformer
 		}
 	}
+	fmt.Println("getArrayTransformer() no transformer for  valueType -> ", valueType)
 	return nil
 }
