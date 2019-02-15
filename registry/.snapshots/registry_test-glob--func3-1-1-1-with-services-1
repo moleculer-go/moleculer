@@ -9,7 +9,7 @@
   (string) (len=8) "hostname": (string) "",
   (string) (len=2) "id": (string) (len=18) "node_printerBroker",
   (string) (len=6) "ipList": ([]string) (len=1) {
-    (string) (len=13) "192.168.1.106"
+    (string) (len=13) "100.100.0.100"
   },
   (string) (len=3) "seq": (int64) 0,
   (string) (len=8) "services": ([]map[string]interface {}) (len=2) {
