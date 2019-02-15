@@ -119,7 +119,6 @@ var _ = Describe("Registry", func() {
 
 		harness := func(label string, withServices bool, onlyAvailable bool) func() {
 			return func() {
-
 				mem := &memory.SharedMemory{}
 
 				printerBroker := createPrinterBroker(mem)
@@ -176,7 +175,6 @@ var _ = Describe("Registry", func() {
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
-				// })
 			}
 		}
 
