@@ -13,7 +13,7 @@ import (
 
 var _ = Describe("Metrics", func() {
 
-	FIt("metricEnd() should record  endTime, duration and fire span.finish event", func() {
+	It("metricEnd() should record  endTime, duration and fire span.finish event", func() {
 		var eventPayload moleculer.Payload
 		delegates := test.DelegatesWithIdAndConfig("nodex", moleculer.BrokerConfig{})
 		delegates.EmitEvent = func(context moleculer.BrokerContext) {
