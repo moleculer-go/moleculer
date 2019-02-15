@@ -226,6 +226,11 @@ func (broker *ServiceBroker) Start() {
 
 	broker.registry.Start()
 
+	internalServices := broker.registry.LocalServices()
+	for _, service := range internalServices {
+		broker.services = append(broker.services, service)
+	}
+
 	for _, service := range broker.services {
 		broker.startService(service)
 	}
