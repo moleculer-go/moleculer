@@ -115,7 +115,7 @@ func findById(id string, list []moleculer.Payload) map[string]interface{} {
 
 var _ = Describe("Registry", func() {
 
-	FDescribe("Local services", func() {
+	Describe("Local services", func() {
 
 		harness := func(label string, withServices bool, onlyAvailable bool) func() {
 			return func() {
