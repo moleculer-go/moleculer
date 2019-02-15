@@ -11,6 +11,37 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 		Name: "$node",
 		Actions: []moleculer.Action{
 			moleculer.Action{
+				Name: "events",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					return nil
+				},
+			},
+			moleculer.Action{
+				Name: "actions",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					return nil
+				},
+			},
+			moleculer.Action{
+				Name: "services",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					withActions := false
+					if params.Get("withActions").Exists() && params.Get("withActions").Bool() {
+						withActions = true
+					}
+
+					skipInternal := false
+					if params.Get("skipInternal").Exists() && params.Get("skipInternal").Bool() {
+						skipInternal = true
+					}
+
+					context.Logger().Debug("$node.services withActions: ", withActions, " skipInternal:", skipInternal)
+
+					result := make([]map[string]interface{}, 0)
+					return result
+				},
+			},
+			moleculer.Action{
 				Name: "list",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					removeServices := true
@@ -24,7 +55,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					}
 
 					nodes := registry.nodes.list()
-					newList := make([]map[string]interface{}, 0)
+					result := make([]map[string]interface{}, 0)
 					for _, node := range nodes {
 						if onlyAvailable && !node.IsAvailable() {
 							continue
@@ -33,10 +64,10 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 						if removeServices {
 							delete(maps, "services")
 						}
-						newList = append(newList, maps)
+						result = append(result, maps)
 					}
 
-					return newList
+					return result
 				},
 			},
 		},
