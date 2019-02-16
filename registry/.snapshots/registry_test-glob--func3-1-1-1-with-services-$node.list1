@@ -13,7 +13,7 @@
   },
   (string) (len=3) "seq": (int64) 0,
   (string) (len=8) "services": ([]map[string]interface {}) (len=2) {
-    (map[string]interface {}) (len=6) {
+    (map[string]interface {}) (len=7) {
       (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=5) "print",
@@ -26,11 +26,12 @@
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=7) "printer",
+      (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""
     },
-    (map[string]interface {}) (len=6) {
+    (map[string]interface {}) (len=7) {
       (string) (len=7) "actions": ([]map[string]interface {}) (len=4) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=6) "events",
@@ -58,6 +59,7 @@
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=5) "$node",
+      (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""

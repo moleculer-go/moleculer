@@ -55,6 +55,17 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 }
 
 // RemoveByNode remove services for the given nodeID.
+func (serviceCatalog *ServiceCatalog) list() []*service.Service {
+	var result []*service.Service
+	serviceCatalog.services.Range(func(key, value interface{}) bool {
+		service := value.(*service.Service)
+		result = append(result, service)
+		return true
+	})
+	return result
+}
+
+// RemoveByNode remove services for the given nodeID.
 func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
 	serviceCatalog.logger.Debug("RemoveByNode() nodeID: ", nodeID)
 	var keysRemove []string
@@ -85,7 +96,8 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
 }
 
 // Add : add a service to the catalog.
-func (serviceCatalog *ServiceCatalog) Add(nodeID string, service *service.Service) {
+func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
+	nodeID := service.NodeID()
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services.Store(key, ServiceEntry{service, nodeID})
 
@@ -197,7 +209,7 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 	}
 
 	serviceInstance := service.CreateServiceFromMap(serviceInfo)
-	serviceCatalog.Add(nodeID, serviceInstance)
+	serviceCatalog.Add(serviceInstance)
 
 	newActions := serviceInstance.Actions()
 	updatedActions := make([]map[string]interface{}, 0)

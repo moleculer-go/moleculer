@@ -363,8 +363,8 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 				serviceInfo["name"].(string),
 				newAction.Name(),
 				nil,
-				moleculer.ParamsSchema{})
-			registry.actions.Add(nodeID, serviceAction, svc, false)
+				moleculer.ObjectSchema{nil})
+			registry.actions.Add(serviceAction, svc, false)
 		}
 
 		for _, updates := range updatedActions {
@@ -383,7 +383,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 				serviceInfo["name"].(string),
 				newEvent.Group(),
 				newEvent.Handler())
-			registry.events.Add(nodeID, serviceEvent, false)
+			registry.events.Add(serviceEvent, svc, false)
 		}
 
 		for _, updates := range updatedEvents {
@@ -418,18 +418,14 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	if registry.services.Find(service.Name(), service.Version(), registry.localNode.GetID()) {
 		return
 	}
+	registry.logger.Debug("AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName())
 
-	nodeID := registry.localNode.GetID()
-	registry.logger.Debug("AddLocalService() nodeID: ", nodeID, " service.fullname: ", service.FullName())
-
-	registry.services.Add(nodeID, service)
-
+	registry.services.Add(service)
 	for _, action := range service.Actions() {
-		registry.actions.Add(nodeID, action, service, true)
+		registry.actions.Add(action, service, true)
 	}
-
 	for _, event := range service.Events() {
-		registry.events.Add(nodeID, event, true)
+		registry.events.Add(event, service, true)
 	}
 
 	registry.localNode.AddService(service.AsMap())

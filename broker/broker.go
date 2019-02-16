@@ -177,8 +177,17 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 	brokerLogger := log.WithFields(log.Fields{
 		"broker": nodeID,
 	})
-	//fmt.Println("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
+	//broker.logger.Debug("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
 	return brokerLogger
+}
+
+// addService internal addService .. adds one service.Service instance to broker.services list.
+func (broker *ServiceBroker) addService(serviceInstance *service.Service) {
+	serviceInstance.SetNodeID(broker.localNode.GetID())
+	broker.services = append(broker.services, serviceInstance)
+	if broker.started {
+		broker.startService(serviceInstance)
+	}
 }
 
 // AddService : for each service schema it will validate and create
@@ -186,10 +195,7 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	for _, schema := range schemas {
 		serviceInstance := service.FromSchema(schema, broker.GetLogger("service", schema.Name))
-		broker.services = append(broker.services, serviceInstance)
-		if broker.started {
-			broker.startService(serviceInstance)
-		}
+		broker.addService(serviceInstance)
 	}
 }
 
@@ -225,7 +231,7 @@ func (broker *ServiceBroker) Start() {
 
 	internalServices := broker.registry.LocalServices()
 	for _, service := range internalServices {
-		broker.services = append(broker.services, service)
+		broker.addService(service)
 	}
 
 	for _, service := range broker.services {

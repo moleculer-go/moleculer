@@ -13,7 +13,7 @@ import (
 var _ = Describe("Actions Catalog", func() {
 	logger := log.WithField("unit test pkg", "registry_test")
 	strategy := strategy.RoundRobinStrategy{}
-	params := moleculer.ParamsSchema{}
+	params := moleculer.ObjectSchema{nil}
 	node1 := registry.CreateNode("node-test-1", logger)
 	node2 := registry.CreateNode("node-test-2", logger)
 	handler := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
@@ -30,9 +30,10 @@ var _ = Describe("Actions Catalog", func() {
 				return msg
 			}
 			testService := service.Service{}
+			testService.SetNodeID(node1.GetID())
 			testAction := service.CreateServiceAction("people", "create", peopleCreate, params)
 
-			catalog.Add(node1.GetID(), testAction, &testService, true)
+			catalog.Add(testAction, &testService, true)
 
 			actionName := "people.create"
 			actionEntry := catalog.Next(actionName, strategy)
@@ -60,7 +61,8 @@ var _ = Describe("Actions Catalog", func() {
 			nextActionEntry := catalog.Next("bank.credit", strategy)
 			Expect(nextActionEntry).Should(BeNil())
 			testService := service.Service{}
-			catalog.Add(node1.GetID(), bankCreditAction, &testService, true)
+			testService.SetNodeID(node1.GetID())
+			catalog.Add(bankCreditAction, &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(1))
 
@@ -78,8 +80,8 @@ var _ = Describe("Actions Catalog", func() {
 			Expect(nextAction).Should(BeNil())
 
 			testService := service.Service{}
-
-			catalog.Add(node1.GetID(), bankCreditAction, &testService, true)
+			testService.SetNodeID(node1.GetID())
+			catalog.Add(bankCreditAction, &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(1))
 
@@ -90,14 +92,15 @@ var _ = Describe("Actions Catalog", func() {
 			nextAction = catalog.Next("user.signUp", strategy)
 			Expect(nextAction).Should(BeNil())
 
-			catalog.Add(node1.GetID(), service.CreateServiceAction("user", "signUp", handler, params), &testService, true)
+			catalog.Add(service.CreateServiceAction("user", "signUp", handler, params), &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(2))
 			nextAction = catalog.Next("user.signUp", strategy)
 			Expect(nextAction).Should(Not(BeNil()))
 			Expect(nextAction.IsLocal()).Should(Equal(true))
 
-			catalog.Add(node2.GetID(), service.CreateServiceAction("user", "signUp", handler, params), &testService, false)
+			testService.SetNodeID(node2.GetID())
+			catalog.Add(service.CreateServiceAction("user", "signUp", handler, params), &testService, false)
 			//Expect(catalog.Size()).Should(Equal(2))
 
 			//local action on node 1

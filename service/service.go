@@ -12,7 +12,7 @@ type Action struct {
 	name     string
 	fullname string
 	handler  moleculer.ActionHandler
-	params   moleculer.ParamsSchema
+	params   moleculer.ActionSchema
 }
 
 type Event struct {
@@ -39,6 +39,7 @@ func (event *Event) Group() string {
 }
 
 type Service struct {
+	nodeID       string
 	fullname     string
 	name         string
 	version      string
@@ -56,6 +57,14 @@ type Service struct {
 
 func (service *Service) Schema() *moleculer.Service {
 	return service.schema
+}
+
+func (service *Service) NodeID() string {
+	return service.nodeID
+}
+
+func (service *Service) SetNodeID(nodeID string) {
+	service.nodeID = nodeID
 }
 
 func (service *Service) Dependencies() []string {
@@ -243,7 +252,7 @@ func CreateServiceEvent(eventName, serviceName, group string, handler moleculer.
 	}
 }
 
-func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ParamsSchema) Action {
+func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ActionSchema) Action {
 	return Action{
 		actionName,
 		fmt.Sprintf("%s.%s", serviceName, actionName),
@@ -260,6 +269,11 @@ func (service *Service) AsMap() map[string]interface{} {
 
 	serviceInfo["settings"] = service.settings
 	serviceInfo["metadata"] = service.metadata
+	serviceInfo["nodeID"] = service.nodeID
+
+	if service.nodeID == "" {
+		panic("no service.nodeID")
+	}
 
 	actions := make([]map[string]interface{}, len(service.actions))
 	for index, serviceAction := range service.actions {
@@ -283,16 +297,16 @@ func (service *Service) AsMap() map[string]interface{} {
 	return serviceInfo
 }
 
-func paramsFromMap(schema interface{}) moleculer.ParamsSchema {
+func paramsFromMap(schema interface{}) moleculer.ActionSchema {
 	// if schema != nil {
 	//mapValues = schema.(map[string]interface{})
 	//TODO
 	// }
-	return moleculer.ParamsSchema{}
+	return moleculer.ObjectSchema{nil}
 }
 
 // moleculer.ParamsAsMap converts params schema into a map.
-func paramsAsMap(params *moleculer.ParamsSchema) map[string]interface{} {
+func paramsAsMap(params *moleculer.ActionSchema) map[string]interface{} {
 	//TODO
 	schema := make(map[string]interface{})
 	return schema
@@ -346,6 +360,9 @@ func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
 
 // populateFromMap populate a service with data from a map[string]interface{}.
 func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
+	if nodeID, ok := serviceInfo["nodeID"]; ok {
+		service.nodeID = nodeID.(string)
+	}
 	service.version = serviceInfo["version"].(string)
 	service.name = serviceInfo["name"].(string)
 	service.fullname = joinVersionToName(
@@ -389,7 +406,7 @@ func (service *Service) populateFromSchema() {
 			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
-			actionSchema.Payload,
+			actionSchema.Schema,
 		)
 	}
 
@@ -439,6 +456,9 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 	populateFromMap(service, serviceInfo)
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
+	}
+	if service.nodeID == "" {
+		panic(errors.New("Service nodeID can't be empty!"))
 	}
 	return service
 }

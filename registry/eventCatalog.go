@@ -12,6 +12,7 @@ import (
 
 type EventEntry struct {
 	targetNodeID string
+	service      *service.Service
 	event        *service.Event
 	isLocal      bool
 }
@@ -58,8 +59,8 @@ func CreateEventCatalog(logger *log.Entry) *EventCatalog {
 }
 
 // Add a new event to the catalog.
-func (eventCatalog *EventCatalog) Add(nodeID string, event service.Event, local bool) {
-	entry := EventEntry{nodeID, &event, local}
+func (eventCatalog *EventCatalog) Add(event service.Event, service *service.Service, local bool) {
+	entry := EventEntry{service.NodeID(), service, &event, local}
 	name := event.Name()
 	eventCatalog.logger.Debug("Add() name: ", name, " serviceName: ", event.ServiceName())
 	list, exists := eventCatalog.events.Load(name)

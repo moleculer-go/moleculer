@@ -45,14 +45,19 @@ type Payload interface {
 	ForEach(iterator func(key interface{}, value Payload) bool)
 }
 
-// ParamsSchema is used by the validation engine to check if parameters sent to the action are valid.
-type ParamsSchema struct {
+// ActionSchema is used by the validation engine to check if parameters sent to the action are valid.
+type ActionSchema interface {
+}
+
+type ObjectSchema struct {
+	Source interface{}
 }
 
 type Action struct {
-	Name    string
-	Handler ActionHandler
-	Payload ParamsSchema
+	Name        string
+	Handler     ActionHandler
+	Schema      ActionSchema
+	Description string
 }
 
 type Event struct {

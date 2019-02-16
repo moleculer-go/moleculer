@@ -86,10 +86,9 @@ func (actionCatalog *ActionCatalog) Find(name string, local bool) *ActionEntry {
 }
 
 // Add a new action to the catalog.
-func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, service *service.Service, local bool) {
-	entry := ActionEntry{nodeID, &action, local, service, actionCatalog.logger}
+func (actionCatalog *ActionCatalog) Add(action service.Action, service *service.Service, local bool) {
+	entry := ActionEntry{service.NodeID(), &action, local, service, actionCatalog.logger}
 	name := action.FullName()
-
 	list, exists := actionCatalog.actions.Load(name)
 	if !exists {
 		list = []ActionEntry{entry}
