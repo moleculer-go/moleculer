@@ -125,53 +125,59 @@ var _ = Describe("Registry", func() {
 				printerBroker.Start()
 
 				result := <-printerBroker.Call(action, params)
+				Expect(result.Exists()).Should(BeTrue())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), result.MapArray())).Should(Succeed())
 
-				nodePrinterBroker := findById("node_printerBroker", result.Array())
-				Expect(nodePrinterBroker).ShouldNot(BeNil())
+				// nodePrinterBroker := findById("node_printerBroker", result.Array())
+				// Expect(nodePrinterBroker).ShouldNot(BeNil())
 
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
+				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
 				time.Sleep(100 * time.Millisecond)
 
 				result = <-scannerBroker.Call(action, params)
-				list := result.Array()
-				Expect(len(list)).Should(Equal(2))
+				Expect(result.Exists()).Should(BeTrue())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2"), result.RawMap())).Should(Succeed())
+				// list := result.Array()
+				// Expect(len(list)).Should(Equal(2))
 
-				nodeScannerBroker := findById("node_scannerBroker", list)
-				nodePrinterBroker = findById("node_printerBroker", list)
+				// nodeScannerBroker := findById("node_scannerBroker", list)
+				// nodePrinterBroker = findById("node_printerBroker", list)
 
-				Expect(nodeScannerBroker).ShouldNot(BeNil())
-				Expect(nodePrinterBroker).ShouldNot(BeNil())
+				// Expect(nodeScannerBroker).ShouldNot(BeNil())
+				// Expect(nodePrinterBroker).ShouldNot(BeNil())
 
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
+				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
+				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
 				time.Sleep(100 * time.Millisecond)
 
 				result = <-cpuBroker.Call(action, params)
-				list = result.Array()
-				Expect(len(list)).Should(Equal(3))
-				nodeScannerBroker = findById("node_scannerBroker", list)
-				nodePrinterBroker = findById("node_printerBroker", list)
-				nodeCpuBroker := findById("node_cpuBroker", list)
+				Expect(result.Exists()).Should(BeTrue())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3"), result.RawMap())).Should(Succeed())
+				// list = result.Array()
+				// Expect(len(list)).Should(Equal(3))
+				// nodeScannerBroker = findById("node_scannerBroker", list)
+				// nodePrinterBroker = findById("node_printerBroker", list)
+				// nodeCpuBroker := findById("node_cpuBroker", list)
 
-				Expect(nodeScannerBroker).ShouldNot(BeNil())
-				Expect(nodePrinterBroker).ShouldNot(BeNil())
-				Expect(nodeCpuBroker).ShouldNot(BeNil())
+				// Expect(nodeScannerBroker).ShouldNot(BeNil())
+				// Expect(nodePrinterBroker).ShouldNot(BeNil())
+				// Expect(nodeCpuBroker).ShouldNot(BeNil())
 
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
+				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
+				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
+				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
 			}
 		}
 
 		Context("$node.list action", func() {
 
-			It("$node.list with default params - no services", harness("$node.list", "no-services", map[string]interface{}{
+			It("$node.list with no services", harness("$node.list", "no-services", map[string]interface{}{
 				"withServices":  false,
 				"onlyAvailable": false,
 			}))
@@ -180,11 +186,16 @@ var _ = Describe("Registry", func() {
 				"withServices":  true,
 				"onlyAvailable": false,
 			}))
+
+			XIt("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
+				"withActions":   false,
+				"withEvents":    false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}))
 		})
 
-		Context("$node.services action", func() {
-
-		})
 	})
 
 	Describe("Auto discovery", func() {

@@ -77,6 +77,17 @@ func (rawPayload *RawPayload) StringArray() []string {
 	return nil
 }
 
+func (rawPayload *RawPayload) MapArray() []map[string]interface{} {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]map[string]interface{}, len(source))
+		for index, item := range source {
+			array[index] = item.RawMap()
+		}
+		return array
+	}
+	return nil
+}
+
 func (rawPayload *RawPayload) ValueArray() []interface{} {
 	if source := rawPayload.Array(); source != nil {
 		array := make([]interface{}, len(source))

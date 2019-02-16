@@ -15,6 +15,7 @@ type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
 // Payload contains the data sent/return to actions.
 // I has convinience methods to read action parameters by name with the right type.
 type Payload interface {
+	MapArray() []map[string]interface{}
 	RawMap() map[string]interface{}
 	Map() map[string]Payload
 	Exists() bool

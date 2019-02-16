@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	snap "github.com/moleculer-go/cupaloy"
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -115,6 +116,15 @@ var _ = test.Describe("Payload", func() {
 		params = Create(source)
 		Expect(params.Get("notFound").Value()).Should(BeNil())
 		Expect(params.Get("string").String()).Should(Equal("Hellow Night!"))
+
+		rawMap := make(map[string]interface{})
+		for key, value := range params.RawMap() {
+			if key == "timeArray" {
+				continue
+			}
+			rawMap[key] = value
+		}
+		Expect(snap.SnapshotMulti("RawMap()", rawMap)).ShouldNot(HaveOccurred())
 
 		moreOfTheSame := Create(params)
 		Expect(moreOfTheSame.Get("notFound").Value()).Should(BeNil())
