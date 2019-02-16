@@ -54,6 +54,7 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 	logger := broker.Logger("registry", "Service Registry")
 	nodeID := config.DiscoverNodeID()
 	localNode := CreateNode(nodeID, logger.WithField("Node", nodeID))
+	localNode.SetIsAvailable(true)
 	registry := &ServiceRegistry{
 		broker:                broker,
 		transit:               transit,

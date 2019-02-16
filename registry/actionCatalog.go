@@ -29,7 +29,12 @@ func CreateActionCatalog(logger *log.Entry) *ActionCatalog {
 	return &ActionCatalog{actions: sync.Map{}, logger: logger}
 }
 
+var actionCallRecovery = true //TODO extract this to a Config - useful to turn for Debug in tests.
+
 func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext, result chan moleculer.Payload) {
+	if !actionCallRecovery {
+		return
+	}
 	if err := recover(); err != nil {
 		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
 		result <- payload.Create(err)
@@ -66,6 +71,15 @@ func (actionEntry ActionEntry) IsLocal() bool {
 
 func (actionEntry ActionEntry) Service() *service.Service {
 	return actionEntry.service
+}
+
+func (actionCatalog *ActionCatalog) listByName() map[string][]ActionEntry {
+	result := make(map[string][]ActionEntry)
+	actionCatalog.actions.Range(func(key, value interface{}) bool {
+		result[key.(string)] = value.([]ActionEntry)
+		return true
+	})
+	return result
 }
 
 func (actionCatalog *ActionCatalog) Find(name string, local bool) *ActionEntry {

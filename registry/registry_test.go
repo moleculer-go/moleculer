@@ -99,24 +99,48 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	return (*broker)
 }
 
-func findById(id string, list []moleculer.Payload) map[string]interface{} {
-	for _, item := range list {
-		if item.Get("id").String() == id {
-			iMap := item.RawMap()
-			iMap["ipList"] = []string{"100.100.0.100"}
-			iMap["seq"] = item.Get("seq").Int64()
-			iMap["cpu"] = item.Get("cpu").Int64()
-			iMap["cpuSeq"] = item.Get("cpuSeq").Int64()
-			return iMap
+func cleanupNode(in map[string]interface{}) map[string]interface{} {
+	if in == nil {
+		return nil
+	}
+	if len(in) == 0 {
+		return make(map[string]interface{})
+	}
+	in["ipList"] = []string{"100.100.0.100"}
+	return in
+}
+
+func cleanupAction(ins []map[string]interface{}) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(ins))
+	for index, item := range ins {
+		result[index] = map[string]interface{}{
+			"name": item["name"],
 		}
 	}
+	return result
+}
+
+func first(list []map[string]interface{}) map[string]interface{} {
+	if list != nil && len(list) > 0 {
+		return list[0]
+	}
 	return nil
+}
+
+func findBy(field, value string, list []moleculer.Payload) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0)
+	for _, item := range list {
+		if item.Get(field).String() == value {
+			result = append(result, item.RawMap())
+		}
+	}
+	return result
 }
 
 var _ = Describe("Registry", func() {
 
 	Describe("Local Service $node", func() {
-		harness := func(action string, scenario string, params map[string]interface{}) func() {
+		harness := func(action string, scenario string, params map[string]interface{}, transformer func(interface{}) interface{}) func() {
 			label := fmt.Sprint(scenario, "-", action)
 			return func() {
 				mem := &memory.SharedMemory{}
@@ -126,74 +150,122 @@ var _ = Describe("Registry", func() {
 
 				result := <-printerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), result.MapArray())).Should(Succeed())
-
-				// nodePrinterBroker := findById("node_printerBroker", result.Array())
-				// Expect(nodePrinterBroker).ShouldNot(BeNil())
-
-				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), nodePrinterBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), transformer(result))).Should(Succeed())
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
-				time.Sleep(100 * time.Millisecond)
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2"), result.RawMap())).Should(Succeed())
-				// list := result.Array()
-				// Expect(len(list)).Should(Equal(2))
-
-				// nodeScannerBroker := findById("node_scannerBroker", list)
-				// nodePrinterBroker = findById("node_printerBroker", list)
-
-				// Expect(nodeScannerBroker).ShouldNot(BeNil())
-				// Expect(nodePrinterBroker).ShouldNot(BeNil())
-
-				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.1"), nodeScannerBroker)).Should(Succeed())
-				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "2.2"), nodePrinterBroker)).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2"), transformer(result))).Should(Succeed())
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
-				time.Sleep(100 * time.Millisecond)
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3"), result.RawMap())).Should(Succeed())
-				// list = result.Array()
-				// Expect(len(list)).Should(Equal(3))
-				// nodeScannerBroker = findById("node_scannerBroker", list)
-				// nodePrinterBroker = findById("node_printerBroker", list)
-				// nodeCpuBroker := findById("node_cpuBroker", list)
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3"), transformer(result))).Should(Succeed())
 
-				// Expect(nodeScannerBroker).ShouldNot(BeNil())
-				// Expect(nodePrinterBroker).ShouldNot(BeNil())
-				// Expect(nodeCpuBroker).ShouldNot(BeNil())
-
-				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.1"), nodeScannerBroker)).Should(Succeed())
-				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.2"), nodePrinterBroker)).Should(Succeed())
-				// Expect(snap.SnapshotMulti(fmt.Sprint(label, "3.3"), nodeCpuBroker)).Should(Succeed())
 			}
 		}
 
-		Context("$node.list action", func() {
+		FContext("$node.list action", func() {
+
+			extractNodes := func(in interface{}) interface{} {
+				list := in.(moleculer.Payload).Array()
+				return map[string]map[string]interface{}{
+					"noPrinterBroker":     cleanupNode(first(findBy("id", "node_printerBroker", list))),
+					"nodedeScannerBroker": cleanupNode(first(findBy("id", "node_scannerBroker", list))),
+					"nodeCpuBroker":       cleanupNode(first(findBy("id", "node_cpuBroker", list))),
+				}
+			}
+
+			extractServices := func(in interface{}) interface{} {
+				list := in.(moleculer.Payload).Array()
+				return [][]map[string]interface{}{
+					findBy("name", "printer", list),
+					findBy("name", "scanner", list),
+					findBy("name", "cpu", list),
+					findBy("name", "$node", list),
+				}
+			}
+
+			extractActions := func(in interface{}) interface{} {
+				list := in.(moleculer.Payload).Array()
+				return [][]map[string]interface{}{
+					cleanupAction(findBy("name", "printer.print", list)),
+					cleanupAction(findBy("name", "scanner.scan", list)),
+					cleanupAction(findBy("name", "cpu.compute", list)),
+					cleanupAction(findBy("name", "$node.list", list)),
+					cleanupAction(findBy("name", "$node.services", list)),
+					cleanupAction(findBy("name", "$node.actions", list)),
+					cleanupAction(findBy("name", "$node.events", list)),
+				}
+			}
+
+			FIt("$node.actions - all false", harness("$node.actions", "all-false", map[string]interface{}{
+				"withEndpoints": false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractActions))
 
 			It("$node.list with no services", harness("$node.list", "no-services", map[string]interface{}{
 				"withServices":  false,
 				"onlyAvailable": false,
-			}))
+			}, extractNodes))
 
 			It("$node.list with services", harness("$node.list", "with-services", map[string]interface{}{
 				"withServices":  true,
 				"onlyAvailable": false,
-			}))
+			}, extractNodes))
 
-			XIt("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
+			It("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
 				"withActions":   false,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}))
+			}, extractServices))
+
+			It("$node.services - withActions", harness("$node.services", "withActions", map[string]interface{}{
+				"withActions":   true,
+				"withEvents":    false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractServices))
+
+			It("$node.services - withEvents", harness("$node.services", "withEvents", map[string]interface{}{
+				"withActions":   false,
+				"withEvents":    true,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractServices))
+
+			It("$node.services - skipInternal", harness("$node.services", "skipInternal", map[string]interface{}{
+				"withActions":   false,
+				"withEvents":    false,
+				"skipInternal":  true,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractServices))
+
+			It("$node.services - onlyAvailable", harness("$node.services", "onlyAvailable", map[string]interface{}{
+				"withActions":   false,
+				"withEvents":    false,
+				"skipInternal":  false,
+				"onlyAvailable": true,
+				"onlyLocal":     false,
+			}, extractServices))
+			It("$node.services - onlyLocal", harness("$node.services", "onlyLocal", map[string]interface{}{
+				"withActions":   false,
+				"withEvents":    false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     true,
+			}, extractServices))
 		})
 
 	})

@@ -54,12 +54,12 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 	return nil
 }
 
-// RemoveByNode remove services for the given nodeID.
+// list all services in the catalog.
 func (serviceCatalog *ServiceCatalog) list() []*service.Service {
 	var result []*service.Service
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
-		service := value.(*service.Service)
-		result = append(result, service)
+		entry := value.(ServiceEntry)
+		result = append(result, entry.service)
 		return true
 	})
 	return result
@@ -205,7 +205,7 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 		current.UpdateFromMap(serviceInfo)
 		updatedActions, newActions, deletedActions := serviceCatalog.updateActions(serviceInfo, current)
 		updatedEvents, newEvents, deletedEvents := serviceCatalog.updateEvents(serviceInfo, current)
-		return nil, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
+		return current, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 	}
 
 	serviceInstance := service.CreateServiceFromMap(serviceInfo)

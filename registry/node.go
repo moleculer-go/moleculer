@@ -98,7 +98,7 @@ func (node *Node) Update(info map[string]interface{}) bool {
 		services[index] = item.(map[string]interface{})
 	}
 	node.services = services
-	node.logger.Debug("node.Update()  node.services: ", node.services)
+	node.logger.Debug("node.Update() node.services: ", node.services)
 
 	node.sequence = int64(info["seq"].(float64))
 	node.cpu = int64(info["cpu"].(float64))
@@ -143,6 +143,10 @@ func (node *Node) isExpiredImpl(timeout time.Duration) bool {
 	}
 	diff := time.Now().Unix() - node.lastHeartBeatTime
 	return diff > int64(timeout.Seconds())
+}
+
+func (node *Node) SetIsAvailable(value bool) {
+	node.isAvailable = value
 }
 
 func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
