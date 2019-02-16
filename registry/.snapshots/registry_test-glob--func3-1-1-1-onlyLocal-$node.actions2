@@ -1,0 +1,31 @@
+([][]map[string]interface {}) (len=7) {
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=12) "scanner.scan"
+    }
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=10) "$node.list"
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=14) "$node.services"
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=13) "$node.actions"
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=12) "$node.events"
+    }
+  }
+}

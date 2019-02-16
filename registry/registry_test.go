@@ -154,6 +154,7 @@ var _ = Describe("Registry", func() {
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
+				time.Sleep(100 * time.Millisecond)
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -161,15 +162,15 @@ var _ = Describe("Registry", func() {
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
+				time.Sleep(100 * time.Millisecond)
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3"), transformer(result))).Should(Succeed())
-
 			}
 		}
 
-		FContext("$node.list action", func() {
+		Context("$node.list action", func() {
 
 			extractNodes := func(in interface{}) interface{} {
 				list := in.(moleculer.Payload).Array()
@@ -203,11 +204,39 @@ var _ = Describe("Registry", func() {
 				}
 			}
 
-			FIt("$node.actions - all false", harness("$node.actions", "all-false", map[string]interface{}{
+			It("$node.actions - all false", harness("$node.actions", "all-false", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
+			}, extractActions))
+
+			FIt("$node.actions - withEndpoints", harness("$node.actions", "withEndpoints", map[string]interface{}{
+				"withEndpoints": true,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractActions))
+
+			It("$node.actions - skipInternal", harness("$node.actions", "skipInternal", map[string]interface{}{
+				"withEndpoints": false,
+				"skipInternal":  true,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractActions))
+
+			It("$node.actions - onlyAvailable", harness("$node.actions", "onlyAvailable", map[string]interface{}{
+				"withEndpoints": false,
+				"skipInternal":  false,
+				"onlyAvailable": true,
+				"onlyLocal":     false,
+			}, extractActions))
+
+			It("$node.actions - onlyLocal", harness("$node.actions", "onlyLocal", map[string]interface{}{
+				"withEndpoints": false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     true,
 			}, extractActions))
 
 			It("$node.list with no services", harness("$node.list", "no-services", map[string]interface{}{
