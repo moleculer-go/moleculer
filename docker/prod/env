@@ -1,0 +1,5 @@
+NODE_ENV=production
+LOGLEVEL=info
+CACHER: redis://redis
+MONGO_URI=mongodb://mongo/system-core
+TRANSPORTER: nats://nats:4222
