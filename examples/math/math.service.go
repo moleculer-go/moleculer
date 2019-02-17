@@ -9,7 +9,7 @@ import (
 )
 
 // Create a Service Schema
-func CreateServiceSchema() Service {
+func MathServiceSchema() Service {
 
 	schema := Service{
 		Name: "math",
