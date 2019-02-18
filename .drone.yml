@@ -20,6 +20,7 @@ steps:
       - curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip
       - unzip nats.zip && ls
       - nohup nats-*/nats-streaming-server -mc 0 &
+      - go get -d ./...
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - gover
       - goveralls -service=travis-ci
