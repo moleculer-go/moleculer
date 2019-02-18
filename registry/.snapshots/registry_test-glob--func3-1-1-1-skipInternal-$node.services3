@@ -25,7 +25,7 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=6) {
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=3) "cpu",

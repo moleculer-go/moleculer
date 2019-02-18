@@ -186,7 +186,6 @@ type Middleware interface {
 }
 type Node interface {
 	GetID() string
-	SetIsAvailable(bool)
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
 	IsExpired(timeout time.Duration) bool

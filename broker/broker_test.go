@@ -18,65 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type chanPair struct {
-	channel  chan int
-	expected int
-	current  int
-}
-
-// var checkChannelsTimeout = 4 * time.Second
-
-// func checkChannels(checks []chanPair) chan []int {
-// 	ended := false
-// 	resultChan := make(chan []int)
-// 	results := make([]int, len(checks))
-// 	for _, check := range checks {
-// 		go func() {
-// 			pair := check
-// 			for {
-// 				if ended {
-// 					break
-// 				}
-// 				value := <-pair.channel
-// 				fmt.Println("**** checkChannels() - value: ", value)
-// 				pair.current = pair.current + value
-// 				fmt.Println("**** checkChannels() - pair.current: ", pair.current)
-// 				time.Sleep(time.Millisecond)
-// 			}
-// 		}()
-// 	}
-
-// 	go func() {
-// 		start := time.Now()
-// 		timedout := false
-// 		for {
-// 			allDone := true
-// 			for _, check := range checks {
-// 				if check.current != check.expected {
-// 					allDone = false
-// 					break
-// 				}
-// 			}
-// 			if time.Since(start) > checkChannelsTimeout {
-// 				fmt.Println("**** checkChannels() - Time out ! - results: ", results)
-// 				//panic("checkChannels() - Time out ! - took too long to receive value on all channels")
-// 				timedout = true
-// 			}
-// 			if allDone || timedout {
-// 				ended = true
-// 				for index, check := range checks {
-// 					results[index] = check.current
-// 				}
-// 				resultChan <- results
-// 				break
-// 			}
-// 			time.Sleep(10 * time.Millisecond)
-// 		}
-// 	}()
-
-// 	return resultChan
-// }
-
 var counterCheckTimeout = 2 * time.Second
 
 type counterCheck struct {
@@ -184,14 +125,17 @@ var _ = Describe("Broker", func() {
 			},
 		}
 		mem := &memory.SharedMemory{}
-		bkrConfig := &moleculer.BrokerConfig{
-			LogLevel: "ERROR",
+		baseConfig := &moleculer.BrokerConfig{
+			LogLevel: "FATAL",
 			TransporterFactory: func() interface{} {
 				transport := memory.Create(log.WithField("transport", "memory"), mem)
 				return &transport
 			},
 		}
-		bkr := broker.FromConfig(bkrConfig)
+		bkrConfig := &moleculer.BrokerConfig{
+			DiscoverNodeID: func() string { return "do-broker" },
+		}
+		bkr := broker.FromConfig(baseConfig, bkrConfig)
 		bkr.AddService(service)
 		bkr.Start()
 
@@ -216,7 +160,10 @@ var _ = Describe("Broker", func() {
 				},
 			},
 		}
-		bkr = broker.FromConfig(bkrConfig)
+		bkrConfig = &moleculer.BrokerConfig{
+			DiscoverNodeID: func() string { return "remote-broker" },
+		}
+		bkr = broker.FromConfig(baseConfig, bkrConfig)
 		bkr.AddService(service)
 		bkr.Start()
 
@@ -274,7 +221,7 @@ var _ = Describe("Broker", func() {
 		Expect(result.Value()).Should(Equal(actionResult))
 	})
 
-	XDescribe("Broker events", func() {
+	Describe("Broker events", func() {
 		eventsTestSize := 10
 		//TODO needs refactoring.. the test is not realiable and fail from time to time.
 		Measure("Local and remote events", func(bench Benchmarker) {

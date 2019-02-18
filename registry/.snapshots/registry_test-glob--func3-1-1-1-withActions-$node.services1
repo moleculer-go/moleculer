@@ -8,7 +8,7 @@
           }
         }
       },
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=7) "printer",
@@ -46,7 +46,7 @@
           }
         }
       },
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=5) "$node",

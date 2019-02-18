@@ -15,7 +15,7 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=7) {
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=6) "events": ([]map[string]interface {}) {
       },
       (string) (len=8) "metadata": (map[string]interface {}) {
@@ -31,7 +31,7 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=7) {
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=6) "events": ([]map[string]interface {}) {
       },
       (string) (len=8) "metadata": (map[string]interface {}) {

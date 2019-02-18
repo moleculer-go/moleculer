@@ -46,18 +46,18 @@ func (transporter *MemoryTransporter) SetPrefix(prefix string) {
 }
 
 func (transporter *MemoryTransporter) Connect() chan bool {
-	transporter.logger.Info("Memory Transporter (", transporter.instanceID, ") -> Connect() ... ")
+	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Connecting() ...")
 	endChan := make(chan bool)
 	go func() {
 		endChan <- true
 	}()
+	transporter.logger.Info("[Mem-Trans-", transporter.instanceID, "] -> Connected() !")
 	return endChan
 }
 
 func (transporter *MemoryTransporter) Disconnect() chan bool {
-	transporter.logger.Info("Memory Transporterr (", transporter.instanceID, ") -> Disconnect() !")
 	endChan := make(chan bool)
-
+	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Disconnecting() ...")
 	for _, subscription := range transporter.subscriptions {
 		subscription.active = false
 		subscription.handler = nil
@@ -65,6 +65,7 @@ func (transporter *MemoryTransporter) Disconnect() chan bool {
 	go func() {
 		endChan <- true
 	}()
+	transporter.logger.Info("[Mem-Trans-", transporter.instanceID, "] -> Disconnected() !")
 	return endChan
 }
 
@@ -77,7 +78,7 @@ func topicName(transporter *MemoryTransporter, command string, nodeID string) st
 
 func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
 	topic := topicName(transporter, command, nodeID)
-	transporter.logger.Debug("[", transporter.instanceID, "] memory.Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
+	transporter.logger.Trace("[Mem-Trans-", transporter.instanceID, "] Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
 	subscription := Subscription{util.RandomString(5), handler, true}
 	transporter.subscriptions = append(transporter.subscriptions, subscription)
@@ -94,7 +95,7 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 
 func (transporter *MemoryTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	topic := topicName(transporter, command, nodeID)
-	transporter.logger.Debug("[Transporter-", transporter.instanceID, "] memory.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
+	transporter.logger.Trace("[Mem-Trans-", transporter.instanceID, "] Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
 
 	transporter.memory.mutex.Lock()
 	subscriptions, exists := transporter.memory.handlers[topic]

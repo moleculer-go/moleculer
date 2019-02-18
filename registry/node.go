@@ -52,7 +52,7 @@ func discoverHostname() string {
 	return hostname
 }
 
-func CreateNode(id string, logger *log.Entry) moleculer.Node {
+func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 	ipList := discoverIpList()
 	hostname := discoverHostname()
 	services := make([]map[string]interface{}, 0)
@@ -67,6 +67,7 @@ func CreateNode(id string, logger *log.Entry) moleculer.Node {
 		hostname: hostname,
 		services: services,
 		logger:   logger,
+		isLocal:  local,
 	}
 	var result moleculer.Node = &node
 	return result
@@ -134,19 +135,11 @@ func (node *Node) GetID() string {
 	return node.id
 }
 func (node *Node) IsExpired(timeout time.Duration) bool {
-	return node.isExpiredImpl(timeout)
-}
-
-func (node *Node) isExpiredImpl(timeout time.Duration) bool {
-	if !node.isAvailable || node.isLocal {
+	if node.IsLocal() || !node.IsAvailable() {
 		return false
 	}
 	diff := time.Now().Unix() - node.lastHeartBeatTime
 	return diff > int64(timeout.Seconds())
-}
-
-func (node *Node) SetIsAvailable(value bool) {
-	node.isAvailable = value
 }
 
 func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
@@ -168,7 +161,7 @@ func (node *Node) AddService(service map[string]interface{}) {
 }
 
 func (node *Node) IsAvailable() bool {
-	return node.isAvailable
+	return node.isLocal || node.isAvailable
 }
 
 func (node *Node) IsLocal() bool {

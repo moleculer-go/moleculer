@@ -13,7 +13,7 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=6) {
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=7) "scanner",
@@ -27,7 +27,7 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=6) {
-      (string) (len=9) "available": (bool) false,
+      (string) (len=9) "available": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=5) "$node",

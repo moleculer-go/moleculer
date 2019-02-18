@@ -82,7 +82,7 @@ func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 	if exists {
 		reconnected = node.Update(info)
 	} else {
-		node := CreateNode(sender, catalog.logger.WithField("remote-node", sender))
+		node := CreateNode(sender, false, catalog.logger.WithField("remote-node", sender))
 		node.Update(info)
 		catalog.Add(node)
 	}

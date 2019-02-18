@@ -182,11 +182,11 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 }
 
 // addService internal addService .. adds one service.Service instance to broker.services list.
-func (broker *ServiceBroker) addService(serviceInstance *service.Service) {
-	serviceInstance.SetNodeID(broker.localNode.GetID())
-	broker.services = append(broker.services, serviceInstance)
+func (broker *ServiceBroker) addService(svc *service.Service) {
+	svc.SetNodeID(broker.localNode.GetID())
+	broker.services = append(broker.services, svc)
 	if broker.started {
-		broker.startService(serviceInstance)
+		broker.startService(svc)
 	}
 }
 
@@ -194,26 +194,8 @@ func (broker *ServiceBroker) addService(serviceInstance *service.Service) {
 // a service instance in the broker.
 func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
 	for _, schema := range schemas {
-		serviceInstance := service.FromSchema(schema, broker.GetLogger("service", schema.Name))
-		broker.addService(serviceInstance)
+		broker.addService(service.FromSchema(schema, broker.GetLogger("service", schema.Name)))
 	}
-}
-
-func (broker *ServiceBroker) Stop() {
-	broker.logger.Info("Broker -> Stoping...")
-
-	broker.middlewares.CallHandlers("brokerStoping", broker.delegates)
-
-	for _, service := range broker.services {
-		broker.stopService(service)
-	}
-
-	broker.registry.Stop()
-
-	broker.started = false
-	broker.broadcastLocal("$broker.stoped")
-
-	broker.middlewares.CallHandlers("brokerStoped", broker.delegates)
 }
 
 func (broker *ServiceBroker) Start() {
@@ -222,8 +204,6 @@ func (broker *ServiceBroker) Start() {
 		return
 	}
 	broker.logger.Info("Broker -> Starting...")
-
-	broker.config = broker.middlewares.CallHandlers("brokerConfig", broker.config).(moleculer.BrokerConfig)
 
 	broker.middlewares.CallHandlers("brokerStarting", broker.delegates)
 
@@ -245,6 +225,23 @@ func (broker *ServiceBroker) Start() {
 
 	broker.started = true
 	broker.logger.Info("Broker -> Started !!!")
+}
+
+func (broker *ServiceBroker) Stop() {
+	broker.logger.Info("Broker -> Stoping...")
+
+	broker.middlewares.CallHandlers("brokerStoping", broker.delegates)
+
+	for _, service := range broker.services {
+		broker.stopService(service)
+	}
+
+	broker.registry.Stop()
+
+	broker.started = false
+	broker.broadcastLocal("$broker.stoped")
+
+	broker.middlewares.CallHandlers("brokerStoped", broker.delegates)
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
@@ -300,13 +297,13 @@ func (broker *ServiceBroker) setupLocalBus() {
 }
 
 func (broker *ServiceBroker) registerMiddlewares() {
+	broker.middlewares = middleware.Dispatcher(broker.logger.WithField("middleware", "dispatcher"))
 	for _, mware := range broker.config.Middlewares {
 		broker.middlewares.Add(mware)
 	}
-	if broker.config.DisableInternalMiddlewares {
-		return
+	if !broker.config.DisableInternalMiddlewares {
+		broker.registerInternalMiddlewares()
 	}
-	broker.registerInternalMiddlewares()
 }
 
 func (broker *ServiceBroker) registerInternalMiddlewares() {
@@ -316,12 +313,18 @@ func (broker *ServiceBroker) registerInternalMiddlewares() {
 func (broker *ServiceBroker) init() {
 	broker.logger = broker.createBrokerLogger()
 	broker.setupLocalBus()
+
+	broker.registerMiddlewares()
+
+	broker.logger.Debug("brokerConfig middleware before: \n", broker.config)
+	broker.config = broker.middlewares.CallHandlers("brokerConfig", broker.config).(moleculer.BrokerConfig)
+	broker.logger.Debug("brokerConfig middleware after: \n", broker.config)
+
 	broker.delegates = broker.createDelegates()
-	broker.middlewares = middleware.Dispatcher(broker.logger.WithField("middleware", "dispatcher"))
 	broker.registry = registry.CreateRegistry(broker.delegates)
 	broker.localNode = broker.registry.LocalNode()
 	broker.rootContext = context.BrokerContext(broker.delegates)
-	broker.registerMiddlewares()
+
 }
 
 func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {

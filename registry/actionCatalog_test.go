@@ -14,8 +14,8 @@ var _ = Describe("Actions Catalog", func() {
 	logger := log.WithField("unit test pkg", "registry_test")
 	strategy := strategy.RoundRobinStrategy{}
 	params := moleculer.ObjectSchema{nil}
-	node1 := registry.CreateNode("node-test-1", logger)
-	node2 := registry.CreateNode("node-test-2", logger)
+	node1 := registry.CreateNode("node-test-1", true, logger)
+	node2 := registry.CreateNode("node-test-2", true, logger)
 	handler := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 		return "default action result"
 	}

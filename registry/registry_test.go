@@ -211,7 +211,7 @@ var _ = Describe("Registry", func() {
 				"onlyLocal":     false,
 			}, extractActions))
 
-			FIt("$node.actions - withEndpoints", harness("$node.actions", "withEndpoints", map[string]interface{}{
+			It("$node.actions - withEndpoints", harness("$node.actions", "withEndpoints", map[string]interface{}{
 				"withEndpoints": true,
 				"skipInternal":  false,
 				"onlyAvailable": false,

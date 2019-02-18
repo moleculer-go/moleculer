@@ -51,10 +51,9 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)
-	logger := broker.Logger("registry", "Service Registry")
+	logger := broker.Logger("registry", "Moleculer Registry")
 	nodeID := config.DiscoverNodeID()
-	localNode := CreateNode(nodeID, logger.WithField("Node", nodeID))
-	localNode.SetIsAvailable(true)
+	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
 	registry := &ServiceRegistry{
 		broker:                broker,
 		transit:               transit,
@@ -291,8 +290,10 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 }
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
-	expiredNodes := registry.nodes.expiredNodes(registry.offlineCheckFrequency * 10)
 	timeout := registry.offlineCheckFrequency * 10
+	registry.logger.Debug("checkOfflineNodes() timeout in seconds: ", timeout.Seconds())
+
+	expiredNodes := registry.nodes.expiredNodes(timeout)
 	for _, node := range expiredNodes {
 		nodeID := node.GetID()
 		registry.nodes.removeNode(nodeID)
