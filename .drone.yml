@@ -16,7 +16,6 @@ steps:
       - go get -v github.com/nats-io/gnatsd
       - go get -v github.com/onsi/ginkgo/ginkgo
       - go get -v github.com/onsi/gomega
-      - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip
       - unzip nats.zip && ls
       - nohup nats-*/nats-streaming-server -mc 0 &
