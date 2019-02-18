@@ -221,7 +221,7 @@ var _ = Describe("Broker", func() {
 		Expect(result.Value()).Should(Equal(actionResult))
 	})
 
-	Describe("Broker events", func() {
+	XDescribe("Broker events", func() {
 		eventsTestSize := 10
 		//TODO needs refactoring.. the test is not realiable and fail from time to time.
 		Measure("Local and remote events", func(bench Benchmarker) {
