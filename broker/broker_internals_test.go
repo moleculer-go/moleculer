@@ -7,6 +7,7 @@ import (
 
 	snap "github.com/moleculer-go/cupaloy"
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	. "github.com/onsi/ginkgo"
@@ -49,7 +50,7 @@ var _ = Describe("Broker Internals", func() {
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) interface{} {
 								ctx.Logger().Debug(" ** !!! ### music.start ### !!! ** ")
 								ctx.Emit("music.verse", verse)
-								counters.Inc(ctx, "music.start")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.start")
 								return nil
 							},
 						},
@@ -57,7 +58,7 @@ var _ = Describe("Broker Internals", func() {
 							Name: "end",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) interface{} {
 								ctx.Emit("music.chorus", chorus)
-								counters.Inc(ctx, "music.end")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.end")
 								return nil
 							},
 						},
@@ -68,14 +69,14 @@ var _ = Describe("Broker Internals", func() {
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
 								ctx.Logger().Debug("music.verse --> ", verse.String())
 								ctx.Emit("music.chorus", verse)
-								counters.Inc(ctx, "music.music.verse")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.music.verse")
 							},
 						},
 						moleculer.Event{
 							Name: "music.chorus",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
 								ctx.Logger().Debug("music.chorus --> ", chorus.String())
-								counters.Inc(ctx, "music.music.chorus")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.music.chorus")
 							},
 						},
 					},
@@ -89,21 +90,21 @@ var _ = Describe("Broker Internals", func() {
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
 								ctx.Logger().Debug("DJ music.verse --> ", verse.String())
 								ctx.Emit("music.chorus", verse)
-								counters.Inc(ctx, "dj.music.verse")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.verse")
 							},
 						},
 						moleculer.Event{
 							Name: "music.chorus",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
 								ctx.Logger().Debug("DJ  music.chorus --> ", chorus.String())
-								counters.Inc(ctx, "dj.music.chorus")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.chorus")
 							},
 						},
 						moleculer.Event{
 							Name: "music.tone",
 							Handler: func(ctx moleculer.Context, ring moleculer.Payload) {
 								ctx.Logger().Debug("DJ  music.tone ring --> ", ring.String())
-								counters.Inc(ctx, "dj.music.tone")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.tone")
 							},
 						},
 					},
@@ -152,21 +153,21 @@ var _ = Describe("Broker Internals", func() {
 							Name: "music.verse",
 							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
 								ctx.Logger().Debug("VJ music.verse --> ", verse.String())
-								counters.Inc(ctx, "vj.music.verse")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.verse")
 							},
 						},
 						moleculer.Event{
 							Name: "music.chorus",
 							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
 								ctx.Logger().Debug("VJ  music.chorus --> ", chorus.String())
-								counters.Inc(ctx, "vj.music.chorus")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.chorus")
 							},
 						},
 						moleculer.Event{
 							Name: "music.tone",
 							Handler: func(ctx moleculer.Context, ring moleculer.Payload) {
 								ctx.Logger().Debug("VJ  music.tone ring --> ", ring.String())
-								counters.Inc(ctx, "vj.music.tone")
+								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.tone")
 							},
 						},
 					},

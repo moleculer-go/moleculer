@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/moleculer-go/moleculer"
-	"github.com/moleculer-go/moleculer/context"
 )
 
 var CounterCheckTimeout = 2 * time.Second
@@ -22,13 +19,7 @@ type CounterCheck struct {
 	observeWithPrefix map[string]int
 }
 
-func attachNodeID(ctx moleculer.Context, name string) string {
-	actionContext := ctx.(*context.Context)
-	localNodeID := actionContext.BrokerDelegates().LocalNode().GetID()
-	return fmt.Sprint(name, "-", localNodeID)
-}
-
-func (counter *CounterCheck) Inc(ctx moleculer.Context, name string) {
+func (counter *CounterCheck) Inc(nodeID string, name string) {
 	go func() {
 		counter.mutex.Lock()
 		if value, exists := counter.observe[name]; exists {
@@ -37,7 +28,7 @@ func (counter *CounterCheck) Inc(ctx moleculer.Context, name string) {
 			counter.observe[name] = 1
 		}
 
-		prefixed := attachNodeID(ctx, name)
+		prefixed := fmt.Sprint(name, "-", nodeID)
 		if value, exists := counter.observeWithPrefix[prefixed]; exists {
 			counter.observeWithPrefix[prefixed] = value + 1
 		} else {
