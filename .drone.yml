@@ -9,14 +9,8 @@ steps:
   - name: branch-push
     image: golang
     commands:
-      - cat /etc/*-release || echo "1 failed"
-      - lsb_release -a || echo "2 failed"
-      - hostnamectl || echo "3 failed"
       - apt-get update
       - apt-get install unzip
-      - mkdir /usr/local/go/src/github.com/
-      - mkdir /usr/local/go/src/github.com/moleculer-go
-      - ln -s /drone/src/ /usr/local/go/src/github.com/moleculer-go/moleculer
       - go get -v golang.org/x/lint/golint
       - go get -v golang.org/x/tools/cmd/cover
       - go get -v github.com/mattn/goveralls
@@ -28,6 +22,10 @@ steps:
       - curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip
       - unzip nats.zip && ls
       - nohup nats-*/nats-streaming-server -mc 0 &
+      - mkdir /usr/local/go/src/github.com/
+      - mkdir /usr/local/go/src/github.com/moleculer-go
+      - ln -s /drone/src/ /usr/local/go/src/github.com/moleculer-go/moleculer
+      - cd /usr/local/go/src/github.com/moleculer-go/moleculer
       - go get -d ./...
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - gover
