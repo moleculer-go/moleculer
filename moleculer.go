@@ -118,6 +118,7 @@ type BrokerConfig struct {
 	DisableInternalServices    bool
 	DisableInternalMiddlewares bool
 	DontWaitForNeighbours      bool
+	WaitForNeighboursInterval  time.Duration
 	Created                    func()
 	Started                    func()
 	Stoped                     func()
@@ -128,7 +129,7 @@ var DefaultConfig = BrokerConfig{
 	LogFormat:                  "TEXT",
 	DiscoverNodeID:             discoverNodeID,
 	Transporter:                "MEMORY",
-	HeartbeatFrequency:         5 * time.Second,
+	HeartbeatFrequency:         15 * time.Second,
 	HeartbeatTimeout:           30 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
 	NeighboursCheckTimeout:     2 * time.Second,
@@ -144,8 +145,9 @@ var DefaultConfig = BrokerConfig{
 	RetryPolicy: RetryPolicy{
 		Enabled: false,
 	},
-	RequestTimeout: 0,
-	MCallTimeout:   5 * time.Second,
+	RequestTimeout:            0,
+	MCallTimeout:              5 * time.Second,
+	WaitForNeighboursInterval: 200 * time.Millisecond,
 }
 
 // discoverNodeID - should return the node id for this machine
@@ -226,6 +228,7 @@ type BrokerContext interface {
 	Logger() *log.Entry
 }
 
+//Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
 type BrokerDelegates struct {
 	LocalNode         LocalNodeFunc
 	Logger            LoggerFunc

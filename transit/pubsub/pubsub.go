@@ -175,7 +175,7 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 		if !pubsub.isConnected {
 			return false
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(pubsub.broker.Config.WaitForNeighboursInterval)
 	}
 }
 
@@ -185,7 +185,6 @@ func (pubsub *PubSub) DiscoverNodes() chan bool {
 	go func() {
 		pubsub.DiscoverNode("")
 		result <- pubsub.waitForNeighbours()
-
 	}()
 	return result
 }

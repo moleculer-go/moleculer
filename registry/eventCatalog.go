@@ -77,6 +77,8 @@ func (eventCatalog *EventCatalog) Update(nodeID string, name string, updates map
 }
 
 func (eventCatalog *EventCatalog) Remove(nodeID string, name string) {
+	fmt.Println("event Catalog Remove() nodeID: ", nodeID, " name: ", name)
+	removed := 0
 	list, exists := eventCatalog.events.Load(name)
 	if !exists {
 		return
@@ -85,13 +87,18 @@ func (eventCatalog *EventCatalog) Remove(nodeID string, name string) {
 	for _, event := range list.([]EventEntry) {
 		if event.targetNodeID != nodeID {
 			newList = append(newList, event)
+		} else {
+			removed++
 		}
 	}
 	eventCatalog.events.Store(name, newList)
+	fmt.Println("event Catalog Remove() nodeID: ", nodeID, " name: ", name, " removed: ", removed)
 }
 
 // RemoveByNode remove events for the given nodeID.
 func (eventCatalog *EventCatalog) RemoveByNode(nodeID string) {
+	fmt.Println("event Catalog RemoveByNode() nodeID: ", nodeID)
+	removed := 0
 	eventCatalog.events.Range(func(key, value interface{}) bool {
 		name := key.(string)
 		events := value.([]EventEntry)
@@ -99,11 +106,14 @@ func (eventCatalog *EventCatalog) RemoveByNode(nodeID string) {
 		for _, event := range events {
 			if event.targetNodeID != nodeID {
 				toKeep = append(toKeep, event)
+			} else {
+				removed++
 			}
 		}
 		eventCatalog.events.Store(name, toKeep)
 		return true
 	})
+	fmt.Println("event Catalog RemoveByNode() nodeID: ", nodeID, " removed: ", removed)
 }
 
 func matchGroup(event *service.Event, groups []string) bool {
@@ -176,5 +186,17 @@ func (eventCatalog *EventCatalog) Find(name string, groups []string, preferLocal
 	// 	fmt.Println("\n *** eventCatalog.Next() item: ", (*item).event.Name(), " service: ", (*item).event.ServiceName())
 	// }
 
+	return result
+}
+
+func (eventCatalog *EventCatalog) list() []EventEntry {
+	var result []EventEntry
+	eventCatalog.events.Range(func(key, value interface{}) bool {
+		entries := value.([]EventEntry)
+		for _, item := range entries {
+			result = append(result, item)
+		}
+		return true
+	})
 	return result
 }

@@ -131,10 +131,10 @@ func serviceEventExists(name string, events []service.Event) bool {
 	return false
 }
 
-func itemMapExists(name string, actions []interface{}) bool {
-	for _, item := range actions {
-		action := item.(map[string]interface{})
-		if action["name"].(string) == name {
+func itemMapExists(name string, items []interface{}) bool {
+	for _, item := range items {
+		mvalue := item.(map[string]interface{})
+		if mvalue["name"].(string) == name {
 			return true
 		}
 	}

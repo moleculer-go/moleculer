@@ -3,6 +3,7 @@ package registry
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
@@ -175,7 +176,7 @@ func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerConte
 }
 
 // LoadBalanceEvent load balance an event based on the known targetNodes.
-func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) {
+func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) []*EventEntry {
 	name := context.EventName()
 	params := context.Payload()
 	groups := context.Groups()
@@ -183,10 +184,11 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " params: ", params)
 
 	entries := registry.events.Find(name, groups, true, false, registry.strategy)
+	fmt.Println("LoadBalanceEvent() entries find (name: ", name, " groups: ", groups, " preffer local: true, localOnly: false - source broker: ", registry.localNode.GetID(), ") results :-> ", entries)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
-		return
+		return nil
 	}
 
 	for _, eventEntry := range entries {
@@ -197,19 +199,21 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 		}
 	}
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " End.")
+	return entries
 }
 
-func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) {
+func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) []*EventEntry {
 	name := context.EventName()
 	groups := context.Groups()
 	eventSig := fmt.Sprint("name: ", name, " groups: ", groups)
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " payload: ", context.Payload())
 
 	entries := registry.events.Find(name, groups, false, false, nil)
+	fmt.Println("BroadcastEvent() entries find (name: ", name, " groups: ", groups, " prefer local: false, localOnly: false - source broker: ", registry.localNode.GetID(), ") results :-> ", entries)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
-		return
+		return nil
 	}
 
 	for _, eventEntry := range entries {
@@ -220,6 +224,7 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 		}
 	}
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " End.")
+	return entries
 }
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
@@ -358,6 +363,8 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	exists, reconnected := registry.nodes.Info(nodeInfo)
 	for _, item := range services {
 		serviceInfo := item.(map[string]interface{})
+		fmt.Println("remoteNodeInfoReceived() serviceInfo :-> ", serviceInfo)
+
 		svc, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {
@@ -447,4 +454,29 @@ func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy
 		return registry.actions.NextFromNode(actionName, nodeID)
 	}
 	return registry.actions.Next(actionName, strategy)
+}
+
+func (registry *ServiceRegistry) KnownEventListeners(addNode bool) []string {
+	events := registry.events.list()
+	result := make([]string, len(events))
+	for index, event := range events {
+		if addNode {
+			result[index] = fmt.Sprint(event.targetNodeID, ".", event.event.ServiceName(), ".", event.event.Name())
+		} else {
+			result[index] = fmt.Sprint(event.event.ServiceName(), ".", event.event.Name())
+		}
+
+	}
+	sort.Strings(result)
+	return result
+}
+
+func (registry *ServiceRegistry) KnownNodes() []string {
+	nodes := registry.nodes.list()
+	result := make([]string, len(nodes))
+	for index, node := range nodes {
+		result[index] = node.GetID()
+	}
+	sort.Strings(result)
+	return result
 }

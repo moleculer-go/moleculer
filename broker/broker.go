@@ -125,6 +125,9 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 	}
 	start := time.Now()
 	for {
+		if !broker.started {
+			break
+		}
 		found := true
 		for _, dependency := range service.Dependencies() {
 			known := broker.registry.KnowService(dependency)
@@ -141,9 +144,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
 			break
 		}
-		if !broker.started {
-			break
-		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
 }
