@@ -9,6 +9,8 @@ steps:
   - name: branch-push
     image: golang
     commands:
+      - copy /drone/src/moleculer/ /usr/local/go/src/github.com/moleculer-go/
+      - sudo apt-get install unzip
       - go get -v golang.org/x/lint/golint
       - go get -v golang.org/x/tools/cmd/cover
       - go get -v github.com/mattn/goveralls
