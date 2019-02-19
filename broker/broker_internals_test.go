@@ -17,7 +17,7 @@ import (
 var _ = Describe("Broker Internals", func() {
 
 	Describe("Broker events", func() {
-		eventsTestSize := 10
+		eventsTestSize := 1
 		currentStep := 0
 		//TODO needs refactoring.. the test is not realiable and fail from time to time.
 		Measure("Local and remote events", func(bench Benchmarker) {
