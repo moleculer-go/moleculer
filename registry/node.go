@@ -162,17 +162,17 @@ func (node *Node) validateService(service map[string]interface{}) {
 	raw, exists := service["events"]
 	if !exists {
 		fmt.Println("invalid service -> service: ", service)
-		panic("invalid service - no events")
+		//panic("invalid service - no events")
 	}
 	mapList, mapType := raw.([]map[string]interface{})
 	interfaceList, interfaceType := raw.([]interface{})
 	if !mapType && !interfaceType {
 		fmt.Println("invalid service -> service: ", service)
-		panic("invalid service - invalid events items")
+		//panic("invalid service - invalid events items")
 	}
 	if mapType && len(mapList) == 0 || interfaceType && len(interfaceList) == 0 {
 		fmt.Println("invalid service -> service: ", service)
-		panic("invalid service - events list is empty")
+		//panic("invalid service - events list is empty")
 	}
 }
 func (node *Node) validateServices(services []map[string]interface{}) {
