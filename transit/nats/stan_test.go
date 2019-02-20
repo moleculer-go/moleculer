@@ -105,7 +105,7 @@ var _ = Describe("Transit", func() {
 	}
 
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "ERROR"
+		logLevel := "FATAL"
 		numberOfLoops := 10
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on stan transporter.", func(bench Benchmarker) {
@@ -198,7 +198,7 @@ var _ = Describe("Transit", func() {
 		}
 
 		actionName := "some.service.action"
-		actionContext := contextA.NewActionContext(actionName, payload.Create(params))
+		actionContext := contextA.ChildActionContext(actionName, payload.Create(params))
 
 		transporter := nats.CreateStanTransporter(options)
 		<-transporter.Connect()

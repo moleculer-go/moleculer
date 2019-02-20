@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	snap "github.com/moleculer-go/cupaloy"
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -13,6 +14,36 @@ import (
 )
 
 var _ = test.Describe("Payload", func() {
+
+	test.It("Should convert numbers correctly", func() {
+
+		Expect(Create(10).Int64()).Should(Equal(int64(10)))
+		Expect(Create(10).Float32()).Should(Equal(float32(10)))
+		Expect(Create(10).Float()).Should(Equal(float64(10)))
+		Expect(Create(10).Uint()).Should(Equal(uint64(10)))
+
+		Expect(Create(int64(30)).Int()).Should(Equal(30))
+		Expect(Create(int64(30)).Float32()).Should(Equal(float32(30)))
+		Expect(Create(int64(30)).Float()).Should(Equal(float64(30)))
+		Expect(Create(int64(30)).Uint()).Should(Equal(uint64(30)))
+
+		Expect(Create(float64(60)).Int()).Should(Equal(60))
+		Expect(Create(float64(60)).Float32()).Should(Equal(float32(60)))
+		Expect(Create(float64(60)).Int64()).Should(Equal(int64(60)))
+		Expect(Create(float64(60)).Uint()).Should(Equal(uint64(60)))
+
+		Expect(Create(float32(120)).Int()).Should(Equal(120))
+		Expect(Create(float32(120)).Float()).Should(Equal(float64(120)))
+		Expect(Create(float32(120)).Int64()).Should(Equal(int64(120)))
+		Expect(Create(float32(120)).Uint()).Should(Equal(uint64(120)))
+
+		Expect(Create(uint64(240)).Int()).Should(Equal(240))
+		Expect(Create(uint64(240)).Float()).Should(Equal(float64(240)))
+		Expect(Create(uint64(240)).Int64()).Should(Equal(int64(240)))
+		Expect(Create(uint64(240)).Float32()).Should(Equal(float32(240)))
+
+	})
+
 	test.It("Should create Payload with map and return values correctly", func() {
 
 		var source interface{} = map[string]int{
@@ -85,6 +116,15 @@ var _ = test.Describe("Payload", func() {
 		params = Create(source)
 		Expect(params.Get("notFound").Value()).Should(BeNil())
 		Expect(params.Get("string").String()).Should(Equal("Hellow Night!"))
+
+		rawMap := make(map[string]interface{})
+		for key, value := range params.RawMap() {
+			if key == "timeArray" {
+				continue
+			}
+			rawMap[key] = value
+		}
+		Expect(snap.SnapshotMulti("RawMap()", rawMap)).ShouldNot(HaveOccurred())
 
 		moreOfTheSame := Create(params)
 		Expect(moreOfTheSame.Get("notFound").Value()).Should(BeNil())

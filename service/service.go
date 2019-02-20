@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
 
 type Action struct {
 	name     string
 	fullname string
 	handler  moleculer.ActionHandler
-	params   moleculer.ParamsSchema
+	params   moleculer.ActionSchema
 }
 
 type Event struct {
@@ -38,6 +39,7 @@ func (event *Event) Group() string {
 }
 
 type Service struct {
+	nodeID       string
 	fullname     string
 	name         string
 	version      string
@@ -46,9 +48,23 @@ type Service struct {
 	metadata     map[string]interface{}
 	actions      []Action
 	events       []Event
-	created      []moleculer.FuncType
-	started      []moleculer.FuncType
-	stopped      []moleculer.FuncType
+	created      []moleculer.LifecycleFunc
+	started      []moleculer.LifecycleFunc
+	stopped      []moleculer.LifecycleFunc
+	schema       *moleculer.Service
+	logger       *log.Entry
+}
+
+func (service *Service) Schema() *moleculer.Service {
+	return service.schema
+}
+
+func (service *Service) NodeID() string {
+	return service.nodeID
+}
+
+func (service *Service) SetNodeID(nodeID string) {
+	service.nodeID = nodeID
 }
 
 func (service *Service) Dependencies() []string {
@@ -236,7 +252,7 @@ func CreateServiceEvent(eventName, serviceName, group string, handler moleculer.
 	}
 }
 
-func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ParamsSchema) Action {
+func CreateServiceAction(serviceName string, actionName string, handler moleculer.ActionHandler, params moleculer.ActionSchema) Action {
 	return Action{
 		actionName,
 		fmt.Sprintf("%s.%s", serviceName, actionName),
@@ -253,6 +269,11 @@ func (service *Service) AsMap() map[string]interface{} {
 
 	serviceInfo["settings"] = service.settings
 	serviceInfo["metadata"] = service.metadata
+	serviceInfo["nodeID"] = service.nodeID
+
+	if service.nodeID == "" {
+		panic("no service.nodeID")
+	}
 
 	actions := make([]map[string]interface{}, len(service.actions))
 	for index, serviceAction := range service.actions {
@@ -276,16 +297,16 @@ func (service *Service) AsMap() map[string]interface{} {
 	return serviceInfo
 }
 
-func paramsFromMap(schema interface{}) moleculer.ParamsSchema {
+func paramsFromMap(schema interface{}) moleculer.ActionSchema {
 	// if schema != nil {
 	//mapValues = schema.(map[string]interface{})
 	//TODO
 	// }
-	return moleculer.ParamsSchema{}
+	return moleculer.ObjectSchema{nil}
 }
 
 // moleculer.ParamsAsMap converts params schema into a map.
-func paramsAsMap(params *moleculer.ParamsSchema) map[string]interface{} {
+func paramsAsMap(params *moleculer.ActionSchema) map[string]interface{} {
 	//TODO
 	schema := make(map[string]interface{})
 	return schema
@@ -339,6 +360,9 @@ func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
 
 // populateFromMap populate a service with data from a map[string]interface{}.
 func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
+	if nodeID, ok := serviceInfo["nodeID"]; ok {
+		service.nodeID = nodeID.(string)
+	}
 	service.version = serviceInfo["version"].(string)
 	service.name = serviceInfo["name"].(string)
 	service.fullname = joinVersionToName(
@@ -361,7 +385,8 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 }
 
 // populateFromSchema populate a service with data from a moleculer.Service.
-func populateFromSchema(service *Service, schema *moleculer.Service) {
+func (service *Service) populateFromSchema() {
+	schema := service.schema
 	service.name = schema.Name
 	service.version = schema.Version
 	service.fullname = joinVersionToName(service.name, service.version)
@@ -381,7 +406,7 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
-			actionSchema.Payload,
+			actionSchema.Schema,
 		)
 	}
 
@@ -410,14 +435,18 @@ func populateFromSchema(service *Service, schema *moleculer.Service) {
 	}
 }
 
-func FromSchema(schema moleculer.Service) *Service {
+func FromSchema(schema moleculer.Service, logger *log.Entry) *Service {
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
-	service := &Service{}
-	populateFromSchema(service, &schema)
+	service := &Service{schema: &schema, logger: logger}
+	service.populateFromSchema()
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
+	}
+
+	for _, handler := range service.created {
+		go handler((*service.schema), service.logger)
 	}
 	return service
 }
@@ -428,15 +457,23 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
 	}
+	if service.nodeID == "" {
+		panic(errors.New("Service nodeID can't be empty!"))
+	}
 	return service
 }
 
 // Start called by the broker when the service is starting.
 func (service *Service) Start() {
-	//TODO implement service lifecycle
+
+	for _, handler := range service.started {
+		go handler((*service.schema), service.logger)
+	}
 }
 
 // Stop called by the broker when the service is stoping.
 func (service *Service) Stop() {
-	//TODO implement service lifecycle
+	for _, handler := range service.stopped {
+		go handler((*service.schema), service.logger)
+	}
 }

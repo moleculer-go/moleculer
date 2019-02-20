@@ -5,17 +5,18 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
 
 // NodeCatalog catalog of nodes
 type NodeCatalog struct {
-	nodes sync.Map
+	nodes  sync.Map
+	logger *log.Entry
 }
 
 // CreateNodesCatalog create a node catalog
-func CreateNodesCatalog() *NodeCatalog {
-	nodes := sync.Map{}
-	return &NodeCatalog{nodes}
+func CreateNodesCatalog(logger *log.Entry) *NodeCatalog {
+	return &NodeCatalog{sync.Map{}, logger}
 }
 
 // HeartBeat delegate the heart beat to the node in question payload.sender
@@ -30,7 +31,17 @@ func (catalog *NodeCatalog) HeartBeat(heartbeat map[string]interface{}) bool {
 	return false
 }
 
-// checkRemoteNodes : check nodes with  heartbeat expired based on the timeout parameter
+func (catalog *NodeCatalog) list() []moleculer.Node {
+	var result []moleculer.Node
+	catalog.nodes.Range(func(key, value interface{}) bool {
+		node := value.(moleculer.Node)
+		result = append(result, node)
+		return true
+	})
+	return result
+}
+
+// expiredNodes check nodes with  heartbeat expired based on the timeout parameter
 func (catalog *NodeCatalog) expiredNodes(timeout time.Duration) []moleculer.Node {
 	var result []moleculer.Node
 	catalog.nodes.Range(func(key, value interface{}) bool {
@@ -59,6 +70,11 @@ func (catalog *NodeCatalog) removeNode(nodeID string) {
 }
 
 // Info : process info received about a NODE. It can be new, update to existing
+func (catalog *NodeCatalog) Add(node moleculer.Node) {
+	catalog.nodes.Store(node.GetID(), node)
+}
+
+// Info : process info received about a NODE. It can be new, update to existing
 func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 	sender := info["sender"].(string)
 	node, exists := catalog.findNode(sender)
@@ -66,8 +82,9 @@ func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
 	if exists {
 		reconnected = node.Update(info)
 	} else {
-		newNode := CreateNode(sender)
-		catalog.nodes.Store(sender, newNode)
+		node := CreateNode(sender, false, catalog.logger.WithField("remote-node", sender))
+		node.Update(info)
+		catalog.Add(node)
 	}
 	return exists, reconnected
 }

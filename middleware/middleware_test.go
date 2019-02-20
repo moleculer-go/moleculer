@@ -23,7 +23,7 @@ func createLogger(name string, value string) *log.Entry {
 
 func brokerDelegates(nodeID string) moleculer.BrokerDelegates {
 	localBus := bus.Construct()
-	localNode := registry.CreateNode(nodeID)
+	localNode := registry.CreateNode(nodeID, true, logger)
 	broker := moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
 			return localNode
@@ -59,7 +59,7 @@ var _ = Describe("Dispatcher", func() {
 		}
 		dispatcher.Add(handlers)
 
-		svc := service.FromSchema(moleculer.Service{Name: "serviceA"})
+		svc := service.FromSchema(moleculer.Service{Name: "serviceA"}, logger)
 		resultSvc := dispatcher.CallHandlers("serviceStarting", svc)
 
 		Expect(hits).Should(Equal(2))

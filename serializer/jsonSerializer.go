@@ -97,6 +97,49 @@ func (payload JSONPayload) StringArray() []string {
 	return nil
 }
 
+func resultToArray(results []gjson.Result, allTheWay bool) []interface{} {
+	list := make([]interface{}, len(results))
+	for index, item := range results {
+		var value interface{}
+		if item.IsObject() {
+			value = resultToMap(item, allTheWay)
+		} else if item.IsArray() {
+			value = resultToArray(item.Array(), allTheWay)
+		} else {
+			value = item.Value()
+		}
+		list[index] = value
+	}
+	return list
+}
+
+func resultToMap(result gjson.Result, allTheWay bool) map[string]interface{} {
+	mvalues := make(map[string]interface{})
+	result.ForEach(func(key, value gjson.Result) bool {
+		if allTheWay && value.IsObject() {
+			mvalues[key.String()] = resultToMap(value, allTheWay)
+		} else if allTheWay && value.IsArray() {
+			mvalues[key.String()] = resultToArray(value.Array(), allTheWay)
+		} else {
+			mvalues[key.String()] = value.Value()
+		}
+		return true
+	})
+	return mvalues
+}
+
+func (payload JSONPayload) MapArray() []map[string]interface{} {
+	if payload.IsArray() {
+		source := payload.result.Array()
+		array := make([]map[string]interface{}, len(source))
+		for index, item := range source {
+			array[index] = resultToMap(item, true)
+		}
+		return array
+	}
+	return nil
+}
+
 func (payload JSONPayload) ValueArray() []interface{} {
 	if payload.IsArray() {
 		source := payload.result.Array()

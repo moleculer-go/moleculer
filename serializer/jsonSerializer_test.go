@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	snap "github.com/moleculer-go/cupaloy"
 	"github.com/moleculer-go/moleculer"
 
 	"github.com/moleculer-go/moleculer/context"
@@ -111,6 +112,11 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.IsError()).Should(Equal(true))
 		Expect(message.Error()).Should(BeEquivalentTo(errors.New("shit happened!")))
 
+		json = []byte(`{"rootMap":{"text":"shit happened!", "textList":["item1", "item2"], "objList":[{"subMap":{"prop1":"value"}}, {"name":"john", "list":[1,2,3]}] }`)
+		message = serializer.BytesToPayload(&json)
+		Expect(message.IsError()).Should(BeFalse())
+
+		Expect(snap.SnapshotMulti("RawMap()", message.RawMap())).ShouldNot(HaveOccurred())
 	})
 
 	It("Should convert between context and Transit Message", func() {
@@ -122,7 +128,7 @@ var _ = Describe("JSON Serializer", func() {
 			"name":     "John",
 			"lastName": "Snow",
 		}
-		actionContext := contextA.NewActionContext(actionName, payload.Create(params))
+		actionContext := contextA.ChildActionContext(actionName, payload.Create(params))
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "original_sender"

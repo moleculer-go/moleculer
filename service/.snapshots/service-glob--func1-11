@@ -30,8 +30,8 @@
         (moleculer.Action) {
           Name: (string) (len=4) "tide",
           Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
-          Payload: (moleculer.ParamsSchema) {
-          }
+          Schema: (moleculer.ActionSchema) <nil>,
+          Description: (string) ""
         }
       },
       Events: ([]moleculer.Event) (len=2) {
@@ -46,23 +46,23 @@
           Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
         }
       },
-      Created: (moleculer.FuncType) <moleculer.FuncType Value>,
-      Started: (moleculer.FuncType) <moleculer.FuncType Value>,
-      Stopped: (moleculer.FuncType) <moleculer.FuncType Value>
+      Created: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+      Started: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+      Stopped: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>
     }
   },
   Actions: ([]moleculer.Action) (len=2) {
     (moleculer.Action) {
       Name: (string) (len=6) "rotate",
       Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
-      Payload: (moleculer.ParamsSchema) {
-      }
+      Schema: (moleculer.ActionSchema) <nil>,
+      Description: (string) ""
     },
     (moleculer.Action) {
       Name: (string) (len=4) "tide",
       Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
-      Payload: (moleculer.ParamsSchema) {
-      }
+      Schema: (moleculer.ActionSchema) <nil>,
+      Description: (string) ""
     }
   },
   Events: ([]moleculer.Event) (len=3) {
@@ -82,7 +82,7 @@
       Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
     }
   },
-  Created: (moleculer.FuncType) <moleculer.FuncType Value>,
-  Started: (moleculer.FuncType) <moleculer.FuncType Value>,
-  Stopped: (moleculer.FuncType) <moleculer.FuncType Value>
+  Created: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+  Started: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+  Stopped: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>
 }

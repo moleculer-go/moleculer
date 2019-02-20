@@ -3,6 +3,7 @@ package registry
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
@@ -51,23 +52,26 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)
+	logger := broker.Logger("registry", "Moleculer Registry")
+	nodeID := config.DiscoverNodeID()
+	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
 	registry := &ServiceRegistry{
 		broker:                broker,
 		transit:               transit,
 		strategy:              strategy,
-		logger:                broker.Logger("registry", "Service Registry"),
-		actions:               CreateActionCatalog(),
-		events:                CreateEventCatalog(broker.Logger("catalog", "Events")),
-		services:              CreateServiceCatalog(broker.Logger("catalog", "Services")),
-		nodes:                 CreateNodesCatalog(),
-		localNode:             broker.LocalNode(),
+		logger:                logger,
+		localNode:             localNode,
+		actions:               CreateActionCatalog(logger.WithField("catalog", "Actions")),
+		events:                CreateEventCatalog(logger.WithField("catalog", "Events")),
+		services:              CreateServiceCatalog(logger.WithField("catalog", "Services")),
+		nodes:                 CreateNodesCatalog(logger.WithField("catalog", "Nodes")),
 		heartbeatFrequency:    config.HeartbeatFrequency,
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
 		stoping:               false,
 	}
 
-	registry.logger.Info("Service Registry created for broker: ", broker.LocalNode().GetID())
+	registry.logger.Info("Service Registry created for broker: ", nodeID)
 
 	broker.Bus().On("$broker.started", func(args ...interface{}) {
 		registry.logger.Debug("Registry -> $broker.started event")
@@ -83,6 +87,10 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 
 func (registry *ServiceRegistry) KnowService(name string) bool {
 	return registry.services.FindByName(name)
+}
+
+func (registry *ServiceRegistry) LocalNode() moleculer.Node {
+	return registry.localNode
 }
 
 func (registry *ServiceRegistry) setupMessageHandlers() {
@@ -111,6 +119,10 @@ func (registry *ServiceRegistry) Stop() {
 
 }
 
+func (registry *ServiceRegistry) LocalServices() []*service.Service {
+	return []*service.Service{createNodeService(registry)}
+}
+
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
@@ -121,6 +133,8 @@ func (registry *ServiceRegistry) Start() {
 	}
 	<-registry.transit.DiscoverNodes()
 
+	registry.nodes.Add(registry.localNode)
+
 	if registry.heartbeatFrequency > 0 {
 		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.transit.SendHeartbeat)
 	}
@@ -130,6 +144,14 @@ func (registry *ServiceRegistry) Start() {
 	if registry.offlineCheckFrequency > 0 {
 		go registry.loopWhileAlive(registry.offlineCheckFrequency, registry.checkOfflineNodes)
 	}
+}
+
+func (registry *ServiceRegistry) ServiceForAction(name string) *service.Service {
+	action := registry.actions.Find(name, true)
+	if action != nil {
+		return action.Service()
+	}
+	return nil
 }
 
 // HandleRemoteEvent handle when a remote event is delivered and call all the local handlers.
@@ -149,12 +171,12 @@ func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerConte
 	}
 	entries := registry.events.Find(name, groups, true, true, stg)
 	for _, localEvent := range entries {
-		localEvent.emitLocalEvent(context)
+		go localEvent.emitLocalEvent(context)
 	}
 }
 
 // LoadBalanceEvent load balance an event based on the known targetNodes.
-func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) {
+func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContext) []*EventEntry {
 	name := context.EventName()
 	params := context.Payload()
 	groups := context.Groups()
@@ -162,10 +184,11 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " params: ", params)
 
 	entries := registry.events.Find(name, groups, true, false, registry.strategy)
+	fmt.Println("LoadBalanceEvent() entries find (name: ", name, " groups: ", groups, " preffer local: true, localOnly: false - source broker: ", registry.localNode.GetID(), ") results :-> ", entries)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
-		return
+		return nil
 	}
 
 	for _, eventEntry := range entries {
@@ -176,19 +199,21 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 		}
 	}
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " End.")
+	return entries
 }
 
-func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) {
+func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext) []*EventEntry {
 	name := context.EventName()
 	groups := context.Groups()
 	eventSig := fmt.Sprint("name: ", name, " groups: ", groups)
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " payload: ", context.Payload())
 
 	entries := registry.events.Find(name, groups, false, false, nil)
+	fmt.Println("BroadcastEvent() entries find (name: ", name, " groups: ", groups, " prefer local: false, localOnly: false - source broker: ", registry.localNode.GetID(), ") results :-> ", entries)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
-		return
+		return nil
 	}
 
 	for _, eventEntry := range entries {
@@ -199,6 +224,7 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 		}
 	}
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " End.")
+	return entries
 }
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
@@ -269,8 +295,10 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 }
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
-	expiredNodes := registry.nodes.expiredNodes(registry.offlineCheckFrequency * 10)
 	timeout := registry.offlineCheckFrequency * 10
+	registry.logger.Debug("checkOfflineNodes() timeout in seconds: ", timeout.Seconds())
+
+	expiredNodes := registry.nodes.expiredNodes(timeout)
 	for _, node := range expiredNodes {
 		nodeID := node.GetID()
 		registry.nodes.removeNode(nodeID)
@@ -292,7 +320,7 @@ func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegat
 func (registry *ServiceRegistry) filterMessages(handler func(message moleculer.Payload)) func(message moleculer.Payload) {
 	return func(message moleculer.Payload) {
 		if registry.stoping {
-			registry.logger.Error("filterMessages() - registry is stoping. Discarding message: ", message)
+			registry.logger.Warn("filterMessages() - registry is stoping. Discarding message: ", message)
 			return
 		}
 		if message.Get("sender").Exists() && message.Get("sender").String() == registry.localNode.GetID() {
@@ -335,15 +363,17 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	exists, reconnected := registry.nodes.Info(nodeInfo)
 	for _, item := range services {
 		serviceInfo := item.(map[string]interface{})
-		updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
+		fmt.Println("remoteNodeInfoReceived() serviceInfo :-> ", serviceInfo)
+
+		svc, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {
 			serviceAction := service.CreateServiceAction(
 				serviceInfo["name"].(string),
 				newAction.Name(),
 				nil,
-				moleculer.ParamsSchema{})
-			registry.actions.Add(nodeID, serviceAction, false)
+				moleculer.ObjectSchema{nil})
+			registry.actions.Add(serviceAction, svc, false)
 		}
 
 		for _, updates := range updatedActions {
@@ -362,7 +392,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 				serviceInfo["name"].(string),
 				newEvent.Group(),
 				newEvent.Handler())
-			registry.events.Add(nodeID, serviceEvent, false)
+			registry.events.Add(serviceEvent, svc, false)
 		}
 
 		for _, updates := range updatedEvents {
@@ -397,18 +427,14 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	if registry.services.Find(service.Name(), service.Version(), registry.localNode.GetID()) {
 		return
 	}
+	registry.logger.Debug("AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName())
 
-	nodeID := registry.localNode.GetID()
-	registry.logger.Debug("AddLocalService() nodeID: ", nodeID, " service.fullname: ", service.FullName())
-
-	registry.services.Add(nodeID, service)
-
+	registry.services.Add(service)
 	for _, action := range service.Actions() {
-		registry.actions.Add(nodeID, action, true)
+		registry.actions.Add(action, service, true)
 	}
-
 	for _, event := range service.Events() {
-		registry.events.Add(nodeID, event, true)
+		registry.events.Add(event, service, true)
 	}
 
 	registry.localNode.AddService(service.AsMap())
@@ -428,4 +454,29 @@ func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy
 		return registry.actions.NextFromNode(actionName, nodeID)
 	}
 	return registry.actions.Next(actionName, strategy)
+}
+
+func (registry *ServiceRegistry) KnownEventListeners(addNode bool) []string {
+	events := registry.events.list()
+	result := make([]string, len(events))
+	for index, event := range events {
+		if addNode {
+			result[index] = fmt.Sprint(event.targetNodeID, ".", event.event.ServiceName(), ".", event.event.Name())
+		} else {
+			result[index] = fmt.Sprint(event.event.ServiceName(), ".", event.event.Name())
+		}
+
+	}
+	sort.Strings(result)
+	return result
+}
+
+func (registry *ServiceRegistry) KnownNodes() []string {
+	nodes := registry.nodes.list()
+	result := make([]string, len(nodes))
+	for index, node := range nodes {
+		result[index] = node.GetID()
+	}
+	sort.Strings(result)
+	return result
 }

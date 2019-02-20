@@ -5,6 +5,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type AfterActionParams struct {
+	BrokerContext moleculer.BrokerContext
+	Result        moleculer.Payload
+}
+
 type Dispatch struct {
 	handlers map[string][]moleculer.MiddlewareHandler
 	logger   *log.Entry
@@ -15,7 +20,7 @@ func Dispatcher(logger *log.Entry) *Dispatch {
 	return &Dispatch{handlers, logger}
 }
 
-var validHandlers = []string{"brokerStoping", "brokerStoped", "brokerStarting", "brokerStarted", "serviceStoping", "serviceStoped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
+var validHandlers = []string{"brokerConfig", "brokerStoping", "brokerStoped", "brokerStarting", "brokerStarted", "serviceStoping", "serviceStoped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
 
 // validHandler check if the name of handlers midlewares are tryignt o register exists!
 func (dispatch *Dispatch) validHandler(name string) bool {
@@ -33,6 +38,11 @@ func (dispatch *Dispatch) Add(mwares moleculer.Middlewares) {
 			dispatch.handlers[name] = append(dispatch.handlers[name], handler)
 		}
 	}
+}
+
+func (dispatch *Dispatch) Has(name string) bool {
+	items, exists := dispatch.handlers[name]
+	return exists && len(items) > 0
 }
 
 // nextHandler return a next function that invoke next midlewares until the end of the stack.
@@ -62,6 +72,7 @@ func nextHandler(handlers *[]moleculer.MiddlewareHandler, index *int, params int
 func (dispatch *Dispatch) CallHandlers(name string, params interface{}) interface{} {
 	handlers := dispatch.handlers[name]
 	if len(handlers) > 0 {
+		dispatch.logger.Info("hanve Handlers len(handlers) ", len(handlers))
 		result := make(chan interface{})
 		index := 0
 		go func() {

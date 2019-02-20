@@ -14,22 +14,29 @@ type ActionEntry struct {
 	targetNodeID string
 	action       *service.Action
 	isLocal      bool
+	service      *service.Service
+	logger       *log.Entry
 }
 
 type actionsMap map[string][]ActionEntry
 
 type ActionCatalog struct {
 	actions sync.Map
+	logger  *log.Entry
 }
 
-func CreateActionCatalog() *ActionCatalog {
-	actions := sync.Map{}
-	return &ActionCatalog{actions: actions}
+func CreateActionCatalog(logger *log.Entry) *ActionCatalog {
+	return &ActionCatalog{actions: sync.Map{}, logger: logger}
 }
 
-func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result chan moleculer.Payload) {
+var actionCallRecovery = true //TODO extract this to a Config - useful to turn for Debug in tests.
+
+func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext, result chan moleculer.Payload) {
+	if !actionCallRecovery {
+		return
+	}
 	if err := recover(); err != nil {
-		logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
+		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
 		result <- payload.Create(err)
 	}
 }
@@ -37,15 +44,17 @@ func catchActionError(context moleculer.BrokerContext, logger *log.Entry, result
 func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
 	result := make(chan moleculer.Payload)
 
-	logger := context.Logger().WithField("actionCatalog", "invokeLocalAction")
-	logger.Debug("Before Invoking action: ", context.ActionName())
+	actionEntry.logger.Debug("Before Invoking action: ", context.ActionName())
 
 	go func() {
-		defer catchActionError(context, logger, result)
+		defer actionEntry.catchActionError(context, result)
 		handler := actionEntry.action.Handler()
 		actionResult := handler(context.(moleculer.Context), context.Payload())
-		logger.Debug("local action invoked ! action: ", context.ActionName(),
+
+		actionEntry.logger.Debug("After Invoking action: ", context.ActionName())
+		actionEntry.logger.Trace("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
+
 		result <- payload.Create(actionResult)
 	}()
 
@@ -60,11 +69,40 @@ func (actionEntry ActionEntry) IsLocal() bool {
 	return actionEntry.isLocal
 }
 
-// Add a new action to the catalog.
-func (actionCatalog *ActionCatalog) Add(nodeID string, action service.Action, local bool) {
-	entry := ActionEntry{nodeID, &action, local}
-	name := action.FullName()
+func (actionEntry ActionEntry) Service() *service.Service {
+	return actionEntry.service
+}
 
+func (actionCatalog *ActionCatalog) listByName() map[string][]ActionEntry {
+	result := make(map[string][]ActionEntry)
+	actionCatalog.actions.Range(func(key, value interface{}) bool {
+		result[key.(string)] = value.([]ActionEntry)
+		return true
+	})
+	return result
+}
+
+func (actionCatalog *ActionCatalog) Find(name string, local bool) *ActionEntry {
+	list, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		return nil
+	}
+	actions := list.([]ActionEntry)
+	if !local && len(actions) > 0 {
+		return &actions[0]
+	}
+	for _, action := range actions {
+		if action.isLocal {
+			return &action
+		}
+	}
+	return nil
+}
+
+// Add a new action to the catalog.
+func (actionCatalog *ActionCatalog) Add(action service.Action, service *service.Service, local bool) {
+	entry := ActionEntry{service.NodeID(), &action, local, service, actionCatalog.logger}
+	name := action.FullName()
 	list, exists := actionCatalog.actions.Load(name)
 	if !exists {
 		list = []ActionEntry{entry}
@@ -127,16 +165,25 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
 	list, exists := actionCatalog.actions.Load(actionName)
 	if !exists {
+		actionCatalog.logger.Debug("actionCatalog.Next() no entries found for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 		return nil
 	}
 	actions := list.([]ActionEntry)
 	nodes := make([]strategy.Selector, len(actions))
+	var localAction *ActionEntry
 	for index, action := range actions {
 		nodes[index] = action
+		if action.IsLocal() {
+			localAction = &action
+		}
+	}
+	if localAction != nil {
+		return localAction
 	}
 	if selected := stg.Select(nodes); selected != nil {
 		entry := (*selected).(ActionEntry)
 		return &entry
 	}
+	actionCatalog.logger.Debug("actionCatalog.Next() no entries selected for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 	return nil
 }

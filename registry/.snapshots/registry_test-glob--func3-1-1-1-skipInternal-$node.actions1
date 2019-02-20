@@ -1,0 +1,19 @@
+([][]map[string]interface {}) (len=7) {
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=13) "printer.print"
+    }
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) {
+  }
+}

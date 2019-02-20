@@ -5,10 +5,11 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
 
 // Create a Service Schema
-func CreateServiceSchema() Service {
+func MathServiceSchema() Service {
 
 	schema := Service{
 		Name: "math",
@@ -37,13 +38,13 @@ func CreateServiceSchema() Service {
 			},
 		},
 		//Mixins: []*Mixin(helloWorldSchema),
-		Created: func() {
+		Created: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service created !")
 		},
-		Started: func() {
+		Started: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service started !")
 		},
-		Stopped: func() {
+		Stopped: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service stopped !")
 		},
 	}

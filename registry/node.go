@@ -2,11 +2,13 @@ package registry
 
 import (
 	"fmt"
+
 	"net"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/version"
+	log "github.com/sirupsen/logrus"
 )
 
 type Node struct {
@@ -22,6 +24,7 @@ type Node struct {
 	lastHeartBeatTime int64
 	offlineSince      int64
 	isLocal           bool
+	logger            *log.Entry
 }
 
 func discoverIpList() []string {
@@ -45,11 +48,11 @@ func discoverIpList() []string {
 }
 
 func discoverHostname() string {
-	hostname := ""
+	hostname := "" //os.Hostname()
 	return hostname
 }
 
-func CreateNode(id string) moleculer.Node {
+func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 	ipList := discoverIpList()
 	hostname := discoverHostname()
 	services := make([]map[string]interface{}, 0)
@@ -63,6 +66,8 @@ func CreateNode(id string) moleculer.Node {
 		ipList:   ipList,
 		hostname: hostname,
 		services: services,
+		logger:   logger,
+		isLocal:  local,
 	}
 	var result moleculer.Node = &node
 	return result
@@ -73,7 +78,7 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	if id != node.id {
 		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
 	}
-
+	node.logger.Debug("node.Update() info: ", info)
 	reconnected := !node.isAvailable
 
 	node.isAvailable = true
@@ -84,16 +89,18 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	node.hostname = info["hostname"].(string)
 	node.client = info["client"].(map[string]interface{})
 
-	item := info["services"]
+	item, ok := info["services"]
 	items := make([]interface{}, 0)
-	if item != nil {
+	if ok {
 		items = item.([]interface{})
 	}
 	services := make([]map[string]interface{}, len(items))
 	for index, item := range items {
 		services[index] = item.(map[string]interface{})
 	}
+	node.validateServices(services)
 	node.services = services
+	node.logger.Debug("node.Update() node.services: ", node.services)
 
 	node.sequence = int64(info["seq"].(float64))
 	node.cpu = int64(info["cpu"].(float64))
@@ -113,6 +120,7 @@ func interfaceToString(list []interface{}) []string {
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {
+	node.validateServices(node.services)
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
 	resultMap["services"] = node.services
@@ -129,11 +137,7 @@ func (node *Node) GetID() string {
 	return node.id
 }
 func (node *Node) IsExpired(timeout time.Duration) bool {
-	return node.isExpiredImpl(timeout)
-}
-
-func (node *Node) isExpiredImpl(timeout time.Duration) bool {
-	if !node.isAvailable || node.isLocal {
+	if node.IsLocal() || !node.IsAvailable() {
 		return false
 	}
 	diff := time.Now().Unix() - node.lastHeartBeatTime
@@ -150,7 +154,35 @@ func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
+func (node *Node) validateService(service map[string]interface{}) {
+	name := service["name"].(string)
+	if "$node" == name {
+		return
+	}
+	raw, exists := service["events"]
+	if !exists {
+		fmt.Println("invalid service -> service: ", service)
+		//panic("invalid service - no events")
+	}
+	mapList, mapType := raw.([]map[string]interface{})
+	interfaceList, interfaceType := raw.([]interface{})
+	if !mapType && !interfaceType {
+		fmt.Println("invalid service -> service: ", service)
+		//panic("invalid service - invalid events items")
+	}
+	if mapType && len(mapList) == 0 || interfaceType && len(interfaceList) == 0 {
+		fmt.Println("invalid service -> service: ", service)
+		//panic("invalid service - events list is empty")
+	}
+}
+func (node *Node) validateServices(services []map[string]interface{}) {
+	for _, service := range services {
+		node.validateService(service)
+	}
+}
+
 func (node *Node) addServicesImpl(service map[string]interface{}) {
+	node.validateService(service)
 	node.services = append(node.services, service)
 }
 
@@ -159,7 +191,7 @@ func (node *Node) AddService(service map[string]interface{}) {
 }
 
 func (node *Node) IsAvailable() bool {
-	return node.isAvailable
+	return node.isLocal || node.isAvailable
 }
 
 func (node *Node) IsLocal() bool {

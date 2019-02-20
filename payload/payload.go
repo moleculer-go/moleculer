@@ -29,11 +29,23 @@ func (rawPayload *RawPayload) Error() error {
 }
 
 func (rawPayload *RawPayload) Int() int {
-	return rawPayload.source.(int)
+	value, ok := rawPayload.source.(int)
+	if !ok {
+		if transformer := getNumberTransformer(&rawPayload.source); transformer != nil {
+			value = transformer.toInt(&rawPayload.source)
+		}
+	}
+	return value
 }
 
 func (rawPayload *RawPayload) Int64() int64 {
-	return rawPayload.source.(int64)
+	value, ok := rawPayload.source.(int64)
+	if !ok {
+		if transformer := getNumberTransformer(&rawPayload.source); transformer != nil {
+			value = transformer.toInt64(&rawPayload.source)
+		}
+	}
+	return value
 }
 
 func (rawPayload *RawPayload) Bool() bool {
@@ -41,7 +53,13 @@ func (rawPayload *RawPayload) Bool() bool {
 }
 
 func (rawPayload *RawPayload) Uint() uint64 {
-	return rawPayload.source.(uint64)
+	value, ok := rawPayload.source.(uint64)
+	if !ok {
+		if transformer := getNumberTransformer(&rawPayload.source); transformer != nil {
+			value = transformer.toUint64(&rawPayload.source)
+		}
+	}
+	return value
 }
 
 func (rawPayload *RawPayload) Time() time.Time {
@@ -53,6 +71,17 @@ func (rawPayload *RawPayload) StringArray() []string {
 		array := make([]string, len(source))
 		for index, item := range source {
 			array[index] = item.String()
+		}
+		return array
+	}
+	return nil
+}
+
+func (rawPayload *RawPayload) MapArray() []map[string]interface{} {
+	if source := rawPayload.Array(); source != nil {
+		array := make([]map[string]interface{}, len(source))
+		for index, item := range source {
+			array[index] = item.RawMap()
 		}
 		return array
 	}
@@ -190,11 +219,23 @@ func (rawPayload *RawPayload) IsMap() bool {
 }
 
 func (rawPayload *RawPayload) Float() float64 {
-	return rawPayload.source.(float64)
+	value, ok := rawPayload.source.(float64)
+	if !ok {
+		if transformer := getNumberTransformer(&rawPayload.source); transformer != nil {
+			value = transformer.toFloat64(&rawPayload.source)
+		}
+	}
+	return value
 }
 
 func (rawPayload *RawPayload) Float32() float32 {
-	return rawPayload.source.(float32)
+	value, ok := rawPayload.source.(float32)
+	if !ok {
+		if transformer := getNumberTransformer(&rawPayload.source); transformer != nil {
+			value = transformer.toFloat32(&rawPayload.source)
+		}
+	}
+	return value
 }
 
 func (rawPayload *RawPayload) String() string {
