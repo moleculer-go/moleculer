@@ -343,6 +343,133 @@ var _ = Describe("Broker Internals", func() {
 		}, eventsTestSize)
 	})
 
+	Describe("Broker.MCall", func() {
+
+		It("MCall on $node service actions with all params false", func() {
+			actionHandler := func(result string) func(moleculer.Context, moleculer.Payload) interface{} {
+				return func(ctx moleculer.Context, param moleculer.Payload) interface{} {
+					return fmt.Sprint("input: (", param.String(), " ) -> output: ( ", result, " )")
+				}
+			}
+			logLevel := "FATAL"
+			mem := &memory.SharedMemory{}
+			bkr1 := FromConfig(
+				&moleculer.BrokerConfig{
+					LogLevel:       logLevel,
+					DiscoverNodeID: func() string { return "test-broker1" },
+					TransporterFactory: func() interface{} {
+						transport := memory.Create(log.WithField("transport", "memory"), mem)
+						return &transport
+					},
+				},
+			)
+			bkr1.AddService(moleculer.Service{
+				Name: "music",
+				Actions: []moleculer.Action{
+					moleculer.Action{
+						Name:    "start",
+						Handler: actionHandler("start result"),
+					},
+					moleculer.Action{
+						Name:    "end",
+						Handler: actionHandler("end result"),
+					},
+				},
+			})
+
+			bkr2 := FromConfig(
+				&moleculer.BrokerConfig{
+					LogLevel:       logLevel,
+					DiscoverNodeID: func() string { return "test-broker2" },
+					TransporterFactory: func() interface{} {
+						transport := memory.Create(log.WithField("transport", "memory"), mem)
+						return &transport
+					},
+				},
+			)
+			bkr2.AddService(moleculer.Service{
+				Name:         "food",
+				Dependencies: []string{"music"},
+				Actions: []moleculer.Action{
+					moleculer.Action{
+						Name:    "lunch",
+						Handler: actionHandler("lunch result"),
+					},
+					moleculer.Action{
+						Name:    "dinner",
+						Handler: actionHandler("dinner result"),
+					},
+				},
+			})
+
+			bkr1.Start()
+			bkr2.Start()
+
+			mParams := map[string]map[string]interface{}{
+				"food-lunch": map[string]interface{}{
+					"action": "food.lunch",
+					"params": "lunch param",
+				},
+				"food-dinner": map[string]interface{}{
+					"action": "food.dinner",
+					"params": "dinner param",
+				},
+				"music-start": map[string]interface{}{
+					"action": "music.start",
+					"params": "start param",
+				},
+				"music-end": map[string]interface{}{
+					"action": "music.end",
+					"params": "end param",
+				},
+			}
+
+			mcallResults := <-bkr2.MCall(mParams)
+			Expect(snap.SnapshotMulti("bkr2-results", mcallResults)).Should(Succeed())
+
+			mcallResults = <-bkr1.MCall(mParams)
+			Expect(snap.SnapshotMulti("bkr1-results", mcallResults)).Should(Succeed())
+
+			bkr1.Stop()
+			bkr2.Stop()
+		})
+
+		// }
+
+		// orderResults := func(values map[string]moleculer.Payload) interface{} {
+		// 	result := make(map[string][]map[string]interface{})
+		// 	for key, payload := range values {
+		// 		orderBy := "name"
+		// 		if key == "nodes" {
+		// 			orderBy = "id"
+		// 		}
+		// 		result[key] = test.OrderMapArray(payload.MapArray(), orderBy)
+		// 	}
+		// 	return result
+		// }
+
+		// It("MCall on $node service actions with all params false",
+		// 	harness("all-false",
+		// 		map[string]interface{}{
+		// 			"withServices":  false,
+		// 			"withActions":   false,
+		// 			"onlyAvailable": false,
+		// 			"withEndpoints": false,
+		// 			"skipInternal":  false,
+		// 		}, orderResults))
+
+		// It("MCall on $node service actions with all params true",
+		// 	harness("all-true",
+		// 		map[string]interface{}{
+		// 			"withServices":  true,
+		// 			"withActions":   true,
+		// 			"onlyAvailable": true,
+		// 			"withEndpoints": true,
+		// 			"skipInternal":  true,
+		// 		}, orderResults))
+
+	})
+
 	Context("Middlewares", func() {
 
 		It("Should register user middlewares", func() {

@@ -98,7 +98,6 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	for index, item := range items {
 		services[index] = item.(map[string]interface{})
 	}
-	node.validateServices(services)
 	node.services = services
 	node.logger.Debug("node.Update() node.services: ", node.services)
 
@@ -120,7 +119,6 @@ func interfaceToString(list []interface{}) []string {
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {
-	node.validateServices(node.services)
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
 	resultMap["services"] = node.services
@@ -154,35 +152,7 @@ func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
-func (node *Node) validateService(service map[string]interface{}) {
-	name := service["name"].(string)
-	if "$node" == name {
-		return
-	}
-	raw, exists := service["events"]
-	if !exists {
-		fmt.Println("invalid service -> service: ", service)
-		//panic("invalid service - no events")
-	}
-	mapList, mapType := raw.([]map[string]interface{})
-	interfaceList, interfaceType := raw.([]interface{})
-	if !mapType && !interfaceType {
-		fmt.Println("invalid service -> service: ", service)
-		//panic("invalid service - invalid events items")
-	}
-	if mapType && len(mapList) == 0 || interfaceType && len(interfaceList) == 0 {
-		fmt.Println("invalid service -> service: ", service)
-		//panic("invalid service - events list is empty")
-	}
-}
-func (node *Node) validateServices(services []map[string]interface{}) {
-	for _, service := range services {
-		node.validateService(service)
-	}
-}
-
 func (node *Node) addServicesImpl(service map[string]interface{}) {
-	node.validateService(service)
 	node.services = append(node.services, service)
 }
 

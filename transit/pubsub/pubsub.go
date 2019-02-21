@@ -74,12 +74,14 @@ func Create(broker moleculer.BrokerDelegates) transit.Transit {
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	var nodeID string = values[0].(string)
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
+	pubsub.pendingRequestsMutex.Lock()
 	pending, exists := pubsub.pendingRequests[nodeID]
-	pubsub.neighboursMutex.Lock()
 	if exists {
-		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID))
+		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
+	pubsub.pendingRequestsMutex.Unlock()
+	pubsub.neighboursMutex.Lock()
 	delete(pubsub.knownNeighbours, nodeID)
 	pubsub.neighboursMutex.Unlock()
 }
@@ -248,9 +250,9 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 		pubsub.logger.Error("Request() Error serializing the payload: ", payload, " error: ", err)
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
-	pubsub.pendingRequestsMutex.Lock()
-	pubsub.logger.Debug("Request() pending request id: ", context.ID())
 
+	pubsub.logger.Debug("Request() pending request id: ", context.ID())
+	pubsub.pendingRequestsMutex.Lock()
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
@@ -297,7 +299,9 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 		sender := message.Get("sender").String()
 		pubsub.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " context id: ", id)
 
+		pubsub.pendingRequestsMutex.Lock()
 		request, exists := pubsub.pendingRequests[id]
+		pubsub.pendingRequestsMutex.Unlock()
 		if !exists {
 			pubsub.logger.Debug("reponseHandler() - discarding response -> request does not exist for id: ", id, " - message: ", message.Value())
 			return
