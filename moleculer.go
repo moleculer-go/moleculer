@@ -176,6 +176,7 @@ type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
 type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) *Service
+type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 
 type OptionsFunc func(key string) interface{}
 
@@ -199,7 +200,7 @@ type Node interface {
 }
 type Context interface {
 	//context methods used by services
-	MCall(map[string]map[string]interface{}) chan map[string]interface{}
+	MCall(map[string]map[string]interface{}) chan map[string]Payload
 	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
@@ -230,14 +231,15 @@ type BrokerContext interface {
 
 //Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
 type BrokerDelegates struct {
-	LocalNode         LocalNodeFunc
-	Logger            LoggerFunc
-	Bus               BusFunc
-	IsStarted         isStartedFunc
-	Config            BrokerConfig
-	ActionDelegate    ActionDelegateFunc
-	EmitEvent         EmitEventFunc
-	BroadcastEvent    EmitEventFunc
-	HandleRemoteEvent EmitEventFunc
-	ServiceForAction  ServiceForActionFunc
+	LocalNode          LocalNodeFunc
+	Logger             LoggerFunc
+	Bus                BusFunc
+	IsStarted          isStartedFunc
+	Config             BrokerConfig
+	MultActionDelegate MultActionDelegateFunc
+	ActionDelegate     ActionDelegateFunc
+	EmitEvent          EmitEventFunc
+	BroadcastEvent     EmitEventFunc
+	HandleRemoteEvent  EmitEventFunc
+	ServiceForAction   ServiceForActionFunc
 }

@@ -245,6 +245,60 @@ func (broker *ServiceBroker) Stop() {
 	broker.middlewares.CallHandlers("brokerStoped", broker.delegates)
 }
 
+type callPair struct {
+	label  string
+	result moleculer.Payload
+}
+
+func (broker *ServiceBroker) invokeMCalls(callMaps map[string]map[string]interface{}, result chan map[string]moleculer.Payload) {
+	if len(callMaps) == 0 {
+		result <- make(map[string]moleculer.Payload)
+		return
+	}
+	timeoutChan := make(chan bool, 1)
+	go func(timeout time.Duration) {
+		time.Sleep(timeout)
+		timeoutChan <- true
+	}(broker.config.MCallTimeout)
+
+	callResults := make(chan callPair, len(callMaps))
+	for label, content := range callMaps {
+		go func(label, actionName string, params interface{}, callResults chan callPair) {
+			result := <-broker.Call(actionName, params)
+			callResults <- callPair{label, result}
+		}(label, content["action"].(string), content["params"], callResults)
+	}
+
+	results := make(map[string]moleculer.Payload)
+	for {
+		select {
+		case pair := <-callResults:
+			results[pair.label] = pair.result
+			if len(results) == len(callMaps) {
+				result <- results
+				return
+			}
+		case <-timeoutChan:
+			timeoutError := errors.New("MCall timeout error.")
+			broker.logger.Error(timeoutError)
+			for label, _ := range callMaps {
+				if _, exists := results[label]; !exists {
+					results[label] = payload.Create(timeoutError)
+				}
+			}
+			result <- results
+			return
+		}
+	}
+}
+
+// MCall perform multiple calls and return all results together in a nice map indexed by name.
+func (broker *ServiceBroker) MCall(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
+	result := make(chan map[string]moleculer.Payload, 1)
+	go broker.invokeMCalls(callMaps, result)
+	return result
+}
+
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
 func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
@@ -353,6 +407,9 @@ func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
 				return svc.Schema()
 			}
 			return nil
+		},
+		MultActionDelegate: func(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
+			return broker.MCall(callMaps)
 		},
 	}
 }
