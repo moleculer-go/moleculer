@@ -16,7 +16,7 @@ func CreateLogger(name string, value string) *log.Entry {
 
 func BrokerDelegates(nodeID string) moleculer.BrokerDelegates {
 	localBus := Construct()
-	localNode := registry.CreateNode(nodeID)
+	localNode := registry.CreateNode(nodeID, true, logger)
 	broker := moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
 			return localNode

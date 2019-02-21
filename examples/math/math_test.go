@@ -11,7 +11,7 @@ import (
 var _ = test.Describe("Math", func() {
 
 	test.It("Can create a valid service definition", func() {
-		serviceDefinition := CreateServiceSchema()
+		serviceDefinition := MathServiceSchema()
 
 		Expect(serviceDefinition).Should(Not(BeNil()))
 		Expect(serviceDefinition.Name).To(Equal("math"))
@@ -28,10 +28,8 @@ var _ = test.Describe("Math", func() {
 	})
 
 	test.It("Can start broker with service and call actions", func() {
-		serviceDefinition := CreateServiceSchema()
-
 		broker := broker.FromConfig()
-		broker.AddService(serviceDefinition)
+		broker.AddService(MathServiceSchema())
 		broker.Start()
 
 		Expect(broker).Should(Not(BeNil()))
@@ -41,7 +39,7 @@ var _ = test.Describe("Math", func() {
 			"b": 10,
 		})
 
-		Expect(result).Should(Not(BeNil()))
-		Expect(result).Should(Equal(11))
+		Expect(result.Value()).Should(Not(BeNil()))
+		Expect(result.Value()).Should(Equal(11))
 	})
 })

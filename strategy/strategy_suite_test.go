@@ -4,59 +4,34 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/moleculer-go/moleculer/strategy"
-	test "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var logger = log.WithField("Unit Test", true)
 
-var _ = test.Describe("Strategy", func() {
+type SelectorImpl struct {
+	targetNodeID string
+}
+
+func (sel SelectorImpl) TargetNodeID() string {
+	return sel.targetNodeID
+}
+
+var _ = Describe("Strategy", func() {
 	thisStrategy := strategy.RoundRobinStrategy{}
 
-	thisNodeMap := []string{"alpha", "beta", "gamma", "delta"}
+	list := []strategy.Selector{SelectorImpl{"alpha"}, SelectorImpl{"beta"}, SelectorImpl{"gamma"}, SelectorImpl{"delta"}}
 
-	thisEmptyMap := []string{}
+	emptyList := []strategy.Selector{}
 
-	thisNode := thisStrategy.SelectTargetNode(thisNodeMap)
-
-	test.It("Should return a target node according to strategy", func() {
+	It("Should return a ramdon target node according to strategy", func() {
+		thisNode := thisStrategy.Select(list)
 		Expect(thisNode).Should(Not(BeNil()))
-		//Expect(thisNode).Should(Equal("alpha"))
 	})
 
-	thisNode = thisStrategy.SelectTargetNode(thisNodeMap)
-
-	test.It("Should return a target node according to strategy", func() {
-		Expect(thisNode).Should(Not(BeNil()))
-		//Expect(thisNode).Should(Equal("alpha"))
+	It("Should return a target node according to strategy", func() {
+		thisNode := thisStrategy.Select(emptyList)
+		Expect(thisNode).Should(BeNil())
 	})
-
-	thisNode = thisStrategy.SelectTargetNode(thisEmptyMap)
-
-	test.It("Should return empty", func() {
-		//Expect(thisNode).Should(Not(BeNil()))
-		Expect(thisNode).Should(Equal(""))
-	})
-
-	thisNode = thisStrategy.SelectTargetNode(thisNodeMap)
-
-	test.It("Should return a target node according to strategy", func() {
-		Expect(thisNode).Should(Not(BeNil()))
-		//Expect(thisNode).Should(Equal("alpha"))
-	})
-
-	thisNode = thisStrategy.SelectTargetNode(thisNodeMap)
-
-	test.It("Should return a target node according to strategy", func() {
-		Expect(thisNode).Should(Not(BeNil()))
-		//Expect(thisNode).Should(Equal("alpha"))
-	})
-
-	thisNode = thisStrategy.SelectTargetNode(thisEmptyMap)
-
-	test.It("Should return empty", func() {
-		//Expect(thisNode).Should(Not(BeNil()))
-		Expect(thisNode).Should(Equal(""))
-	})
-
 })

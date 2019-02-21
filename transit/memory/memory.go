@@ -1,50 +1,71 @@
 package memory
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/transit"
+	"github.com/moleculer-go/moleculer/util"
 	log "github.com/sirupsen/logrus"
 )
 
-var handlers map[string][]transit.TransportHandler
-var mutex = &sync.Mutex{}
-
-type MemoryTransporter struct {
-	prefix         string
-	logger         *log.Entry
-	messageIsValid transit.ValidateMsgFunc
-	connected      bool
+type Subscription struct {
+	id      string
+	handler transit.TransportHandler
+	active  bool
 }
 
-func CreateTransporter(prefix string, logger *log.Entry, messageIsValid transit.ValidateMsgFunc) MemoryTransporter {
-	mutex.Lock()
-	defer mutex.Unlock()
-	if handlers == nil {
-		handlers = make(map[string][]transit.TransportHandler)
+type SharedMemory struct {
+	handlers map[string][]Subscription
+	mutex    *sync.Mutex
+}
+
+type MemoryTransporter struct {
+	prefix        string
+	instanceID    string
+	logger        *log.Entry
+	memory        *SharedMemory
+	subscriptions []Subscription
+}
+
+func Create(logger *log.Entry, memory *SharedMemory) MemoryTransporter {
+	instanceID := util.RandomString(5)
+	subscriptions := make([]Subscription, 0)
+	if memory.handlers == nil {
+		memory.handlers = make(map[string][]Subscription)
 	}
-	return MemoryTransporter{prefix: prefix, logger: logger, messageIsValid: messageIsValid, connected: false}
+	if memory.mutex == nil {
+		memory.mutex = &sync.Mutex{}
+	}
+	return MemoryTransporter{memory: memory, logger: logger, instanceID: instanceID, subscriptions: subscriptions}
+}
+
+func (transporter *MemoryTransporter) SetPrefix(prefix string) {
+	transporter.prefix = prefix
 }
 
 func (transporter *MemoryTransporter) Connect() chan bool {
+	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Connecting() ...")
 	endChan := make(chan bool)
-	transporter.connected = true
 	go func() {
-		endChan <- transporter.connected
+		endChan <- true
 	}()
-	transporter.logger.Debug("Memory transporter connected!")
+	transporter.logger.Info("[Mem-Trans-", transporter.instanceID, "] -> Connected() !")
 	return endChan
 }
 
 func (transporter *MemoryTransporter) Disconnect() chan bool {
 	endChan := make(chan bool)
-	transporter.connected = false
+	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Disconnecting() ...")
+	for _, subscription := range transporter.subscriptions {
+		subscription.active = false
+		subscription.handler = nil
+	}
 	go func() {
 		endChan <- true
 	}()
-	transporter.logger.Debug("Memory transporter disconnected!")
+	transporter.logger.Info("[Mem-Trans-", transporter.instanceID, "] -> Disconnected() !")
 	return endChan
 }
 
@@ -56,41 +77,34 @@ func topicName(transporter *MemoryTransporter, command string, nodeID string) st
 }
 
 func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
-	if !transporter.connected {
-		panic(errors.New("Transport is not connected !"))
-	}
 	topic := topicName(transporter, command, nodeID)
-	transporter.logger.Trace("memory.Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
+	transporter.logger.Trace("[Mem-Trans-", transporter.instanceID, "] Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
-	wrapper := func(message transit.Message) {
-		if transporter.connected {
-			handler(message)
-		} else {
-			transporter.logger.Warn("memory.Subscribe() transport disconnected -> discarding message -> command: ", command, " nodeID: ", nodeID, " topic: ", topic)
-		}
-	}
+	subscription := Subscription{util.RandomString(5), handler, true}
+	transporter.subscriptions = append(transporter.subscriptions, subscription)
 
-	_, exists := handlers[topic]
+	transporter.memory.mutex.Lock()
+	_, exists := transporter.memory.handlers[topic]
 	if exists {
-		handlers[topic] = append(handlers[topic], wrapper)
+		transporter.memory.handlers[topic] = append(transporter.memory.handlers[topic], subscription)
 	} else {
-		mutex.Lock()
-		handlers[topic] = []transit.TransportHandler{wrapper}
-		mutex.Unlock()
+		transporter.memory.handlers[topic] = []Subscription{subscription}
 	}
+	transporter.memory.mutex.Unlock()
 }
 
-func (transporter *MemoryTransporter) Publish(command, nodeID string, message transit.Message) {
-	if !transporter.connected {
-		panic(errors.New("Transport is not connected !"))
-	}
+func (transporter *MemoryTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	topic := topicName(transporter, command, nodeID)
-	transporter.logger.Trace("memory.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
+	transporter.logger.Trace("[Mem-Trans-", transporter.instanceID, "] Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
 
-	handlers, exists := handlers[topic]
+	transporter.memory.mutex.Lock()
+	subscriptions, exists := transporter.memory.handlers[topic]
+	transporter.memory.mutex.Unlock()
 	if exists {
-		for _, handler := range handlers {
-			handler(message)
+		for _, subscription := range subscriptions {
+			if subscription.active {
+				go subscription.handler(message)
+			}
 		}
 	}
 }

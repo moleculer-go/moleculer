@@ -1,4 +1,4 @@
-package params_test
+package metrics
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestParams(t *testing.T) {
+func TestMetrics(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Params Suite")
+	RunSpecs(t, "Metrics Suite")
 }

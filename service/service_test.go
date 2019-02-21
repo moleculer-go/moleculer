@@ -28,7 +28,7 @@ var _ = test.Describe("MergeActions", func() {
 		Actions: []Action{
 			Action{
 				Name: "rotate",
-				Handler: func(ctx Context, params Params) interface{} {
+				Handler: func(ctx Context, params Payload) interface{} {
 					return "Hellow Leleu ;) I'm rotating ..."
 				},
 			},
@@ -36,7 +36,7 @@ var _ = test.Describe("MergeActions", func() {
 		Events: []Event{
 			Event{
 				Name: "earth.rotates",
-				Handler: func(ctx Context, params Params) {
+				Handler: func(ctx Context, params Payload) {
 					fmt.Println("spining spining spining")
 				},
 			},
@@ -53,7 +53,7 @@ var _ = test.Describe("MergeActions", func() {
 		}, Actions: []Action{
 			Action{
 				Name: "tide",
-				Handler: func(ctx Context, params Params) interface{} {
+				Handler: func(ctx Context, params Payload) interface{} {
 					return "tide influence in the oceans"
 				},
 			},
@@ -61,13 +61,13 @@ var _ = test.Describe("MergeActions", func() {
 		Events: []Event{
 			Event{
 				Name: "earth.rotates",
-				Handler: func(ctx Context, params Params) {
+				Handler: func(ctx Context, params Payload) {
 					fmt.Println("update tide in relation to the moon")
 				},
 			},
 			Event{
 				Name: "moon.isClose",
-				Handler: func(ctx Context, params Params) {
+				Handler: func(ctx Context, params Payload) {
 					fmt.Println("rise the tide !")
 				},
 			},
@@ -80,7 +80,7 @@ var _ = test.Describe("MergeActions", func() {
 		Expect(serviceSchema).Should(Not(BeNil()))
 		Expect(moonMixIn).Should(Not(BeNil()))
 
-		thisService := service.FromSchema(serviceSchema)
+		thisService := service.FromSchema(serviceSchema, logger)
 		thisName := thisService.Name()
 		Expect(thisName).Should(Equal(serviceSchema.Name))
 		Expect(thisName).Should(Not(Equal(moonMixIn.Name)))

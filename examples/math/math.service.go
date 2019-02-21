@@ -5,10 +5,11 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
 
 // Create a Service Schema
-func CreateServiceSchema() Service {
+func MathServiceSchema() Service {
 
 	schema := Service{
 		Name: "math",
@@ -28,22 +29,22 @@ func CreateServiceSchema() Service {
 		},
 		Events: []Event{
 			{
-				"math.add.called",
-				onAddEvent,
+				Name:    "math.add.called",
+				Handler: onAddEvent,
 			},
 			{
-				"math.sub.called",
-				onSubEvent,
+				Name:    "math.sub.called",
+				Handler: onSubEvent,
 			},
 		},
 		//Mixins: []*Mixin(helloWorldSchema),
-		Created: func() {
+		Created: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service created !")
 		},
-		Started: func() {
+		Started: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service started !")
 		},
-		Stopped: func() {
+		Stopped: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service stopped !")
 		},
 	}
@@ -51,20 +52,20 @@ func CreateServiceSchema() Service {
 	return schema
 }
 
-func onAddEvent(ctx Context, params Params) {
+func onAddEvent(ctx Context, params Payload) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func onSubEvent(ctx Context, params Params) {
+func onSubEvent(ctx Context, params Payload) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func addAction(context Context, params Params) interface{} {
+func addAction(context Context, params Payload) interface{} {
 	context.Logger().Info("math service add action.")
-	a := params.Int("a")
-	b := params.Int("b")
+	a := params.Get("a").Int()
+	b := params.Get("b").Int()
 	result := a + b
 
 	context.Logger().Info("params -> a: ", a, "b: ", b, "result: ", result)
@@ -78,10 +79,10 @@ func addAction(context Context, params Params) interface{} {
 	return result
 }
 
-func multAction(context Context, params Params) interface{} {
-	a := params.Int("a")
-	b := params.Int("b")
-	result := 0
+func multAction(context Context, params Payload) interface{} {
+	a := params.Get("a").Int()
+	b := params.Get("b").Int()
+	var result int
 
 	for i := 1; i <= b; i++ {
 		actionResult := <-context.Call(
@@ -90,7 +91,7 @@ func multAction(context Context, params Params) interface{} {
 				"a": a,
 				"b": a,
 			})
-		result = result + actionResult.(int)
+		result = result + actionResult.Int()
 	}
 
 	defer context.Emit("mult.called", map[string]int{
@@ -102,9 +103,9 @@ func multAction(context Context, params Params) interface{} {
 	return result
 }
 
-func subAction(context Context, params Params) interface{} {
-	a := params.Int("a")
-	b := params.Int("b")
+func subAction(context Context, params Payload) interface{} {
+	a := params.Get("a").Int()
+	b := params.Get("b").Int()
 	result := a - b
 
 	defer context.Emit("sub.called", map[string]int{
@@ -115,11 +116,11 @@ func subAction(context Context, params Params) interface{} {
 	return result
 }
 
-func printEventParams(params moleculer.Params) {
+func printEventParams(params moleculer.Payload) {
 	fmt.Printf("a: ")
-	fmt.Printf(params.Get("a"))
+	fmt.Printf(params.Get("a").String())
 	fmt.Printf("b: ")
-	fmt.Printf(params.Get("b"))
+	fmt.Printf(params.Get("b").String())
 	fmt.Printf("result: ")
-	fmt.Printf(params.Get("result"))
+	fmt.Printf(params.Get("result").String())
 }

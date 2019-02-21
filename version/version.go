@@ -5,6 +5,10 @@ func Moleculer() string {
 	return "0.1.0"
 }
 
+func MoleculerProtocol() string {
+	return "3"
+}
+
 func Go() string {
 	return "1.5"
 }
