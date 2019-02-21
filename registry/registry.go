@@ -184,7 +184,6 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " params: ", params)
 
 	entries := registry.events.Find(name, groups, true, false, registry.strategy)
-	fmt.Println("LoadBalanceEvent() entries find (name: ", name, " groups: ", groups, " preffer local: true, localOnly: false - source broker: ", registry.localNode.GetID(), ") results :-> ", entries)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
@@ -209,7 +208,6 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " payload: ", context.Payload())
 
 	entries := registry.events.Find(name, groups, false, false, nil)
-	fmt.Println("BroadcastEvent() entries find (name: ", name, " groups: ", groups, " prefer local: false, localOnly: false - source broker: ", registry.localNode.GetID(), ") results :-> ", entries)
 	if entries == nil {
 		msg := fmt.Sprint("Broker - no endpoints found for event: ", name, " it was discarded!")
 		registry.logger.Warn(msg)
@@ -363,7 +361,6 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	exists, reconnected := registry.nodes.Info(nodeInfo)
 	for _, item := range services {
 		serviceInfo := item.(map[string]interface{})
-		fmt.Println("remoteNodeInfoReceived() serviceInfo :-> ", serviceInfo)
 
 		svc, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 

@@ -343,7 +343,7 @@ var _ = Describe("Broker Internals", func() {
 		}, eventsTestSize)
 	})
 
-	FDescribe("Broker.MCall", func() {
+	Describe("Broker.MCall", func() {
 
 		It("MCall on $node service actions with all params false", func() {
 			actionHandler := func(result string) func(moleculer.Context, moleculer.Payload) interface{} {
