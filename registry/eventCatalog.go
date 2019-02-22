@@ -45,7 +45,6 @@ func (eventEntry *EventEntry) emitLocalEvent(context moleculer.BrokerContext) {
 	handler := eventEntry.event.Handler()
 	handler(context.(moleculer.Context), context.Payload())
 	logger.Debug("After invoking local event: ", context.EventName())
-
 }
 
 type EventCatalog struct {

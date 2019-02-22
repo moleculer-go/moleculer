@@ -7,13 +7,14 @@ import (
 	snap "github.com/moleculer-go/cupaloy"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
+	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 )
 
-var logLevel = "FATAL"
+var logLevel = "ERROR"
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
@@ -107,6 +108,7 @@ func cleanupNode(in map[string]interface{}) map[string]interface{} {
 		return make(map[string]interface{})
 	}
 	in["ipList"] = []string{"100.100.0.100"}
+	in["hostname"] = ""
 	return in
 }
 
@@ -297,6 +299,83 @@ var _ = Describe("Registry", func() {
 			}, extractServices))
 		})
 
+		FIt("Should subscribe for internal events and receive events when happen :)", func() {
+			var serviceAdded []map[string]interface{}
+			var serviceRemoved []map[string]interface{}
+			mem := &memory.SharedMemory{}
+			bkr1 := broker.FromConfig(&moleculer.BrokerConfig{
+				DiscoverNodeID: func() string { return "test-node1" },
+				LogLevel:       logLevel,
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+			bkr1.AddService(moleculer.Service{
+				Name: "internal-consumer",
+				Events: []moleculer.Event{
+					moleculer.Event{
+						Name: "$registry.service.added",
+						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+							fmt.Println("### $registry.service.added --> ", params.Value())
+
+							serviceAdded = append(serviceAdded, params.RawMap())
+
+							fmt.Println("### len(serviceAdded) --> ", len(serviceAdded))
+						},
+					},
+					moleculer.Event{
+						Name: "$registry.service.removed",
+						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+							//fmt.Println("$registry.service.removed --> ", params.Value())
+
+							serviceRemoved = append(serviceRemoved, params.RawMap())
+						},
+					},
+				},
+			})
+			bkr1.Start()
+
+			bkr1.AddService(moleculer.Service{
+				Name: "service-added",
+			})
+			time.Sleep(100 * time.Millisecond)
+
+			Expect(snap.SnapshotMulti("local-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("empty-serviceRemoved", test.OrderMapArray(serviceRemoved, "name"))).ShouldNot(HaveOccurred())
+
+			//add another node.. so test service removed is invoked
+			bkr2 := broker.FromConfig(&moleculer.BrokerConfig{
+				DiscoverNodeID: func() string { return "test-node2" },
+				LogLevel:       logLevel,
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+			bkr2.AddService(moleculer.Service{
+				Name:         "remote-service",
+				Dependencies: []string{"internal-consumer"},
+			})
+			bkr2.Start()
+			time.Sleep(100 * time.Millisecond)
+
+			//Expect(len(serviceAdded)).Should(Equal(5))
+
+			//issues found:
+			// bkr 1 is receiving 2 node events in sequence.. so both register services.. in duplication.
+			//
+
+			Expect(snap.SnapshotMulti("remote-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("empty-serviceRemoved", test.OrderMapArray(serviceRemoved, "name"))).ShouldNot(HaveOccurred())
+
+			//stop broker 2 .. should remove services on broker 1
+			bkr2.Stop()
+			time.Sleep(100 * time.Millisecond)
+			Expect(snap.SnapshotMulti("remote-serviceRemoved", test.OrderMapArray(serviceRemoved, "name"))).ShouldNot(HaveOccurred())
+
+			bkr1.Stop()
+		})
 	})
 
 	Describe("Auto discovery", func() {

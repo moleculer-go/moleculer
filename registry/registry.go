@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
@@ -272,7 +273,14 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 
 // removeServicesByNodeID
 func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
-	registry.services.RemoveByNode(nodeID)
+	names := registry.services.RemoveByNode(nodeID)
+	if len(names) > 0 {
+		for _, name := range names {
+			registry.broker.Bus().EmitAsync(
+				"$registry.service.removed",
+				[]interface{}{name})
+		}
+	}
 	registry.actions.RemoveByNode(nodeID)
 	registry.events.RemoveByNode(nodeID)
 }
@@ -351,18 +359,15 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
 func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
-	nodeInfo := message.RawMap()
-	nodeID := nodeInfo["sender"].(string)
-	item := nodeInfo["services"]
-	var services []interface{}
-	if item != nil {
-		services = item.([]interface{})
-	}
-	exists, reconnected := registry.nodes.Info(nodeInfo)
-	for _, item := range services {
-		serviceInfo := item.(map[string]interface{})
+	fmt.Println("remoteNodeInfoReceived from ", message.Get("sender").String(), " now: ", time.Now())
 
-		svc, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
+	nodeID := message.Get("sender").String()
+	services := message.Get("services").MapArray()
+	exists, reconnected := registry.nodes.Info(message.RawMap())
+	for _, serviceInfo := range services {
+
+		svc, newService, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
+		fmt.Println("*** registry -> newService: ", newService, " service: ", svc.Summary(), " source node: ", registry.logger.Data["broker"])
 
 		for _, newAction := range newActions {
 			serviceAction := service.CreateServiceAction(
@@ -401,6 +406,12 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 			name := deleted.Name()
 			registry.events.Remove(nodeID, name)
 		}
+
+		if newService {
+			registry.broker.Bus().EmitAsync(
+				"$registry.service.added",
+				[]interface{}{svc.Summary()})
+		}
 	}
 
 	var neighbours int64
@@ -418,6 +429,19 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	registry.broker.Bus().EmitAsync(eventName, eventParam)
 }
 
+// subscribeInternalEvent subscribe event listeners for internal events (e.g. $node.disconnected) using the localBus.
+func (registry *ServiceRegistry) subscribeInternalEvent(event service.Event) {
+	registry.broker.Bus().On(event.Name(), func(data ...interface{}) {
+		params := payload.Create(nil)
+		if len(data) > 0 {
+			params = payload.Create(data[0])
+		}
+		brokerContext := registry.broker.BrokerContext()
+		eventContext := brokerContext.ChildEventContext(event.Name(), params, nil, false)
+		event.Handler()(eventContext.(moleculer.Context), params)
+	})
+}
+
 // AddLocalService : add a local service to the registry
 // it will create endpoints for all service actions.
 func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
@@ -431,7 +455,11 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 		registry.actions.Add(action, service, true)
 	}
 	for _, event := range service.Events() {
-		registry.events.Add(event, service, true)
+		if strings.Index(event.Name(), "$") == 0 {
+			registry.subscribeInternalEvent(event)
+		} else {
+			registry.events.Add(event, service, true)
+		}
 	}
 
 	registry.localNode.AddService(service.AsMap())

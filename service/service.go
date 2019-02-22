@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/moleculer-go/moleculer"
 	log "github.com/sirupsen/logrus"
@@ -103,6 +104,7 @@ func (service *Service) Summary() map[string]string {
 	return map[string]string{
 		"name":    service.name,
 		"version": service.version,
+		"nodeID":  service.nodeID,
 	}
 }
 
@@ -261,6 +263,8 @@ func CreateServiceAction(serviceName string, actionName string, handler molecule
 	}
 }
 
+// AsMap export the service info in a map containing: name, version, settings, metadata, nodeID, actions and events.
+// The events list does not contain internal events (events that starts with $) like $node.disconnected.
 func (service *Service) AsMap() map[string]interface{} {
 	serviceInfo := make(map[string]interface{})
 
@@ -284,17 +288,22 @@ func (service *Service) AsMap() map[string]interface{} {
 	}
 	serviceInfo["actions"] = actions
 
-	events := make([]map[string]interface{}, len(service.events))
-	for index, serviceEvent := range service.events {
-		eventInfo := make(map[string]interface{})
-		eventInfo["name"] = serviceEvent.name
-		eventInfo["serviceName"] = serviceEvent.serviceName
-		eventInfo["group"] = serviceEvent.group
-		events[index] = eventInfo
+	events := make([]map[string]interface{}, 0)
+	for _, serviceEvent := range service.events {
+		if !isInternalEvent(serviceEvent) {
+			eventInfo := make(map[string]interface{})
+			eventInfo["name"] = serviceEvent.name
+			eventInfo["serviceName"] = serviceEvent.serviceName
+			eventInfo["group"] = serviceEvent.group
+			events = append(events, eventInfo)
+		}
 	}
 	serviceInfo["events"] = events
-
 	return serviceInfo
+}
+
+func isInternalEvent(event Event) bool {
+	return strings.Index(event.Name(), "$") == 0
 }
 
 func paramsFromMap(schema interface{}) moleculer.ActionSchema {
@@ -465,7 +474,6 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 
 // Start called by the broker when the service is starting.
 func (service *Service) Start() {
-
 	for _, handler := range service.started {
 		go handler((*service.schema), service.logger)
 	}

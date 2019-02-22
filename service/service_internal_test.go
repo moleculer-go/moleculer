@@ -13,7 +13,21 @@ import (
 
 var logger = log.WithField("Unit Test", true)
 
-var _ = test.Describe("MergeActions", func() {
+var _ = test.Describe("Service", func() {
+
+	test.It("isInternalEvent() should reconized internal events", func() {
+
+		Expect(isInternalEvent(Event{
+			name:        "$services.changed",
+			serviceName: "source service",
+		})).Should(BeTrue())
+
+		Expect(isInternalEvent(Event{
+			name:        "someservice.act$on",
+			serviceName: "source service",
+		})).Should(BeFalse())
+
+	})
 
 	rotateFunc := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 		return "Hellow Leleu ;) I'm rotating ..."
@@ -93,8 +107,10 @@ var _ = test.Describe("MergeActions", func() {
 
 	test.It("Should merge and overwrite existing actions", func() {
 		merged := extendActions(serviceSchema, &moonMixIn)
-		Expect(merged.Actions).Should(HaveLen(2))
-		Expect(snap.Snapshot(merged.Actions)).Should(Succeed())
+		actionsSlice := moleculer.ActionsSlice(merged.Actions)
+		actionsSlice.Sort()
+		Expect(actionsSlice).Should(HaveLen(2))
+		Expect(snap.Snapshot(actionsSlice)).Should(Succeed())
 	})
 
 	test.It("Should merge and overwrite existing events", func() {

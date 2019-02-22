@@ -411,6 +411,9 @@ func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
 		MultActionDelegate: func(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
 			return broker.MCall(callMaps)
 		},
+		BrokerContext: func() moleculer.BrokerContext {
+			return broker.rootContext
+		},
 	}
 }
 

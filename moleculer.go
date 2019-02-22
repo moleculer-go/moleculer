@@ -2,6 +2,7 @@ package moleculer
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	bus "github.com/moleculer-go/goemitter"
@@ -60,6 +61,14 @@ type Action struct {
 	Schema      ActionSchema
 	Description string
 }
+
+type ActionsSlice []Action
+
+func (slice ActionsSlice) Len() int           { return len(slice) }
+func (slice ActionsSlice) Less(i, j int) bool { return slice[i].Name < slice[j].Name }
+func (slice ActionsSlice) Swap(i, j int)      { slice[i], slice[j] = slice[j], slice[i] }
+
+func (slice ActionsSlice) Sort() { sort.Sort(slice) }
 
 type Event struct {
 	Name    string
@@ -177,7 +186,7 @@ type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Pa
 type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) *Service
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
-
+type BrokerContextFunc func() BrokerContext
 type OptionsFunc func(key string) interface{}
 
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
@@ -242,4 +251,5 @@ type BrokerDelegates struct {
 	BroadcastEvent     EmitEventFunc
 	HandleRemoteEvent  EmitEventFunc
 	ServiceForAction   ServiceForActionFunc
+	BrokerContext      BrokerContextFunc
 }
