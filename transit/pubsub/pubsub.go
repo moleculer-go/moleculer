@@ -38,7 +38,9 @@ type PubSub struct {
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 	if pubsub.isConnected {
-		pubsub.broadcastNodeInfo("")
+		callOnce(func() {
+			pubsub.broadcastNodeInfo("")
+		})
 	}
 }
 
@@ -532,4 +534,19 @@ func (pubsub *PubSub) Connect() chan bool {
 
 func (pubsub *PubSub) Ready() {
 
+}
+
+var callOnce = setupDelayedCall(99 * time.Millisecond)
+
+func setupDelayedCall(duration time.Duration) func(func()) {
+	active := false
+	return func(callback func()) {
+		if !active {
+			active = true
+			time.AfterFunc(duration, func() {
+				active = false
+				callback()
+			})
+		}
+	}
 }

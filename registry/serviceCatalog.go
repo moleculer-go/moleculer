@@ -215,9 +215,6 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
 	item, serviceExists := serviceCatalog.services.Load(key)
 
-	fmt.Println("*** key ", key, " source node: ", serviceCatalog.logger.Data["broker"])
-	fmt.Println("*** serviceExists ", serviceExists, " source node: ", serviceCatalog.logger.Data["broker"])
-	fmt.Println("*** item ", item, " source node: ", serviceCatalog.logger.Data["broker"])
 	if serviceExists {
 		entry := item.(ServiceEntry)
 		current := entry.service

@@ -359,15 +359,12 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
 func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
-	fmt.Println("remoteNodeInfoReceived from ", message.Get("sender").String(), " now: ", time.Now())
-
 	nodeID := message.Get("sender").String()
 	services := message.Get("services").MapArray()
 	exists, reconnected := registry.nodes.Info(message.RawMap())
 	for _, serviceInfo := range services {
 
 		svc, newService, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
-		fmt.Println("*** registry -> newService: ", newService, " service: ", svc.Summary(), " source node: ", registry.logger.Data["broker"])
 
 		for _, newAction := range newActions {
 			serviceAction := service.CreateServiceAction(
@@ -469,6 +466,7 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	registry.broker.Bus().EmitAsync(
 		"$registry.service.added",
 		[]interface{}{service.Summary()})
+
 }
 
 // nextAction it will find and return the next action to be invoked.

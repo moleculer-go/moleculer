@@ -2,6 +2,7 @@ package registry_test
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	snap "github.com/moleculer-go/cupaloy"
@@ -299,9 +300,9 @@ var _ = Describe("Registry", func() {
 			}, extractServices))
 		})
 
-		FIt("Should subscribe for internal events and receive events when happen :)", func() {
+		It("Should subscribe for internal events and receive events when happen :)", func() {
 			var serviceAdded []map[string]interface{}
-			var serviceRemoved []map[string]interface{}
+			var serviceRemoved []string
 			mem := &memory.SharedMemory{}
 			bkr1 := broker.FromConfig(&moleculer.BrokerConfig{
 				DiscoverNodeID: func() string { return "test-node1" },
@@ -329,7 +330,7 @@ var _ = Describe("Registry", func() {
 						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
 							//fmt.Println("$registry.service.removed --> ", params.Value())
 
-							serviceRemoved = append(serviceRemoved, params.RawMap())
+							serviceRemoved = append(serviceRemoved, params.String())
 						},
 					},
 				},
@@ -342,7 +343,9 @@ var _ = Describe("Registry", func() {
 			time.Sleep(100 * time.Millisecond)
 
 			Expect(snap.SnapshotMulti("local-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
-			Expect(snap.SnapshotMulti("empty-serviceRemoved", test.OrderMapArray(serviceRemoved, "name"))).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
+
+			fmt.Println("### will start second broker -> now: ", time.Now())
 
 			//add another node.. so test service removed is invoked
 			bkr2 := broker.FromConfig(&moleculer.BrokerConfig{
@@ -358,21 +361,17 @@ var _ = Describe("Registry", func() {
 				Dependencies: []string{"internal-consumer"},
 			})
 			bkr2.Start()
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(150 * time.Millisecond)
 
-			//Expect(len(serviceAdded)).Should(Equal(5))
-
-			//issues found:
-			// bkr 1 is receiving 2 node events in sequence.. so both register services.. in duplication.
-			//
-
+			fmt.Println(" --->>> ", test.OrderMapArray(serviceAdded, "name"))
 			Expect(snap.SnapshotMulti("remote-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
-			Expect(snap.SnapshotMulti("empty-serviceRemoved", test.OrderMapArray(serviceRemoved, "name"))).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			//stop broker 2 .. should remove services on broker 1
 			bkr2.Stop()
 			time.Sleep(100 * time.Millisecond)
-			Expect(snap.SnapshotMulti("remote-serviceRemoved", test.OrderMapArray(serviceRemoved, "name"))).ShouldNot(HaveOccurred())
+			sort.Strings(serviceRemoved)
+			Expect(snap.SnapshotMulti("remote-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			bkr1.Stop()
 		})
