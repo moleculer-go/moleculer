@@ -318,18 +318,12 @@ var _ = Describe("Registry", func() {
 					moleculer.Event{
 						Name: "$registry.service.added",
 						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
-							fmt.Println("### $registry.service.added --> ", params.Value())
-
 							serviceAdded = append(serviceAdded, params.RawMap())
-
-							fmt.Println("### len(serviceAdded) --> ", len(serviceAdded))
 						},
 					},
 					moleculer.Event{
 						Name: "$registry.service.removed",
 						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
-							//fmt.Println("$registry.service.removed --> ", params.Value())
-
 							serviceRemoved = append(serviceRemoved, params.String())
 						},
 					},
@@ -344,8 +338,6 @@ var _ = Describe("Registry", func() {
 
 			Expect(snap.SnapshotMulti("local-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
-
-			fmt.Println("### will start second broker -> now: ", time.Now())
 
 			//add another node.. so test service removed is invoked
 			bkr2 := broker.FromConfig(&moleculer.BrokerConfig{
@@ -363,7 +355,6 @@ var _ = Describe("Registry", func() {
 			bkr2.Start()
 			time.Sleep(150 * time.Millisecond)
 
-			fmt.Println(" --->>> ", test.OrderMapArray(serviceAdded, "name"))
 			Expect(snap.SnapshotMulti("remote-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 

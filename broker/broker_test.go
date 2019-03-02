@@ -45,7 +45,6 @@ var _ = Describe("Broker", func() {
 	})
 
 	It("Should make a local call, call should panic and returned paylod should contain the error", func() {
-		//actionResult := "abra cadabra"
 		service := moleculer.Service{
 			Name: "do",
 			Actions: []moleculer.Action{
@@ -62,7 +61,7 @@ var _ = Describe("Broker", func() {
 		}
 		mem := &memory.SharedMemory{}
 		baseConfig := &moleculer.BrokerConfig{
-			LogLevel: "FATAL",
+			LogLevel: "DEBUG",
 			TransporterFactory: func() interface{} {
 				transport := memory.Create(log.WithField("transport", "memory"), mem)
 				return &transport
@@ -81,7 +80,8 @@ var _ = Describe("Broker", func() {
 		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
 
 		service = moleculer.Service{
-			Name: "remote",
+			Name:         "remote",
+			Dependencies: []string{"do"},
 			Actions: []moleculer.Action{
 				moleculer.Action{
 					Name: "panic",

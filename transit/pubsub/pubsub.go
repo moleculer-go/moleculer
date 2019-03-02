@@ -38,9 +38,7 @@ type PubSub struct {
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 	if pubsub.isConnected {
-		callOnce(func() {
-			pubsub.broadcastNodeInfo("")
-		})
+		pubsub.broadcastNodeInfo("")
 	}
 }
 
@@ -405,6 +403,7 @@ func (pubsub *PubSub) neighbours() int64 {
 	return int64(len(pubsub.knownNeighbours))
 }
 
+// broadcastNodeInfo send the local node info to the target node, if empty to all nodes.
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]
@@ -534,19 +533,4 @@ func (pubsub *PubSub) Connect() chan bool {
 
 func (pubsub *PubSub) Ready() {
 
-}
-
-var callOnce = setupDelayedCall(99 * time.Millisecond)
-
-func setupDelayedCall(duration time.Duration) func(func()) {
-	active := false
-	return func(callback func()) {
-		if !active {
-			active = true
-			time.AfterFunc(duration, func() {
-				active = false
-				callback()
-			})
-		}
-	}
 }
