@@ -1,0 +1,21 @@
+MVP
+
+1) Send messages to individuals within a group 
+ - Get a group, list all contacts in the group
+1.1) Type a messagge
+ - Text + Pics + Links
+1.2) select groups
+1.3) send message 
+
+Nice to haves:
+ - save message
+ - save target groups
+
+UI - Web/Mobile web
+
+
+
+
+
+
+

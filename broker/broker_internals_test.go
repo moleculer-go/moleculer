@@ -404,6 +404,7 @@ var _ = Describe("Broker Internals", func() {
 
 			bkr1.Start()
 			bkr2.Start()
+			time.Sleep(100 * time.Millisecond)
 
 			mParams := map[string]map[string]interface{}{
 				"food-lunch": map[string]interface{}{
