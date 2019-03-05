@@ -1,5 +1,6 @@
 (map[string]map[string]interface {}) (len=3) {
-  (string) (len=15) "noPrinterBroker": (map[string]interface {}) (len=7) {
+  (string) (len=15) "noPrinterBroker": (map[string]interface {}) (len=8) {
+    (string) (len=9) "available": (bool) true,
     (string) (len=6) "client": (map[string]interface {}) (len=3) {
       (string) (len=11) "langVersion": (string) (len=3) "1.5",
       (string) (len=4) "type": (string) (len=12) "moleculer-go",
@@ -15,7 +16,8 @@
     (string) (len=3) "seq": (int64) 0
   },
   (string) (len=13) "nodeCpuBroker": (map[string]interface {}) <nil>,
-  (string) (len=19) "nodedeScannerBroker": (map[string]interface {}) (len=7) {
+  (string) (len=19) "nodedeScannerBroker": (map[string]interface {}) (len=8) {
+    (string) (len=9) "available": (bool) true,
     (string) (len=6) "client": (map[string]interface {}) (len=3) {
       (string) (len=11) "langVersion": (string) (len=3) "1.5",
       (string) (len=4) "type": (string) (len=12) "moleculer-go",

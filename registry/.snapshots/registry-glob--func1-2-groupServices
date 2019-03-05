@@ -1,0 +1,49 @@
+([]map[string]interface {}) (len=3) {
+  (map[string]interface {}) (len=7) {
+    (string) (len=7) "actions": ([]map[string]interface {}) {
+    },
+    (string) (len=6) "events": ([]map[string]interface {}) {
+    },
+    (string) (len=8) "metadata": (map[string]interface {}) {
+    },
+    (string) (len=4) "name": (string) (len=8) "service1",
+    (string) (len=5) "nodes": ([]string) (len=2) {
+      (string) (len=5) "nodeA",
+      (string) (len=5) "nodeB"
+    },
+    (string) (len=8) "settings": (map[string]interface {}) {
+    },
+    (string) (len=7) "version": (string) ""
+  },
+  (map[string]interface {}) (len=7) {
+    (string) (len=7) "actions": ([]map[string]interface {}) {
+    },
+    (string) (len=6) "events": ([]map[string]interface {}) {
+    },
+    (string) (len=8) "metadata": (map[string]interface {}) {
+    },
+    (string) (len=4) "name": (string) (len=8) "service2",
+    (string) (len=5) "nodes": ([]string) (len=2) {
+      (string) (len=5) "nodeA",
+      (string) (len=5) "nodeB"
+    },
+    (string) (len=8) "settings": (map[string]interface {}) {
+    },
+    (string) (len=7) "version": (string) ""
+  },
+  (map[string]interface {}) (len=7) {
+    (string) (len=7) "actions": ([]map[string]interface {}) {
+    },
+    (string) (len=6) "events": ([]map[string]interface {}) {
+    },
+    (string) (len=8) "metadata": (map[string]interface {}) {
+    },
+    (string) (len=4) "name": (string) (len=8) "service3",
+    (string) (len=5) "nodes": ([]string) (len=1) {
+      (string) (len=5) "nodeB"
+    },
+    (string) (len=8) "settings": (map[string]interface {}) {
+    },
+    (string) (len=7) "version": (string) ""
+  }
+}

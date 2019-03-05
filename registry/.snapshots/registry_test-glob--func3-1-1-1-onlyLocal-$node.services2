@@ -2,12 +2,13 @@
   ([]map[string]interface {}) {
   },
   ([]map[string]interface {}) (len=1) {
-    (map[string]interface {}) (len=6) {
-      (string) (len=9) "available": (bool) true,
+    (map[string]interface {}) (len=5) {
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=7) "scanner",
-      (string) (len=6) "nodeID": (string) (len=18) "node_scannerBroker",
+      (string) (len=5) "nodes": ([]string) (len=1) {
+        (string) (len=18) "node_scannerBroker"
+      },
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""
@@ -16,12 +17,13 @@
   ([]map[string]interface {}) {
   },
   ([]map[string]interface {}) (len=1) {
-    (map[string]interface {}) (len=6) {
-      (string) (len=9) "available": (bool) true,
+    (map[string]interface {}) (len=5) {
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=5) "$node",
-      (string) (len=6) "nodeID": (string) (len=18) "node_scannerBroker",
+      (string) (len=5) "nodes": ([]string) (len=1) {
+        (string) (len=18) "node_scannerBroker"
+      },
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""
