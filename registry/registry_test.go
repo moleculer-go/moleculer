@@ -253,6 +253,7 @@ var _ = Describe("Registry", func() {
 			}, extractNodes))
 
 			It("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
+				"withEndpoints": false,
 				"withActions":   false,
 				"withEvents":    false,
 				"skipInternal":  false,
@@ -260,8 +261,27 @@ var _ = Describe("Registry", func() {
 				"onlyLocal":     false,
 			}, extractServices))
 
+			It("$node.services - all true", harness("$node.services", "all-true", map[string]interface{}{
+				"withEndpoints": true,
+				"withActions":   true,
+				"withEvents":    true,
+				"skipInternal":  true,
+				"onlyAvailable": true,
+				"onlyLocal":     true,
+			}, extractServices))
+
 			It("$node.services - withActions", harness("$node.services", "withActions", map[string]interface{}{
 				"withActions":   true,
+				"withEndpoints": false,
+				"withEvents":    false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractServices))
+
+			It("$node.services - withEndpoints", harness("$node.services", "withEndpoints", map[string]interface{}{
+				"withActions":   false,
+				"withEndpoints": true,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
@@ -270,6 +290,7 @@ var _ = Describe("Registry", func() {
 
 			It("$node.services - withEvents", harness("$node.services", "withEvents", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    true,
 				"skipInternal":  false,
 				"onlyAvailable": false,
@@ -278,6 +299,7 @@ var _ = Describe("Registry", func() {
 
 			It("$node.services - skipInternal", harness("$node.services", "skipInternal", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    false,
 				"skipInternal":  true,
 				"onlyAvailable": false,
@@ -286,13 +308,16 @@ var _ = Describe("Registry", func() {
 
 			It("$node.services - onlyAvailable", harness("$node.services", "onlyAvailable", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": true,
 				"onlyLocal":     false,
 			}, extractServices))
+
 			It("$node.services - onlyLocal", harness("$node.services", "onlyLocal", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
@@ -334,7 +359,7 @@ var _ = Describe("Registry", func() {
 			bkr1.AddService(moleculer.Service{
 				Name: "service-added",
 			})
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 
 			Expect(snap.SnapshotMulti("local-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
@@ -353,7 +378,7 @@ var _ = Describe("Registry", func() {
 				Dependencies: []string{"internal-consumer"},
 			})
 			bkr2.Start()
-			time.Sleep(150 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 
 			Expect(snap.SnapshotMulti("remote-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())

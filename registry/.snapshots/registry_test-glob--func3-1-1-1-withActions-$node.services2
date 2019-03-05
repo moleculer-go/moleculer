@@ -1,6 +1,6 @@
 ([][]map[string]interface {}) (len=4) {
   ([]map[string]interface {}) (len=1) {
-    (map[string]interface {}) (len=6) {
+    (map[string]interface {}) (len=7) {
       (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=5) "print",
@@ -8,19 +8,18 @@
           }
         }
       },
+      (string) (len=9) "available": (bool) true,
+      (string) (len=8) "hasLocal": (bool) false,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=7) "printer",
-      (string) (len=5) "nodes": ([]string) (len=1) {
-        (string) (len=18) "node_printerBroker"
-      },
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""
     }
   },
   ([]map[string]interface {}) (len=1) {
-    (map[string]interface {}) (len=6) {
+    (map[string]interface {}) (len=7) {
       (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=4) "scan",
@@ -28,12 +27,11 @@
           }
         }
       },
+      (string) (len=9) "available": (bool) true,
+      (string) (len=8) "hasLocal": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=7) "scanner",
-      (string) (len=5) "nodes": ([]string) (len=1) {
-        (string) (len=18) "node_scannerBroker"
-      },
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""
@@ -42,7 +40,7 @@
   ([]map[string]interface {}) {
   },
   ([]map[string]interface {}) (len=1) {
-    (map[string]interface {}) (len=6) {
+    (map[string]interface {}) (len=7) {
       (string) (len=7) "actions": ([]map[string]interface {}) (len=4) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=6) "events",
@@ -65,12 +63,11 @@
           }
         }
       },
+      (string) (len=9) "available": (bool) true,
+      (string) (len=8) "hasLocal": (bool) true,
       (string) (len=8) "metadata": (map[string]interface {}) {
       },
       (string) (len=4) "name": (string) (len=5) "$node",
-      (string) (len=5) "nodes": ([]string) (len=1) {
-        (string) (len=18) "node_scannerBroker"
-      },
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=7) "version": (string) ""

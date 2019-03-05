@@ -150,7 +150,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 }
 
 func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interface{}) {
-	//TODO
+	broker.LocalBus().EmitAsync(eventName, params)
 }
 
 func (broker *ServiceBroker) createBrokerLogger() *log.Entry {

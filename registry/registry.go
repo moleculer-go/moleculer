@@ -463,10 +463,22 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 
 	registry.logger.Infof("Registry - %s service is registered.", service.FullName())
 
-	registry.broker.Bus().EmitAsync(
-		"$registry.service.added",
-		[]interface{}{service.Summary()})
+	registry.notifyServiceAded(service.Summary())
+}
 
+// notifyServiceAded notify when a service is added to the registry.
+func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
+	if registry.broker.IsStarted() {
+		registry.broker.Bus().EmitAsync(
+			"$registry.service.added",
+			[]interface{}{svc})
+	} else {
+		registry.broker.Bus().Once("$broker.started", func(data ...interface{}) {
+			registry.broker.Bus().EmitAsync(
+				"$registry.service.added",
+				[]interface{}{svc})
+		})
+	}
 }
 
 // nextAction it will find and return the next action to be invoked.

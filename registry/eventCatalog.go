@@ -61,7 +61,7 @@ func CreateEventCatalog(logger *log.Entry) *EventCatalog {
 func (eventCatalog *EventCatalog) Add(event service.Event, service *service.Service, local bool) {
 	entry := EventEntry{service.NodeID(), service, &event, local}
 	name := event.Name()
-	eventCatalog.logger.Debug("Add() name: ", name, " serviceName: ", event.ServiceName())
+	eventCatalog.logger.Debug("Add event name: ", name, " serviceName: ", event.ServiceName())
 	list, exists := eventCatalog.events.Load(name)
 	if !exists {
 		list = []EventEntry{entry}

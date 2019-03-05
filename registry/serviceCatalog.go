@@ -54,16 +54,32 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 	return nil
 }
 
-// list all services in the catalog.
-func (serviceCatalog *ServiceCatalog) list() []*service.Service {
-	var result []*service.Service
+// listByName list all service entriesf grouped by name.
+func (serviceCatalog *ServiceCatalog) listByName() map[string][]ServiceEntry {
+	result := make(map[string][]ServiceEntry)
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
-		entry := value.(ServiceEntry)
-		result = append(result, entry.service)
+		serviceEntry := value.(ServiceEntry)
+		entries, exists := result[key.(string)]
+		if exists {
+			result[key.(string)] = append(entries, serviceEntry)
+		} else {
+			result[key.(string)] = []ServiceEntry{serviceEntry}
+		}
 		return true
 	})
 	return result
 }
+
+// list all services in the catalog.
+// func (serviceCatalog *ServiceCatalog) list() []*service.Service {
+// 	var result []*service.Service
+// 	serviceCatalog.services.Range(func(key, value interface{}) bool {
+// 		entry := value.(ServiceEntry)
+// 		result = append(result, entry.service)
+// 		return true
+// 	})
+// 	return result
+// }
 
 // RemoveByNode remove services for the given nodeID.
 func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
@@ -116,7 +132,7 @@ func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services.Store(key, ServiceEntry{service, nodeID})
 
-	serviceCatalog.logger.Debug("Add() nodeID: ", nodeID, " name: ", service.Name(), " fullName: ", service.FullName())
+	serviceCatalog.logger.Debug("Add service name: ", service.Name(), " nodeID: ", nodeID, " service fullName: ", service.FullName())
 
 	value, exists := serviceCatalog.servicesByName.Load(service.FullName())
 	if exists {

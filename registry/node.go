@@ -145,6 +145,7 @@ func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap["seq"] = node.sequence
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence
+	resultMap["available"] = node.IsAvailable()
 	return resultMap
 }
 
