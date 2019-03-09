@@ -109,6 +109,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					withEvents := params.Get("withEvents").Exists() && params.Get("withEvents").Bool()
 					withEndpoints := params.Get("withEndpoints").Exists() && params.Get("withEndpoints").Bool()
 
+					//ISSUE: is returning duplicate services. -> printer which exists in 2 brokers.. local and remote.
 					result := make([]map[string]interface{}, 0)
 					for name, entries := range registry.services.listByName() {
 						has := func(check func(nodeID string) bool) bool {

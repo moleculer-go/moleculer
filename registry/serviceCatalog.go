@@ -59,11 +59,12 @@ func (serviceCatalog *ServiceCatalog) listByName() map[string][]ServiceEntry {
 	result := make(map[string][]ServiceEntry)
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
 		serviceEntry := value.(ServiceEntry)
-		entries, exists := result[key.(string)]
+		name := serviceEntry.service.FullName()
+		entries, exists := result[name]
 		if exists {
-			result[key.(string)] = append(entries, serviceEntry)
+			result[name] = append(entries, serviceEntry)
 		} else {
-			result[key.(string)] = []ServiceEntry{serviceEntry}
+			result[name] = []ServiceEntry{serviceEntry}
 		}
 		return true
 	})

@@ -97,7 +97,17 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 			},
 		},
 	})
-
+	broker.AddService(moleculer.Service{
+		Name: "printer",
+		Actions: []moleculer.Action{
+			{
+				Name: "print",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					return params.Value()
+				},
+			},
+		},
+	})
 	return (*broker)
 }
 
@@ -128,6 +138,19 @@ func first(list []map[string]interface{}) map[string]interface{} {
 		return list[0]
 	}
 	return nil
+}
+
+func orderEndpoints(list []map[string]interface{}) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(list))
+	for idx, item := range list {
+		endpointsTemp, exists := item["endpoints"]
+		if exists {
+			endpoints := endpointsTemp.([]map[string]interface{})
+			item["endpoints"] = test.OrderMapArray(endpoints, "nodeID")
+		}
+		result[idx] = item
+	}
+	return result
 }
 
 func findBy(field, value string, list []moleculer.Payload) []map[string]interface{} {
@@ -187,7 +210,7 @@ var _ = Describe("Registry", func() {
 			extractServices := func(in interface{}) interface{} {
 				list := in.(moleculer.Payload).Array()
 				return [][]map[string]interface{}{
-					findBy("name", "printer", list),
+					orderEndpoints(findBy("name", "printer", list)),
 					findBy("name", "scanner", list),
 					findBy("name", "cpu", list),
 					findBy("name", "$node", list),
@@ -359,9 +382,9 @@ var _ = Describe("Registry", func() {
 			bkr1.AddService(moleculer.Service{
 				Name: "service-added",
 			})
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 
-			Expect(snap.SnapshotMulti("local-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("local-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			//add another node.. so test service removed is invoked
@@ -375,12 +398,12 @@ var _ = Describe("Registry", func() {
 			})
 			bkr2.AddService(moleculer.Service{
 				Name:         "remote-service",
-				Dependencies: []string{"internal-consumer"},
+				Dependencies: []string{"internal-consumer", "service-added"},
 			})
 			bkr2.Start()
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 
-			Expect(snap.SnapshotMulti("remote-serviceAdded", test.OrderMapArray(serviceAdded, "name"))).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("remote-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			//stop broker 2 .. should remove services on broker 1

@@ -1,12 +1,12 @@
 (moleculer.ActionsSlice) (len=2) {
   (moleculer.Action) {
-    Name: (string) (len=6) "rotate",
+    Name: (string) (len=4) "tide",
     Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
     Schema: (moleculer.ActionSchema) <nil>,
     Description: (string) ""
   },
   (moleculer.Action) {
-    Name: (string) (len=4) "tide",
+    Name: (string) (len=6) "rotate",
     Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
     Schema: (moleculer.ActionSchema) <nil>,
     Description: (string) ""

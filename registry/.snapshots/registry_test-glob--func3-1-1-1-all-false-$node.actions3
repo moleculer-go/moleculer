@@ -1,12 +1,7 @@
 ([][]map[string]interface {}) (len=7) {
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=1) {
-      (string) (len=4) "name": (string) (len=13) "printer.print"
-    }
-  },
-  ([]map[string]interface {}) (len=1) {
-    (map[string]interface {}) (len=1) {
-      (string) (len=4) "name": (string) (len=12) "scanner.scan"
+      (string) (len=4) "name": (string) (len=10) "$node.list"
     }
   },
   ([]map[string]interface {}) (len=1) {
@@ -16,12 +11,12 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=1) {
-      (string) (len=4) "name": (string) (len=10) "$node.list"
+      (string) (len=4) "name": (string) (len=12) "$node.events"
     }
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=1) {
-      (string) (len=4) "name": (string) (len=14) "$node.services"
+      (string) (len=4) "name": (string) (len=12) "scanner.scan"
     }
   },
   ([]map[string]interface {}) (len=1) {
@@ -31,7 +26,12 @@
   },
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=1) {
-      (string) (len=4) "name": (string) (len=12) "$node.events"
+      (string) (len=4) "name": (string) (len=13) "printer.print"
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=1) {
+      (string) (len=4) "name": (string) (len=14) "$node.services"
     }
   }
 }

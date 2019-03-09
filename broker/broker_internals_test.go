@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("Broker Internals", func() {
 
-	XDescribe("Broker events", func() {
+	FDescribe("Broker events", func() {
 		eventsTestSize := 1
 		currentStep := 0
 		//TODO needs refactoring.. the test is not realiable and fail from time to time.
@@ -280,8 +280,8 @@ var _ = Describe("Broker Internals", func() {
 
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("before stormBroker.Broadcast() -> stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("before stormBroker.Broadcast() -> stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
+				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				//now broadcast and every music.tone event listener should receive it.
 				stormBroker.Broadcast("music.tone", "broad< storm >cast")
@@ -303,9 +303,9 @@ var _ = Describe("Broker Internals", func() {
 				time.Sleep(time.Second)
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("stormBroker-Stoped -> aquaBroker KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-Stoped -> visualBroker KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-Stoped -> soundsBroker KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stoped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stoped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stoped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
@@ -319,8 +319,8 @@ var _ = Describe("Broker Internals", func() {
 
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("soundsBroker-Stoped -> aquaBroker KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("soundsBroker-Stoped -> visualBroker KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-Stoped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-Stoped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
 				time.Sleep(time.Second)

@@ -1,6 +1,0 @@
-(map[string]moleculer.Payload) (len=4) {
-  (string) (len=11) "food-dinner": (serializer.JSONPayload) input: (dinner param ) -> output: ( dinner result ),
-  (string) (len=10) "food-lunch": (serializer.JSONPayload) input: (lunch param ) -> output: ( lunch result ),
-  (string) (len=9) "music-end": (*payload.RawPayload)(input: (end param ) -> output: ( end result )),
-  (string) (len=11) "music-start": (*payload.RawPayload)(input: (start param ) -> output: ( start result ))
-}
