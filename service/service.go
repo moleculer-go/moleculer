@@ -332,7 +332,7 @@ func (service *Service) AddActionMap(actionInfo map[string]interface{}) *Action 
 	return &action
 }
 
-func (service *Service) RemoteEvent(name string) {
+func (service *Service) RemoveEvent(name string) {
 	var newEvents []Event
 	for _, event := range service.events {
 		if event.name != name {

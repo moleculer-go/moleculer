@@ -194,7 +194,7 @@ func (serviceCatalog *ServiceCatalog) updateEvents(serviceMap map[string]interfa
 		name := event.Name()
 		if !itemMapExists(name, events) {
 			deletedEvents = append(deletedEvents, event)
-			current.RemoteEvent(name)
+			current.RemoveEvent(name)
 		}
 	}
 	return updated, newEvents, deletedEvents

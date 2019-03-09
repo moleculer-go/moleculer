@@ -45,6 +45,13 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(message.Get("age").FloatArray()).Should(BeNil())
 		Expect(message.Get("age").UintArray()).Should(BeNil())
 
+		json = []byte(`["first", "second", "third"]`)
+		message = serializer.BytesToPayload(&json)
+
+		Expect(message.IsArray()).Should(Equal(true))
+		Expect(message.StringArray()).Should(Equal([]string{"first", "second", "third"}))
+		Expect(message.ValueArray()).Should(Equal([]interface{}{"first", "second", "third"}))
+
 		json = []byte(`{"list":["first", "second", "third"]}`)
 		message = serializer.BytesToPayload(&json)
 
@@ -65,6 +72,33 @@ var _ = Describe("JSON Serializer", func() {
 			return false
 		})
 		Expect(items).Should(Equal([]string{"first"}))
+
+		json = []byte(`10`)
+		message = serializer.BytesToPayload(&json)
+		Expect(message.IsArray()).Should(BeFalse())
+		Expect(message.Int()).Should(Equal(10))
+		Expect(message.Int64()).Should(Equal(int64(10)))
+		Expect(message.Float()).Should(Equal(float64(10)))
+		Expect(message.Float32()).Should(Equal(float32(10)))
+		Expect(message.Uint()).Should(Equal(uint64(10)))
+
+		json = []byte(`[10, 40, 50]`)
+		message = serializer.BytesToPayload(&json)
+
+		Expect(message.IsArray()).Should(Equal(true))
+		Expect(message.IntArray()).Should(Equal([]int{10, 40, 50}))
+		Expect(message.Int64Array()).Should(Equal([]int64{10, 40, 50}))
+		Expect(message.FloatArray()).Should(Equal([]float64{10, 40, 50}))
+		Expect(message.Float32Array()).Should(Equal([]float32{10, 40, 50}))
+		Expect(message.UintArray()).Should(Equal([]uint64{10, 40, 50}))
+
+		json = []byte(`["2006-01-02T15:04:05Z", "2007-01-02T15:04:05Z", "2008-01-02T15:04:05Z"]`)
+		message = serializer.BytesToPayload(&json)
+		Expect(message.IsArray()).Should(Equal(true))
+		Expect(len(message.Array())).Should(Equal(3))
+		Expect(message.Array()[0].Value()).Should(Equal("2006-01-02T15:04:05Z"))
+		Expect(message.Array()[1].Value()).Should(Equal("2007-01-02T15:04:05Z"))
+		Expect(message.Array()[2].Value()).Should(Equal("2008-01-02T15:04:05Z"))
 
 		json = []byte(`{"list":[10, 40, 50],"times":["2006-01-02T15:04:05Z", "2007-01-02T15:04:05Z", "2008-01-02T15:04:05Z"]}`)
 		message = serializer.BytesToPayload(&json)
