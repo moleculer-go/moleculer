@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
@@ -35,6 +36,7 @@ type ServiceRegistry struct {
 	heartbeatFrequency    time.Duration
 	heartbeatTimeout      time.Duration
 	offlineCheckFrequency time.Duration
+	nodeReceivedMutex     *sync.Mutex
 }
 
 // createTransit create a transit instance based on the config.
@@ -70,6 +72,7 @@ func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
 		stoping:               false,
+		nodeReceivedMutex:     &sync.Mutex{},
 	}
 
 	registry.logger.Info("Service Registry created for broker: ", nodeID)
@@ -359,6 +362,8 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
 func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
+	registry.nodeReceivedMutex.Lock()
+	defer registry.nodeReceivedMutex.Unlock()
 	nodeID := message.Get("sender").String()
 	services := message.Get("services").MapArray()
 	exists, reconnected := registry.nodes.Info(message.RawMap())

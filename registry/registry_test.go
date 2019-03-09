@@ -3,6 +3,7 @@ package registry_test
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	snap "github.com/moleculer-go/cupaloy"
@@ -350,6 +351,8 @@ var _ = Describe("Registry", func() {
 
 		It("Should subscribe for internal events and receive events when happen :)", func() {
 			var serviceAdded []map[string]interface{}
+			addedMutex := &sync.Mutex{}
+			addedChan := make(chan bool)
 			var serviceRemoved []string
 			mem := &memory.SharedMemory{}
 			bkr1 := broker.FromConfig(&moleculer.BrokerConfig{
@@ -366,7 +369,11 @@ var _ = Describe("Registry", func() {
 					moleculer.Event{
 						Name: "$registry.service.added",
 						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+							addedMutex.Lock()
+							defer addedMutex.Unlock()
 							serviceAdded = append(serviceAdded, params.RawMap())
+							fmt.Println("len of services added -> ", len(serviceAdded), " name: ", params.RawMap()["name"])
+							addedChan <- true
 						},
 					},
 					moleculer.Event{
@@ -382,8 +389,10 @@ var _ = Describe("Registry", func() {
 			bkr1.AddService(moleculer.Service{
 				Name: "service-added",
 			})
-			time.Sleep(500 * time.Millisecond)
 
+			<-addedChan
+			<-addedChan
+			<-addedChan
 			Expect(snap.SnapshotMulti("local-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
@@ -401,8 +410,9 @@ var _ = Describe("Registry", func() {
 				Dependencies: []string{"internal-consumer", "service-added"},
 			})
 			bkr2.Start()
-			time.Sleep(100 * time.Millisecond)
+			//time.Sleep(100 * time.Millisecond)
 
+			<-addedChan
 			Expect(snap.SnapshotMulti("remote-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
