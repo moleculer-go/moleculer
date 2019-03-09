@@ -372,7 +372,6 @@ var _ = Describe("Registry", func() {
 							addedMutex.Lock()
 							defer addedMutex.Unlock()
 							serviceAdded = append(serviceAdded, params.RawMap())
-							fmt.Println("len of services added -> ", len(serviceAdded), " name: ", params.RawMap()["name"])
 							addedChan <- true
 						},
 					},
