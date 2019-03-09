@@ -1,4 +1,4 @@
-(moleculer.ActionsSlice) (len=2) {
+([]moleculer.Action) (len=2) {
   (moleculer.Action) {
     Name: (string) (len=4) "tide",
     Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,

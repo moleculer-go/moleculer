@@ -107,10 +107,9 @@ var _ = test.Describe("Service", func() {
 
 	test.It("Should merge and overwrite existing actions", func() {
 		merged := extendActions(serviceSchema, &moonMixIn)
-		actionsSlice := moleculer.ActionsSlice(merged.Actions)
-		actionsSlice.Sort()
-		Expect(actionsSlice).Should(HaveLen(2))
-		Expect(snap.Snapshot(actionsSlice)).Should(Succeed())
+		actions := merged.Actions
+		Expect(actions).Should(HaveLen(2))
+		Expect(snap.Snapshot(actions)).Should(Succeed())
 	})
 
 	test.It("Should merge and overwrite existing events", func() {
