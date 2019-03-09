@@ -77,7 +77,7 @@ var _ = Describe("Broker", func() {
 		result := <-bkr.Call("do.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
-		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
+		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
 		service = moleculer.Service{
 			Name:         "remote",
@@ -106,7 +106,7 @@ var _ = Describe("Broker", func() {
 		result = <-bkr.Call("remote.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
-		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
+		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
 		result = <-bkr.Call("remote.panic", false)
 
