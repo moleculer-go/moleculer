@@ -1,7 +1,6 @@
 package serializer_test
 
 import (
-	"errors"
 	"time"
 
 	snap "github.com/moleculer-go/cupaloy"
@@ -110,7 +109,7 @@ var _ = Describe("JSON Serializer", func() {
 		json = []byte(`{"error":"shit happened!"}`)
 		message = serializer.BytesToPayload(&json)
 		Expect(message.IsError()).Should(Equal(true))
-		Expect(message.Error()).Should(BeEquivalentTo(errors.New("shit happened!")))
+		Expect(message.Error().Error()).Should(BeEquivalentTo("shit happened!"))
 
 		json = []byte(`{"rootMap":{"text":"shit happened!", "textList":["item1", "item2"], "objList":[{"subMap":{"prop1":"value"}}, {"name":"john", "list":[1,2,3]}] }`)
 		message = serializer.BytesToPayload(&json)
