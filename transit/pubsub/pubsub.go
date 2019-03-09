@@ -72,15 +72,17 @@ func Create(broker moleculer.BrokerDelegates) transit.Transit {
 }
 
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
+	pubsub.pendingRequestsMutex.Lock()
+	defer pubsub.pendingRequestsMutex.Unlock()
+
 	var nodeID string = values[0].(string)
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
-	pubsub.pendingRequestsMutex.Lock()
+
 	pending, exists := pubsub.pendingRequests[nodeID]
 	if exists {
 		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
-	pubsub.pendingRequestsMutex.Unlock()
 	pubsub.neighboursMutex.Lock()
 	delete(pubsub.knownNeighbours, nodeID)
 	pubsub.neighboursMutex.Unlock()
@@ -295,13 +297,15 @@ func (pubsub *PubSub) validateVersion(msg moleculer.Payload) bool {
 // reponseHandler responsible for whem a reponse arrives form a remote node.
 func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
+		pubsub.pendingRequestsMutex.Lock()
+		defer pubsub.pendingRequestsMutex.Unlock()
+
 		id := message.Get("id").String()
 		sender := message.Get("sender").String()
 		pubsub.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " context id: ", id)
 
-		pubsub.pendingRequestsMutex.Lock()
 		request, exists := pubsub.pendingRequests[id]
-		pubsub.pendingRequestsMutex.Unlock()
+
 		if !exists {
 			pubsub.logger.Debug("reponseHandler() - discarding response -> request does not exist for id: ", id, " - message: ", message.Value())
 			return
