@@ -346,15 +346,19 @@ var _ = Describe("Broker Internals", func() {
 	Describe("Broker.MCall", func() {
 
 		It("MCall on $node service actions with all params false", func() {
+			MCallTimeout := 20 * time.Second
 			actionHandler := func(result string) func(moleculer.Context, moleculer.Payload) interface{} {
 				return func(ctx moleculer.Context, param moleculer.Payload) interface{} {
-					return fmt.Sprint("input: (", param.String(), " ) -> output: ( ", result, " )")
+					result := fmt.Sprint("input: (", param.String(), " ) -> output: ( ", result, " )")
+					fmt.Println("MCALL Action --> ", result)
+					return result
 				}
 			}
 			logLevel := "FATAL"
 			mem := &memory.SharedMemory{}
 			bkr1 := FromConfig(
 				&moleculer.BrokerConfig{
+					MCallTimeout:   MCallTimeout,
 					LogLevel:       logLevel,
 					DiscoverNodeID: func() string { return "test-broker1" },
 					TransporterFactory: func() interface{} {
@@ -379,6 +383,7 @@ var _ = Describe("Broker Internals", func() {
 
 			bkr2 := FromConfig(
 				&moleculer.BrokerConfig{
+					MCallTimeout:   MCallTimeout,
 					LogLevel:       logLevel,
 					DiscoverNodeID: func() string { return "test-broker2" },
 					TransporterFactory: func() interface{} {
