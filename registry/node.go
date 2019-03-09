@@ -2,6 +2,8 @@ package registry
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"net"
 	"time"
@@ -48,7 +50,10 @@ func discoverIpList() []string {
 }
 
 func discoverHostname() string {
-	hostname := "" //os.Hostname()
+	hostname, error := os.Hostname()
+	if error != nil {
+		return "unknown"
+	}
 	return hostname
 }
 
@@ -116,18 +121,31 @@ func interfaceToString(list []interface{}) []string {
 	return result
 }
 
+// removeInternalServices remove internal services from the list of services.
+//checks the service name if it starts with $
+func (node *Node) removeInternalServices(services []map[string]interface{}) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0)
+	for _, item := range services {
+		if !(strings.Index(item["name"].(string), "$") == 0) {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
-	resultMap["services"] = node.services
+	resultMap["services"] = node.removeInternalServices(node.services)
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname
 	resultMap["client"] = node.client
 	resultMap["seq"] = node.sequence
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence
+	resultMap["available"] = node.IsAvailable()
 	return resultMap
 }
 
@@ -152,12 +170,8 @@ func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
-func (node *Node) addServicesImpl(service map[string]interface{}) {
-	node.services = append(node.services, service)
-}
-
 func (node *Node) AddService(service map[string]interface{}) {
-	node.addServicesImpl(service)
+	node.services = append(node.services, service)
 }
 
 func (node *Node) IsAvailable() bool {
@@ -171,8 +185,3 @@ func (node *Node) IsLocal() bool {
 func (node *Node) IncreaseSequence() {
 	node.sequence++
 }
-
-//check if required
-// func (node *Node) AddService(service *Service) {
-
-// }

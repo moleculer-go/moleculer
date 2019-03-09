@@ -177,7 +177,7 @@ type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Pa
 type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) *Service
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
-
+type BrokerContextFunc func() BrokerContext
 type OptionsFunc func(key string) interface{}
 
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
@@ -242,4 +242,5 @@ type BrokerDelegates struct {
 	BroadcastEvent     EmitEventFunc
 	HandleRemoteEvent  EmitEventFunc
 	ServiceForAction   ServiceForActionFunc
+	BrokerContext      BrokerContextFunc
 }

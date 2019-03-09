@@ -150,7 +150,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 }
 
 func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interface{}) {
-	//TODO
+	broker.LocalBus().EmitAsync(eventName, params)
 }
 
 func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
@@ -255,24 +255,25 @@ func (broker *ServiceBroker) invokeMCalls(callMaps map[string]map[string]interfa
 		result <- make(map[string]moleculer.Payload)
 		return
 	}
+
+	resultChan := make(chan callPair)
+	for label, content := range callMaps {
+		go func(label, actionName string, params interface{}, results chan callPair) {
+			result := <-broker.Call(actionName, params)
+			results <- callPair{label, result}
+		}(label, content["action"].(string), content["params"], resultChan)
+	}
+
 	timeoutChan := make(chan bool, 1)
 	go func(timeout time.Duration) {
 		time.Sleep(timeout)
 		timeoutChan <- true
 	}(broker.config.MCallTimeout)
 
-	callResults := make(chan callPair, len(callMaps))
-	for label, content := range callMaps {
-		go func(label, actionName string, params interface{}, callResults chan callPair) {
-			result := <-broker.Call(actionName, params)
-			callResults <- callPair{label, result}
-		}(label, content["action"].(string), content["params"], callResults)
-	}
-
 	results := make(map[string]moleculer.Payload)
 	for {
 		select {
-		case pair := <-callResults:
+		case pair := <-resultChan:
 			results[pair.label] = pair.result
 			if len(results) == len(callMaps) {
 				result <- results
@@ -410,6 +411,9 @@ func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
 		},
 		MultActionDelegate: func(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
 			return broker.MCall(callMaps)
+		},
+		BrokerContext: func() moleculer.BrokerContext {
+			return broker.rootContext
 		},
 	}
 }

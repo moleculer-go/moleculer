@@ -1,17 +1,14 @@
-([]moleculer.Event) (len=3) {
-  (moleculer.Event) {
-    Name: (string) (len=13) "earth.rotates",
-    Group: (string) "",
-    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+([]moleculer.Action) (len=2) {
+  (moleculer.Action) {
+    Name: (string) (len=4) "tide",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Description: (string) ""
   },
-  (moleculer.Event) {
-    Name: (string) (len=13) "earth.rotates",
-    Group: (string) "",
-    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
-  },
-  (moleculer.Event) {
-    Name: (string) (len=12) "moon.isClose",
-    Group: (string) "",
-    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+  (moleculer.Action) {
+    Name: (string) (len=6) "rotate",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Description: (string) ""
   }
 }

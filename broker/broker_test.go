@@ -45,7 +45,6 @@ var _ = Describe("Broker", func() {
 	})
 
 	It("Should make a local call, call should panic and returned paylod should contain the error", func() {
-		//actionResult := "abra cadabra"
 		service := moleculer.Service{
 			Name: "do",
 			Actions: []moleculer.Action{
@@ -62,7 +61,7 @@ var _ = Describe("Broker", func() {
 		}
 		mem := &memory.SharedMemory{}
 		baseConfig := &moleculer.BrokerConfig{
-			LogLevel: "FATAL",
+			LogLevel: "DEBUG",
 			TransporterFactory: func() interface{} {
 				transport := memory.Create(log.WithField("transport", "memory"), mem)
 				return &transport
@@ -78,10 +77,11 @@ var _ = Describe("Broker", func() {
 		result := <-bkr.Call("do.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
-		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
+		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
 		service = moleculer.Service{
-			Name: "remote",
+			Name:         "remote",
+			Dependencies: []string{"do"},
 			Actions: []moleculer.Action{
 				moleculer.Action{
 					Name: "panic",
@@ -106,7 +106,7 @@ var _ = Describe("Broker", func() {
 		result = <-bkr.Call("remote.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
-		Expect(result.Error()).Should(BeEquivalentTo(errors.New("some random error...")))
+		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
 		result = <-bkr.Call("remote.panic", false)
 

@@ -1,0 +1,17 @@
+([]moleculer.Event) (len=3) {
+  (moleculer.Event) {
+    Name: (string) (len=12) "moon.isClose",
+    Group: (string) "",
+    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+  },
+  (moleculer.Event) {
+    Name: (string) (len=13) "earth.rotates",
+    Group: (string) "",
+    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+  },
+  (moleculer.Event) {
+    Name: (string) (len=13) "earth.rotates",
+    Group: (string) "",
+    Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+  }
+}

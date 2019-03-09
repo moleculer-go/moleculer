@@ -45,7 +45,6 @@ func (eventEntry *EventEntry) emitLocalEvent(context moleculer.BrokerContext) {
 	handler := eventEntry.event.Handler()
 	handler(context.(moleculer.Context), context.Payload())
 	logger.Debug("After invoking local event: ", context.EventName())
-
 }
 
 type EventCatalog struct {
@@ -62,7 +61,7 @@ func CreateEventCatalog(logger *log.Entry) *EventCatalog {
 func (eventCatalog *EventCatalog) Add(event service.Event, service *service.Service, local bool) {
 	entry := EventEntry{service.NodeID(), service, &event, local}
 	name := event.Name()
-	eventCatalog.logger.Debug("Add() name: ", name, " serviceName: ", event.ServiceName())
+	eventCatalog.logger.Debug("Add event name: ", name, " serviceName: ", event.ServiceName())
 	list, exists := eventCatalog.events.Load(name)
 	if !exists {
 		list = []EventEntry{entry}
@@ -77,7 +76,6 @@ func (eventCatalog *EventCatalog) Update(nodeID string, name string, updates map
 }
 
 func (eventCatalog *EventCatalog) Remove(nodeID string, name string) {
-	fmt.Println("event Catalog Remove() nodeID: ", nodeID, " name: ", name)
 	removed := 0
 	list, exists := eventCatalog.events.Load(name)
 	if !exists {
@@ -92,12 +90,10 @@ func (eventCatalog *EventCatalog) Remove(nodeID string, name string) {
 		}
 	}
 	eventCatalog.events.Store(name, newList)
-	fmt.Println("event Catalog Remove() nodeID: ", nodeID, " name: ", name, " removed: ", removed)
 }
 
 // RemoveByNode remove events for the given nodeID.
 func (eventCatalog *EventCatalog) RemoveByNode(nodeID string) {
-	fmt.Println("event Catalog RemoveByNode() nodeID: ", nodeID)
 	removed := 0
 	eventCatalog.events.Range(func(key, value interface{}) bool {
 		name := key.(string)
@@ -113,7 +109,6 @@ func (eventCatalog *EventCatalog) RemoveByNode(nodeID string) {
 		eventCatalog.events.Store(name, toKeep)
 		return true
 	})
-	fmt.Println("event Catalog RemoveByNode() nodeID: ", nodeID, " removed: ", removed)
 }
 
 func matchGroup(event *service.Event, groups []string) bool {
@@ -182,9 +177,6 @@ func (eventCatalog *EventCatalog) Find(name string, groups []string, preferLocal
 
 		}
 	}
-	// for _, item := range result {
-	// 	fmt.Println("\n *** eventCatalog.Next() item: ", (*item).event.Name(), " service: ", (*item).event.ServiceName())
-	// }
 
 	return result
 }
