@@ -17,7 +17,12 @@
     (string) (len=8) "services": ([]map[string]interface {}) (len=1) {
       (map[string]interface {}) (len=7) {
         (string) (len=4) "name": (string) (len=7) "printer",
-        (string) (len=6) "events": ([]map[string]interface {}) {
+        (string) (len=6) "events": ([]map[string]interface {}) (len=1) {
+          (map[string]interface {}) (len=3) {
+            (string) (len=11) "serviceName": (string) (len=7) "printer",
+            (string) (len=4) "name": (string) (len=7) "printed",
+            (string) (len=5) "group": (string) (len=7) "printer"
+          }
         },
         (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
         (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {

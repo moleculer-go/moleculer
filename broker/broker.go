@@ -415,6 +415,7 @@ func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
 		BrokerContext: func() moleculer.BrokerContext {
 			return broker.rootContext
 		},
+		MiddlewareHandler: broker.middlewares.CallHandlers,
 	}
 }
 

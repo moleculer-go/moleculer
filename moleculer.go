@@ -178,6 +178,7 @@ type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) *Service
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 type BrokerContextFunc func() BrokerContext
+type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
 type OptionsFunc func(key string) interface{}
 
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
@@ -191,6 +192,7 @@ type Node interface {
 	GetID() string
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
+	Unavailable()
 	IsExpired(timeout time.Duration) bool
 	Update(info map[string]interface{}) bool
 
@@ -243,4 +245,5 @@ type BrokerDelegates struct {
 	HandleRemoteEvent  EmitEventFunc
 	ServiceForAction   ServiceForActionFunc
 	BrokerContext      BrokerContextFunc
+	MiddlewareHandler  MiddlewareHandlerFunc
 }

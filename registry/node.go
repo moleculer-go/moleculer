@@ -78,6 +78,11 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 	return result
 }
 
+//Unavailable mark the node as unavailable
+func (node *Node) Unavailable() {
+	node.isAvailable = false
+}
+
 func (node *Node) Update(info map[string]interface{}) bool {
 	id := info["id"]
 	if id != node.id {

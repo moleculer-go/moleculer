@@ -2,7 +2,12 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=9) {
       (string) (len=4) "name": (string) (len=7) "scanner",
-      (string) (len=6) "events": ([]map[string]interface {}) {
+      (string) (len=6) "events": ([]map[string]interface {}) (len=1) {
+        (map[string]interface {}) (len=3) {
+          (string) (len=11) "serviceName": (string) (len=7) "scanner",
+          (string) (len=4) "name": (string) (len=7) "scanned",
+          (string) (len=5) "group": (string) (len=7) "scanner"
+        }
       },
       (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
         (map[string]interface {}) (len=2) {

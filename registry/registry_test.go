@@ -39,6 +39,14 @@ func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 				},
 			},
 		},
+		Events: []moleculer.Event{
+			{
+				Name: "printed",
+				Handler: func(context moleculer.Context, params moleculer.Payload) {
+					context.Logger().Info("printer.printed --> ", params.Value())
+				},
+			},
+		},
 	})
 
 	return (*broker)
@@ -62,6 +70,14 @@ func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 					context.Logger().Info("scan action invoked!")
 
 					return params.Value()
+				},
+			},
+		},
+		Events: []moleculer.Event{
+			{
+				Name: "scanned",
+				Handler: func(context moleculer.Context, params moleculer.Payload) {
+					context.Logger().Info("scanner.scanned --> ", params.Value())
 				},
 			},
 		},
@@ -108,6 +124,14 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 				},
 			},
 		},
+		Events: []moleculer.Event{
+			{
+				Name: "printed",
+				Handler: func(context moleculer.Context, params moleculer.Payload) {
+					context.Logger().Info("printer.printed --> ", params.Value())
+				},
+			},
+		},
 	})
 	return (*broker)
 }
@@ -128,7 +152,11 @@ func cleanupAction(ins []map[string]interface{}) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(ins))
 	for index, item := range ins {
 		result[index] = map[string]interface{}{
-			"name": item["name"],
+			"name":      item["name"],
+			"count":     item["count"],
+			"hasLocal":  item["hasLocal"],
+			"available": item["available"],
+			"endpoints": item["endpoints"],
 		}
 	}
 	return result
@@ -231,11 +259,38 @@ var _ = Describe("Registry", func() {
 				}
 			}
 
+			extractEvents := func(in interface{}) interface{} {
+				list := in.(moleculer.Payload).Array()
+				return [][]map[string]interface{}{
+					cleanupAction(findBy("name", "printer.printed", list)),
+					cleanupAction(findBy("name", "scanner.scanned", list)),
+				}
+			}
+
+			It("$node.events - all false", harness("$node.events", "all-false", map[string]interface{}{
+				"withEndpoints": false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractEvents))
+
+			It("$node.events - all true", harness("$node.events", "all-true", map[string]interface{}{
+				"withEndpoints": true,
+				"onlyAvailable": true,
+				"onlyLocal":     true,
+			}, extractEvents))
+
 			It("$node.actions - all false", harness("$node.actions", "all-false", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
+			}, extractActions))
+
+			It("$node.actions - all true", harness("$node.actions", "all-true", map[string]interface{}{
+				"withEndpoints": true,
+				"skipInternal":  true,
+				"onlyAvailable": true,
+				"onlyLocal":     true,
 			}, extractActions))
 
 			It("$node.actions - withEndpoints", harness("$node.actions", "withEndpoints", map[string]interface{}{

@@ -28,7 +28,55 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 			moleculer.Action{
 				Name: "events",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					return nil
+					onlyLocal := params.Get("onlyLocal").Exists() && params.Get("onlyLocal").Bool()
+					onlyAvailable := params.Get("onlyAvailable").Exists() && params.Get("onlyAvailable").Bool()
+					skipInternal := params.Get("skipInternal").Exists() && params.Get("skipInternal").Bool()
+					withEndpoints := params.Get("withEndpoints").Exists() && params.Get("withEndpoints").Bool()
+
+					result := make([]map[string]interface{}, 0)
+					for name, entries := range registry.events.listByName() {
+						has := func(check func(nodeID string) bool) bool {
+							for _, item := range entries {
+								if check(item.service.NodeID()) {
+									return true
+								}
+							}
+							return false
+						}
+						endpoints := func() []map[string]interface{} {
+							list := make([]map[string]interface{}, 0)
+							for _, item := range entries {
+								nodeID := item.service.NodeID()
+								list = append(list, map[string]interface{}{
+									"nodeID":    nodeID,
+									"available": isAvailable(nodeID),
+								})
+							}
+							return list
+						}
+						if onlyLocal && !has(isLocal) {
+							continue
+						}
+						if onlyAvailable && !has(isAvailable) {
+							continue
+						}
+						if skipInternal && strings.Index(name, "$") == 0 {
+							continue
+						}
+						item := map[string]interface{}{
+							"name":      name,
+							"group":     entries[0].event.Group(),
+							"count":     len(entries),
+							"hasLocal":  has(isLocal),
+							"available": has(isAvailable),
+						}
+						if withEndpoints {
+							item["endpoints"] = endpoints()
+						}
+						result = append(result, item)
+					}
+
+					return result
 				},
 			},
 			moleculer.Action{
@@ -60,6 +108,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 							}
 							return list
 						}
+						context.Logger().Debug("$node.actions name: ", name)
 						if onlyLocal && !has(isLocal) {
 							continue
 						}
@@ -79,6 +128,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 							item["endpoints"] = endpoints()
 						}
 						result = append(result, item)
+						context.Logger().Debug("$node.actions name: ", name, " contents: ", item)
 					}
 
 					return result

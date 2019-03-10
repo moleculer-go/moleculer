@@ -75,6 +75,15 @@ func (eventCatalog *EventCatalog) Update(nodeID string, name string, updates map
 	//TODO .. the only thing that can be udpated is the Event Schema (validation) and that does not exist yet
 }
 
+func (eventCatalog *EventCatalog) listByName() map[string][]EventEntry {
+	result := make(map[string][]EventEntry)
+	eventCatalog.events.Range(func(key, value interface{}) bool {
+		result[key.(string)] = value.([]EventEntry)
+		return true
+	})
+	return result
+}
+
 func (eventCatalog *EventCatalog) Remove(nodeID string, name string) {
 	removed := 0
 	list, exists := eventCatalog.events.Load(name)

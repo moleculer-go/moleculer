@@ -17,6 +17,10 @@ func (node *NodeMock) Update(info map[string]interface{}) bool {
 	return node.UpdateResult
 }
 
+func (node *NodeMock) Unavailable() {
+	node.IsAvailableResult = false
+}
+
 func (node *NodeMock) GetID() string {
 	return node.ID
 }

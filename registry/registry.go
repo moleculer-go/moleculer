@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moleculer-go/moleculer/middleware"
+
 	"github.com/moleculer-go/moleculer/payload"
 
 	"github.com/moleculer-go/moleculer"
@@ -245,9 +247,25 @@ func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext
 	registry.logger.Debug("LoadBalanceCall() - actionName: ", actionName, " target nodeID: ", actionEntry.TargetNodeID())
 
 	if actionEntry.isLocal {
-		return actionEntry.invokeLocalAction(context)
+		registry.broker.MiddlewareHandler("beforeLocalAction", context)
+		result := <-actionEntry.invokeLocalAction(context)
+		tempParams := registry.broker.MiddlewareHandler("afterLocalAction", middleware.AfterActionParams{context, result})
+		actionParams := tempParams.(middleware.AfterActionParams)
+
+		resultChan := make(chan moleculer.Payload, 1)
+		resultChan <- actionParams.Result
+		return resultChan
 	}
-	return registry.invokeRemoteAction(context, actionEntry)
+
+	registry.broker.MiddlewareHandler("beforeRemoteAction", context)
+	result := <-registry.invokeRemoteAction(context, actionEntry)
+	tempParams := registry.broker.MiddlewareHandler("afterRemoteAction", middleware.AfterActionParams{context, result})
+	actionParams := tempParams.(middleware.AfterActionParams)
+
+	resultChan := make(chan moleculer.Payload, 1)
+	resultChan <- actionParams.Result
+	return resultChan
+
 }
 
 func (registry *ServiceRegistry) emitRemoteEvent(context moleculer.BrokerContext, eventEntry *EventEntry) {
@@ -257,7 +275,7 @@ func (registry *ServiceRegistry) emitRemoteEvent(context moleculer.BrokerContext
 }
 
 func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerContext, actionEntry *ActionEntry) chan moleculer.Payload {
-	result := make(chan moleculer.Payload)
+	result := make(chan moleculer.Payload, 1)
 	context.SetTargetNodeID(actionEntry.TargetNodeID())
 	registry.logger.Trace("Before invoking remote action: ", context.ActionName(), " context.TargetNodeID: ", context.TargetNodeID(), " context.Payload(): ", context.Payload())
 
@@ -289,9 +307,13 @@ func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
 }
 
 // disconnectNode remove node info (actions, events) from local registry.
-func (registry *ServiceRegistry) disconnectNode(node moleculer.Node) {
-	nodeID := node.GetID()
+func (registry *ServiceRegistry) disconnectNode(nodeID string) {
+	node, exists := registry.nodes.findNode(nodeID)
+	if !exists {
+		return
+	}
 	registry.removeServicesByNodeID(nodeID)
+	node.Unavailable()
 	registry.broker.Bus().EmitAsync("$node.disconnected", []interface{}{nodeID})
 	registry.logger.Warnf("Node %s disconnected ", nodeID)
 }
@@ -299,7 +321,7 @@ func (registry *ServiceRegistry) disconnectNode(node moleculer.Node) {
 func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 	expiredNodes := registry.nodes.expiredNodes(registry.heartbeatTimeout)
 	for _, node := range expiredNodes {
-		registry.disconnectNode(node)
+		registry.disconnectNode(node.GetID())
 	}
 }
 
@@ -356,7 +378,7 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 	node, exists := registry.nodes.findNode(sender)
 	registry.logger.Debug("disconnectMessageReceived() sender: ", sender, " exists: ", exists)
 	if exists {
-		registry.disconnectNode(node)
+		registry.disconnectNode(node.GetID())
 	}
 }
 

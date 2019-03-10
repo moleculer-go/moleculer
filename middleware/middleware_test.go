@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer/context"
-	"github.com/moleculer-go/moleculer/registry"
 	"github.com/moleculer-go/moleculer/service"
+	"github.com/moleculer-go/moleculer/test"
 
 	"github.com/moleculer-go/moleculer"
 	. "github.com/onsi/ginkgo"
@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var logger = log.WithField("unit test pkg", "registry_test")
+var logger = log.WithField("unit test pkg", "middleware_test")
 
 func createLogger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
@@ -23,10 +23,10 @@ func createLogger(name string, value string) *log.Entry {
 
 func brokerDelegates(nodeID string) moleculer.BrokerDelegates {
 	localBus := bus.Construct()
-	localNode := registry.CreateNode(nodeID, true, logger)
+	localNode := test.NodeMock{ID: nodeID}
 	broker := moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
-			return localNode
+			return &localNode
 		},
 		Logger: createLogger,
 		Bus: func() *bus.Emitter {
