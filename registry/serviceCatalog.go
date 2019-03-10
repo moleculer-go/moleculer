@@ -54,28 +54,47 @@ func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID st
 	return nil
 }
 
-// list all services in the catalog.
-func (serviceCatalog *ServiceCatalog) list() []*service.Service {
-	var result []*service.Service
+// listByName list all service entriesf grouped by name.
+func (serviceCatalog *ServiceCatalog) listByName() map[string][]ServiceEntry {
+	result := make(map[string][]ServiceEntry)
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
-		entry := value.(ServiceEntry)
-		result = append(result, entry.service)
+		serviceEntry := value.(ServiceEntry)
+		name := serviceEntry.service.FullName()
+		entries, exists := result[name]
+		if exists {
+			result[name] = append(entries, serviceEntry)
+		} else {
+			result[name] = []ServiceEntry{serviceEntry}
+		}
 		return true
 	})
 	return result
 }
 
+// list all services in the catalog.
+// func (serviceCatalog *ServiceCatalog) list() []*service.Service {
+// 	var result []*service.Service
+// 	serviceCatalog.services.Range(func(key, value interface{}) bool {
+// 		entry := value.(ServiceEntry)
+// 		result = append(result, entry.service)
+// 		return true
+// 	})
+// 	return result
+// }
+
 // RemoveByNode remove services for the given nodeID.
-func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
+func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
+	var removed []string
 	serviceCatalog.logger.Debug("RemoveByNode() nodeID: ", nodeID)
 	var keysRemove []string
 	var namesRemove []string
+	var fullNamesRemove []string
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
 		service := value.(ServiceEntry)
 		if service.nodeID == nodeID {
 			keysRemove = append(keysRemove, key.(string))
 			namesRemove = append(namesRemove, service.service.Name())
-			namesRemove = append(namesRemove, service.service.FullName())
+			fullNamesRemove = append(fullNamesRemove, service.service.FullName())
 		}
 		return true
 	})
@@ -83,6 +102,18 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
 		serviceCatalog.services.Delete(key)
 	}
 	for _, name := range namesRemove {
+		value, exists := serviceCatalog.servicesByName.Load(name)
+		if exists {
+			removed = append(removed, name)
+			counter := value.(int)
+			counter = counter - 1
+			if counter < 0 {
+				counter = 0
+			}
+			serviceCatalog.servicesByName.Store(name, counter)
+		}
+	}
+	for _, name := range fullNamesRemove {
 		value, exists := serviceCatalog.servicesByName.Load(name)
 		if exists {
 			counter := value.(int)
@@ -93,6 +124,7 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) {
 			serviceCatalog.servicesByName.Store(name, counter)
 		}
 	}
+	return removed
 }
 
 // Add : add a service to the catalog.
@@ -101,7 +133,7 @@ func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services.Store(key, ServiceEntry{service, nodeID})
 
-	serviceCatalog.logger.Debug("Add() nodeID: ", nodeID, " name: ", service.Name(), " fullName: ", service.FullName())
+	serviceCatalog.logger.Debug("Add service name: ", service.Name(), " nodeID: ", nodeID, " service fullName: ", service.FullName())
 
 	value, exists := serviceCatalog.servicesByName.Load(service.FullName())
 	if exists {
@@ -162,7 +194,7 @@ func (serviceCatalog *ServiceCatalog) updateEvents(serviceMap map[string]interfa
 		name := event.Name()
 		if !itemMapExists(name, events) {
 			deletedEvents = append(deletedEvents, event)
-			current.RemoteEvent(name)
+			current.RemoveEvent(name)
 		}
 	}
 	return updated, newEvents, deletedEvents
@@ -196,28 +228,29 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 }
 
 // updateRemote : update remote service info and return what actions are new, updated and deleted
-func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) (*service.Service, []map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
+func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) (*service.Service, bool, []map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
 	item, serviceExists := serviceCatalog.services.Load(key)
+
 	if serviceExists {
 		entry := item.(ServiceEntry)
 		current := entry.service
 		current.UpdateFromMap(serviceInfo)
 		updatedActions, newActions, deletedActions := serviceCatalog.updateActions(serviceInfo, current)
 		updatedEvents, newEvents, deletedEvents := serviceCatalog.updateEvents(serviceInfo, current)
-		return current, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
+		return current, false, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 	}
 
-	serviceInstance := service.CreateServiceFromMap(serviceInfo)
-	serviceCatalog.Add(serviceInstance)
+	newService := service.CreateServiceFromMap(serviceInfo)
+	serviceCatalog.Add(newService)
 
-	newActions := serviceInstance.Actions()
+	newActions := newService.Actions()
 	updatedActions := make([]map[string]interface{}, 0)
 	deletedActions := make([]service.Action, 0)
 
-	newEvents := serviceInstance.Events()
+	newEvents := newService.Events()
 	updatedEvents := make([]map[string]interface{}, 0)
 	deletedEvents := make([]service.Event, 0)
-	return serviceInstance, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
+	return newService, true, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents
 
 }

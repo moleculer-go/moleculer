@@ -72,14 +72,18 @@ func Create(broker moleculer.BrokerDelegates) transit.Transit {
 }
 
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
+	pubsub.pendingRequestsMutex.Lock()
+	defer pubsub.pendingRequestsMutex.Unlock()
+
 	var nodeID string = values[0].(string)
 	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
+
 	pending, exists := pubsub.pendingRequests[nodeID]
-	pubsub.neighboursMutex.Lock()
 	if exists {
-		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. Request being canceled.", nodeID))
+		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
+	pubsub.neighboursMutex.Lock()
 	delete(pubsub.knownNeighbours, nodeID)
 	pubsub.neighboursMutex.Unlock()
 }
@@ -248,9 +252,9 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 		pubsub.logger.Error("Request() Error serializing the payload: ", payload, " error: ", err)
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
-	pubsub.pendingRequestsMutex.Lock()
-	pubsub.logger.Debug("Request() pending request id: ", context.ID())
 
+	pubsub.logger.Debug("Request() pending request id: ", context.ID())
+	pubsub.pendingRequestsMutex.Lock()
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
@@ -293,11 +297,15 @@ func (pubsub *PubSub) validateVersion(msg moleculer.Payload) bool {
 // reponseHandler responsible for whem a reponse arrives form a remote node.
 func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
+		pubsub.pendingRequestsMutex.Lock()
+		defer pubsub.pendingRequestsMutex.Unlock()
+
 		id := message.Get("id").String()
 		sender := message.Get("sender").String()
 		pubsub.logger.Debug("reponseHandler() - response arrived from nodeID: ", sender, " context id: ", id)
 
 		request, exists := pubsub.pendingRequests[id]
+
 		if !exists {
 			pubsub.logger.Debug("reponseHandler() - discarding response -> request does not exist for id: ", id, " - message: ", message.Value())
 			return
@@ -399,6 +407,7 @@ func (pubsub *PubSub) neighbours() int64 {
 	return int64(len(pubsub.knownNeighbours))
 }
 
+// broadcastNodeInfo send the local node info to the target node, if empty to all nodes.
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]

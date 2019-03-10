@@ -42,7 +42,7 @@ func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext
 }
 
 func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
-	result := make(chan moleculer.Payload)
+	result := make(chan moleculer.Payload, 1)
 
 	actionEntry.logger.Debug("Before Invoking action: ", context.ActionName())
 

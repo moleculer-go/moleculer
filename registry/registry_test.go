@@ -2,18 +2,21 @@ package registry_test
 
 import (
 	"fmt"
+	"sort"
+	"sync"
 	"time"
 
 	snap "github.com/moleculer-go/cupaloy"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
+	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 )
 
-var logLevel = "FATAL"
+var logLevel = "ERROR"
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.FromConfig(&moleculer.BrokerConfig{
@@ -33,6 +36,14 @@ func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					context.Logger().Info("print action invoked. params: ", params)
 					return params.Value()
+				},
+			},
+		},
+		Events: []moleculer.Event{
+			{
+				Name: "printed",
+				Handler: func(context moleculer.Context, params moleculer.Payload) {
+					context.Logger().Info("printer.printed --> ", params.Value())
 				},
 			},
 		},
@@ -59,6 +70,14 @@ func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 					context.Logger().Info("scan action invoked!")
 
 					return params.Value()
+				},
+			},
+		},
+		Events: []moleculer.Event{
+			{
+				Name: "scanned",
+				Handler: func(context moleculer.Context, params moleculer.Payload) {
+					context.Logger().Info("scanner.scanned --> ", params.Value())
 				},
 			},
 		},
@@ -95,7 +114,25 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 			},
 		},
 	})
-
+	broker.AddService(moleculer.Service{
+		Name: "printer",
+		Actions: []moleculer.Action{
+			{
+				Name: "print",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					return params.Value()
+				},
+			},
+		},
+		Events: []moleculer.Event{
+			{
+				Name: "printed",
+				Handler: func(context moleculer.Context, params moleculer.Payload) {
+					context.Logger().Info("printer.printed --> ", params.Value())
+				},
+			},
+		},
+	})
 	return (*broker)
 }
 
@@ -107,6 +144,7 @@ func cleanupNode(in map[string]interface{}) map[string]interface{} {
 		return make(map[string]interface{})
 	}
 	in["ipList"] = []string{"100.100.0.100"}
+	in["hostname"] = ""
 	return in
 }
 
@@ -114,7 +152,11 @@ func cleanupAction(ins []map[string]interface{}) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(ins))
 	for index, item := range ins {
 		result[index] = map[string]interface{}{
-			"name": item["name"],
+			"name":      item["name"],
+			"count":     item["count"],
+			"hasLocal":  item["hasLocal"],
+			"available": item["available"],
+			"endpoints": item["endpoints"],
 		}
 	}
 	return result
@@ -125,6 +167,19 @@ func first(list []map[string]interface{}) map[string]interface{} {
 		return list[0]
 	}
 	return nil
+}
+
+func orderEndpoints(list []map[string]interface{}) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(list))
+	for idx, item := range list {
+		endpointsTemp, exists := item["endpoints"]
+		if exists {
+			endpoints := endpointsTemp.([]map[string]interface{})
+			item["endpoints"] = test.OrderMapArray(endpoints, "nodeID")
+		}
+		result[idx] = item
+	}
+	return result
 }
 
 func findBy(field, value string, list []moleculer.Payload) []map[string]interface{} {
@@ -184,7 +239,7 @@ var _ = Describe("Registry", func() {
 			extractServices := func(in interface{}) interface{} {
 				list := in.(moleculer.Payload).Array()
 				return [][]map[string]interface{}{
-					findBy("name", "printer", list),
+					orderEndpoints(findBy("name", "printer", list)),
 					findBy("name", "scanner", list),
 					findBy("name", "cpu", list),
 					findBy("name", "$node", list),
@@ -204,11 +259,38 @@ var _ = Describe("Registry", func() {
 				}
 			}
 
+			extractEvents := func(in interface{}) interface{} {
+				list := in.(moleculer.Payload).Array()
+				return [][]map[string]interface{}{
+					cleanupAction(findBy("name", "printer.printed", list)),
+					cleanupAction(findBy("name", "scanner.scanned", list)),
+				}
+			}
+
+			It("$node.events - all false", harness("$node.events", "all-false", map[string]interface{}{
+				"withEndpoints": false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractEvents))
+
+			It("$node.events - all true", harness("$node.events", "all-true", map[string]interface{}{
+				"withEndpoints": true,
+				"onlyAvailable": true,
+				"onlyLocal":     true,
+			}, extractEvents))
+
 			It("$node.actions - all false", harness("$node.actions", "all-false", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
+			}, extractActions))
+
+			It("$node.actions - all true", harness("$node.actions", "all-true", map[string]interface{}{
+				"withEndpoints": true,
+				"skipInternal":  true,
+				"onlyAvailable": true,
+				"onlyLocal":     true,
 			}, extractActions))
 
 			It("$node.actions - withEndpoints", harness("$node.actions", "withEndpoints", map[string]interface{}{
@@ -250,6 +332,7 @@ var _ = Describe("Registry", func() {
 			}, extractNodes))
 
 			It("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
+				"withEndpoints": false,
 				"withActions":   false,
 				"withEvents":    false,
 				"skipInternal":  false,
@@ -257,8 +340,27 @@ var _ = Describe("Registry", func() {
 				"onlyLocal":     false,
 			}, extractServices))
 
+			It("$node.services - all true", harness("$node.services", "all-true", map[string]interface{}{
+				"withEndpoints": true,
+				"withActions":   true,
+				"withEvents":    true,
+				"skipInternal":  true,
+				"onlyAvailable": true,
+				"onlyLocal":     true,
+			}, extractServices))
+
 			It("$node.services - withActions", harness("$node.services", "withActions", map[string]interface{}{
 				"withActions":   true,
+				"withEndpoints": false,
+				"withEvents":    false,
+				"skipInternal":  false,
+				"onlyAvailable": false,
+				"onlyLocal":     false,
+			}, extractServices))
+
+			It("$node.services - withEndpoints", harness("$node.services", "withEndpoints", map[string]interface{}{
+				"withActions":   false,
+				"withEndpoints": true,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
@@ -267,6 +369,7 @@ var _ = Describe("Registry", func() {
 
 			It("$node.services - withEvents", harness("$node.services", "withEvents", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    true,
 				"skipInternal":  false,
 				"onlyAvailable": false,
@@ -275,6 +378,7 @@ var _ = Describe("Registry", func() {
 
 			It("$node.services - skipInternal", harness("$node.services", "skipInternal", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    false,
 				"skipInternal":  true,
 				"onlyAvailable": false,
@@ -283,13 +387,16 @@ var _ = Describe("Registry", func() {
 
 			It("$node.services - onlyAvailable", harness("$node.services", "onlyAvailable", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": true,
 				"onlyLocal":     false,
 			}, extractServices))
+
 			It("$node.services - onlyLocal", harness("$node.services", "onlyLocal", map[string]interface{}{
 				"withActions":   false,
+				"withEndpoints": false,
 				"withEvents":    false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
@@ -297,6 +404,80 @@ var _ = Describe("Registry", func() {
 			}, extractServices))
 		})
 
+		It("Should subscribe for internal events and receive events when happen :)", func() {
+			var serviceAdded []map[string]interface{}
+			addedMutex := &sync.Mutex{}
+			addedChan := make(chan bool)
+			var serviceRemoved []string
+			mem := &memory.SharedMemory{}
+			bkr1 := broker.FromConfig(&moleculer.BrokerConfig{
+				DiscoverNodeID: func() string { return "test-node1" },
+				LogLevel:       logLevel,
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+			bkr1.AddService(moleculer.Service{
+				Name: "internal-consumer",
+				Events: []moleculer.Event{
+					moleculer.Event{
+						Name: "$registry.service.added",
+						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+							addedMutex.Lock()
+							defer addedMutex.Unlock()
+							serviceAdded = append(serviceAdded, params.RawMap())
+							addedChan <- true
+						},
+					},
+					moleculer.Event{
+						Name: "$registry.service.removed",
+						Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+							serviceRemoved = append(serviceRemoved, params.String())
+						},
+					},
+				},
+			})
+			bkr1.Start()
+
+			bkr1.AddService(moleculer.Service{
+				Name: "service-added",
+			})
+
+			<-addedChan
+			<-addedChan
+			<-addedChan
+			Expect(snap.SnapshotMulti("local-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
+
+			//add another node.. so test service removed is invoked
+			bkr2 := broker.FromConfig(&moleculer.BrokerConfig{
+				DiscoverNodeID: func() string { return "test-node2" },
+				LogLevel:       logLevel,
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+			bkr2.AddService(moleculer.Service{
+				Name:         "remote-service",
+				Dependencies: []string{"internal-consumer", "service-added"},
+			})
+			bkr2.Start()
+			//time.Sleep(100 * time.Millisecond)
+
+			<-addedChan
+			Expect(snap.SnapshotMulti("remote-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
+			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
+
+			//stop broker 2 .. should remove services on broker 1
+			bkr2.Stop()
+			time.Sleep(100 * time.Millisecond)
+			sort.Strings(serviceRemoved)
+			Expect(snap.SnapshotMulti("remote-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
+
+			bkr1.Stop()
+		})
 	})
 
 	Describe("Auto discovery", func() {

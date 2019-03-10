@@ -3,8 +3,6 @@ package context
 import (
 	"errors"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/options"
@@ -231,44 +229,8 @@ func (context *Context) AsMap() map[string]interface{} {
 	return mapResult
 }
 
-func (context *Context) MCall(callMaps map[string]map[string]interface{}) chan map[string]interface{} {
-	resultChan := make(chan map[string]interface{})
-	results := make(map[string]interface{})
-	mutex := sync.Mutex{}
-	for callName, details := range callMaps {
-		actionName := details["action"].(string)
-		params := details["params"]
-		go func() {
-			mutex.Lock()
-			results[callName] = <-context.Call(actionName, params)
-			mutex.Unlock()
-		}()
-	}
-	start := time.Now()
-	go func() {
-		for {
-			if len(results) == len(callMaps) {
-				resultChan <- results
-				break
-			} else if time.Since(start) > context.broker.Config.MCallTimeout {
-				timeoutError := errors.New("MCall timeout error.")
-				context.Logger().Error(timeoutError)
-
-				mutex.Lock()
-				for callName, details := range callMaps {
-					if results[callName] == nil {
-						results[callName] = timeoutError
-						context.Logger().Error("MCall timeout error -> actionName: ", details["action"], " params: ", details["params"])
-					}
-				}
-				mutex.Unlock()
-				resultChan <- results
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
-	return resultChan
+func (context *Context) MCall(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
+	return context.broker.MultActionDelegate(callMaps)
 }
 
 // Call : main entry point to call actions.

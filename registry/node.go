@@ -2,6 +2,8 @@ package registry
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"net"
 	"time"
@@ -48,7 +50,10 @@ func discoverIpList() []string {
 }
 
 func discoverHostname() string {
-	hostname := "" //os.Hostname()
+	hostname, error := os.Hostname()
+	if error != nil {
+		return "unknown"
+	}
 	return hostname
 }
 
@@ -71,6 +76,11 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 	}
 	var result moleculer.Node = &node
 	return result
+}
+
+//Unavailable mark the node as unavailable
+func (node *Node) Unavailable() {
+	node.isAvailable = false
 }
 
 func (node *Node) Update(info map[string]interface{}) bool {
@@ -98,7 +108,6 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	for index, item := range items {
 		services[index] = item.(map[string]interface{})
 	}
-	node.validateServices(services)
 	node.services = services
 	node.logger.Debug("node.Update() node.services: ", node.services)
 
@@ -117,19 +126,31 @@ func interfaceToString(list []interface{}) []string {
 	return result
 }
 
+// removeInternalServices remove internal services from the list of services.
+//checks the service name if it starts with $
+func (node *Node) removeInternalServices(services []map[string]interface{}) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0)
+	for _, item := range services {
+		if !(strings.Index(item["name"].(string), "$") == 0) {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {
-	node.validateServices(node.services)
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
-	resultMap["services"] = node.services
+	resultMap["services"] = node.removeInternalServices(node.services)
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname
 	resultMap["client"] = node.client
 	resultMap["seq"] = node.sequence
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence
+	resultMap["available"] = node.IsAvailable()
 	return resultMap
 }
 
@@ -154,40 +175,8 @@ func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
-func (node *Node) validateService(service map[string]interface{}) {
-	name := service["name"].(string)
-	if "$node" == name {
-		return
-	}
-	raw, exists := service["events"]
-	if !exists {
-		fmt.Println("invalid service -> service: ", service)
-		//panic("invalid service - no events")
-	}
-	mapList, mapType := raw.([]map[string]interface{})
-	interfaceList, interfaceType := raw.([]interface{})
-	if !mapType && !interfaceType {
-		fmt.Println("invalid service -> service: ", service)
-		//panic("invalid service - invalid events items")
-	}
-	if mapType && len(mapList) == 0 || interfaceType && len(interfaceList) == 0 {
-		fmt.Println("invalid service -> service: ", service)
-		//panic("invalid service - events list is empty")
-	}
-}
-func (node *Node) validateServices(services []map[string]interface{}) {
-	for _, service := range services {
-		node.validateService(service)
-	}
-}
-
-func (node *Node) addServicesImpl(service map[string]interface{}) {
-	node.validateService(service)
-	node.services = append(node.services, service)
-}
-
 func (node *Node) AddService(service map[string]interface{}) {
-	node.addServicesImpl(service)
+	node.services = append(node.services, service)
 }
 
 func (node *Node) IsAvailable() bool {
@@ -201,8 +190,3 @@ func (node *Node) IsLocal() bool {
 func (node *Node) IncreaseSequence() {
 	node.sequence++
 }
-
-//check if required
-// func (node *Node) AddService(service *Service) {
-
-// }

@@ -17,7 +17,9 @@ func metricEnd(brokerContext moleculer.BrokerContext, result moleculer.Payload) 
 
 	startTime := (*rawContext.Meta())["startTime"].(time.Time)
 	payload := metricsPayload(brokerContext)
-	payload["duration"] = int(time.Since(startTime).Nanoseconds() / 1000000)
+
+	mlseconds := float64(time.Since(startTime).Nanoseconds()) / 1000000
+	payload["duration"] = mlseconds
 	payload["endTime"] = time.Now().Format(time.RFC3339)
 	if result.IsError() {
 		payload["error"] = map[string]string{
@@ -63,12 +65,17 @@ func createShouldMetric(brokerConfig moleculer.BrokerConfig) func(context molecu
 	var callsCount float32 = 0
 	return func(context moleculer.BrokerContext) bool {
 		if context.Meta() != nil && (*context.Meta())["metrics"] != nil && (*context.Meta())["metrics"].(bool) {
+			//fmt.Println("createShouldMetric() metrics is on inside meta!")
 			callsCount++
 			if callsCount*brokerConfig.MetricsRate >= 1.0 {
+				//fmt.Println("createShouldMetric() rate is good!")
+
 				callsCount = 0
 				return true
 			}
 		}
+		// fmt.Println("createShouldMetric() metris is NOT ON :( ")
+		// fmt.Println("createShouldMetric() context.Meta() -> ", context.Meta())
 		return false
 	}
 }
@@ -81,6 +88,7 @@ func Middlewares() moleculer.Middlewares {
 		// store the broker config
 		"brokerConfig": func(params interface{}, next func(...interface{})) {
 			brokerConfig = params.(moleculer.BrokerConfig)
+			shouldMetric = createShouldMetric(brokerConfig)
 			next()
 		},
 		"afterLocalAction": func(params interface{}, next func(...interface{})) {
@@ -93,6 +101,7 @@ func Middlewares() moleculer.Middlewares {
 			next()
 		},
 		"beforeLocalAction": func(params interface{}, next func(...interface{})) {
+			//fmt.Println("metrics... beforeLocalAction...")
 			context := params.(moleculer.BrokerContext)
 			if shouldMetric(context) {
 				metricStart(context)

@@ -13,9 +13,11 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 		node, exists := registry.nodes.findNode(nodeID)
 		return exists && node.IsAvailable()
 	}
+
 	isLocal := func(nodeID string) bool {
 		return registry.localNode.GetID() == nodeID
 	}
+
 	without := func(in map[string]interface{}, key string) map[string]interface{} {
 		delete(in, key)
 		return in
@@ -26,7 +28,55 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 			moleculer.Action{
 				Name: "events",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					return nil
+					onlyLocal := params.Get("onlyLocal").Exists() && params.Get("onlyLocal").Bool()
+					onlyAvailable := params.Get("onlyAvailable").Exists() && params.Get("onlyAvailable").Bool()
+					skipInternal := params.Get("skipInternal").Exists() && params.Get("skipInternal").Bool()
+					withEndpoints := params.Get("withEndpoints").Exists() && params.Get("withEndpoints").Bool()
+
+					result := make([]map[string]interface{}, 0)
+					for name, entries := range registry.events.listByName() {
+						has := func(check func(nodeID string) bool) bool {
+							for _, item := range entries {
+								if check(item.service.NodeID()) {
+									return true
+								}
+							}
+							return false
+						}
+						endpoints := func() []map[string]interface{} {
+							list := make([]map[string]interface{}, 0)
+							for _, item := range entries {
+								nodeID := item.service.NodeID()
+								list = append(list, map[string]interface{}{
+									"nodeID":    nodeID,
+									"available": isAvailable(nodeID),
+								})
+							}
+							return list
+						}
+						if onlyLocal && !has(isLocal) {
+							continue
+						}
+						if onlyAvailable && !has(isAvailable) {
+							continue
+						}
+						if skipInternal && strings.Index(name, "$") == 0 {
+							continue
+						}
+						item := map[string]interface{}{
+							"name":      name,
+							"group":     entries[0].event.Group(),
+							"count":     len(entries),
+							"hasLocal":  has(isLocal),
+							"available": has(isAvailable),
+						}
+						if withEndpoints {
+							item["endpoints"] = endpoints()
+						}
+						result = append(result, item)
+					}
+
+					return result
 				},
 			},
 			moleculer.Action{
@@ -49,15 +99,16 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 							return false
 						}
 						endpoints := func() []map[string]interface{} {
-							edps := make([]map[string]interface{}, 0)
+							list := make([]map[string]interface{}, 0)
 							for _, item := range entries {
-								edps = append(edps, map[string]interface{}{
+								list = append(list, map[string]interface{}{
 									"nodeID":    item.service.NodeID(),
 									"available": isAvailable(item.service.NodeID()),
 								})
 							}
-							return edps
+							return list
 						}
+						context.Logger().Debug("$node.actions name: ", name)
 						if onlyLocal && !has(isLocal) {
 							continue
 						}
@@ -77,6 +128,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 							item["endpoints"] = endpoints()
 						}
 						result = append(result, item)
+						context.Logger().Debug("$node.actions name: ", name, " contents: ", item)
 					}
 
 					return result
@@ -88,6 +140,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 				Schema: moleculer.ObjectSchema{
 					struct {
 						withActions   bool
+						withEndpoints bool
 						withEvents    bool `required:"true"`
 						skipInternal  bool
 						onlyAvailable bool
@@ -96,45 +149,60 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					}{withActions: true},
 				},
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-					//TODO remove the .Exists() check once we have action schema validation and default values assignment.
-					withActions := params.Get("withActions").Exists() && params.Get("withActions").Bool()
-					withEvents := params.Get("withEvents").Exists() && params.Get("withEvents").Bool()
+					context.Logger().Debug("$node.services params: ", params.Value())
+
+					//TODO simplify this by removing the .Exists() check once we have action schema validation and default values assignment.
 					skipInternal := params.Get("skipInternal").Exists() && params.Get("skipInternal").Bool()
 					onlyAvailable := params.Get("onlyAvailable").Exists() && params.Get("onlyAvailable").Bool()
 					onlyLocal := params.Get("onlyLocal").Exists() && params.Get("onlyLocal").Bool()
+					withActions := params.Get("withActions").Exists() && params.Get("withActions").Bool()
+					withEvents := params.Get("withEvents").Exists() && params.Get("withEvents").Bool()
+					withEndpoints := params.Get("withEndpoints").Exists() && params.Get("withEndpoints").Bool()
 
-					context.Logger().Debug("$node.services params: ", params.Value())
-					services := registry.services.list()
-					context.Logger().Debug("len(services): ", len(services))
-
+					//ISSUE: is returning duplicate services. -> printer which exists in 2 brokers.. local and remote.
 					result := make([]map[string]interface{}, 0)
-					for _, service := range services {
-						context.Logger().Debug("checking service -> : ", (*service))
-						if isLocal(service.NodeID()) && skipInternal && strings.Index(service.Name(), "$") == 0 {
-							context.Logger().Debug("skiping service -> : ", (*service), " flag skipInternal: ", skipInternal)
+					for name, entries := range registry.services.listByName() {
+						has := func(check func(nodeID string) bool) bool {
+							for _, item := range entries {
+								if check(item.nodeID) {
+									return true
+								}
+							}
+							return false
+						}
+						endpoints := func() []map[string]interface{} {
+							list := make([]map[string]interface{}, 0)
+							for _, item := range entries {
+								list = append(list, map[string]interface{}{
+									"nodeID":    item.nodeID,
+									"available": isAvailable(item.nodeID),
+								})
+							}
+							return list
+						}
+						if onlyLocal && !has(isLocal) {
 							continue
 						}
-						if !isLocal(service.NodeID()) && strings.Index(service.Name(), "$") == 0 {
-							context.Logger().Debug("skiping service -> : ", (*service), " flag internal service of a remote node.")
+						if onlyAvailable && !has(isAvailable) {
 							continue
 						}
-						if onlyLocal && !isLocal(service.NodeID()) {
-							context.Logger().Debug("skiping service -> : ", (*service), " flag onlyLocal: ", onlyLocal)
+						if skipInternal && strings.Index(name, "$") == 0 {
 							continue
 						}
-						if onlyAvailable && !isAvailable(service.NodeID()) {
-							context.Logger().Debug("skiping service -> : ", (*service), " flag onlyAvailable: ", onlyAvailable)
-							continue
+						smap := entries[0].service.AsMap()
+						smap["available"] = has(isAvailable)
+						smap["hasLocal"] = has(isLocal)
+						smap = without(smap, "nodeID")
+						if withEndpoints {
+							smap["endpoints"] = endpoints()
 						}
-						maps := service.AsMap()
-						maps["available"] = isAvailable(service.NodeID())
 						if !withActions {
-							maps = without(maps, "actions")
+							smap = without(smap, "actions")
 						}
 						if !withEvents {
-							maps = without(maps, "events")
+							smap = without(smap, "events")
 						}
-						result = append(result, maps)
+						result = append(result, smap)
 					}
 					return result
 				},

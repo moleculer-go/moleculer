@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("Broker Internals", func() {
 
-	XDescribe("Broker events", func() {
+	Describe("Broker events", func() {
 		eventsTestSize := 1
 		currentStep := 0
 		//TODO needs refactoring.. the test is not realiable and fail from time to time.
@@ -280,8 +280,8 @@ var _ = Describe("Broker Internals", func() {
 
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("before stormBroker.Broadcast() -> stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("before stormBroker.Broadcast() -> stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
+				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				//now broadcast and every music.tone event listener should receive it.
 				stormBroker.Broadcast("music.tone", "broad< storm >cast")
@@ -303,9 +303,9 @@ var _ = Describe("Broker Internals", func() {
 				time.Sleep(time.Second)
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("stormBroker-Stoped -> aquaBroker KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-Stoped -> visualBroker KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-Stoped -> soundsBroker KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stoped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stoped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stoped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
@@ -319,8 +319,8 @@ var _ = Describe("Broker Internals", func() {
 
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("soundsBroker-Stoped -> aquaBroker KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("soundsBroker-Stoped -> visualBroker KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-Stoped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-Stoped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
 				time.Sleep(time.Second)
@@ -341,6 +341,139 @@ var _ = Describe("Broker Internals", func() {
 
 			})
 		}, eventsTestSize)
+	})
+
+	Describe("Broker.MCall", func() {
+
+		It("MCall on $node service actions with all params false", func() {
+			MCallTimeout := 20 * time.Second
+			actionHandler := func(result string) func(moleculer.Context, moleculer.Payload) interface{} {
+				return func(ctx moleculer.Context, param moleculer.Payload) interface{} {
+					result := fmt.Sprint("input: (", param.String(), " ) -> output: ( ", result, " )")
+					fmt.Println("MCALL Action --> ", result)
+					return result
+				}
+			}
+			logLevel := "FATAL"
+			mem := &memory.SharedMemory{}
+			bkr1 := FromConfig(
+				&moleculer.BrokerConfig{
+					MCallTimeout:   MCallTimeout,
+					LogLevel:       logLevel,
+					DiscoverNodeID: func() string { return "test-broker1" },
+					TransporterFactory: func() interface{} {
+						transport := memory.Create(log.WithField("transport", "memory"), mem)
+						return &transport
+					},
+				},
+			)
+			bkr1.AddService(moleculer.Service{
+				Name: "music",
+				Actions: []moleculer.Action{
+					moleculer.Action{
+						Name:    "start",
+						Handler: actionHandler("start result"),
+					},
+					moleculer.Action{
+						Name:    "end",
+						Handler: actionHandler("end result"),
+					},
+				},
+			})
+
+			bkr2 := FromConfig(
+				&moleculer.BrokerConfig{
+					MCallTimeout:   MCallTimeout,
+					LogLevel:       logLevel,
+					DiscoverNodeID: func() string { return "test-broker2" },
+					TransporterFactory: func() interface{} {
+						transport := memory.Create(log.WithField("transport", "memory"), mem)
+						return &transport
+					},
+				},
+			)
+			bkr2.AddService(moleculer.Service{
+				Name:         "food",
+				Dependencies: []string{"music"},
+				Actions: []moleculer.Action{
+					moleculer.Action{
+						Name:    "lunch",
+						Handler: actionHandler("lunch result"),
+					},
+					moleculer.Action{
+						Name:    "dinner",
+						Handler: actionHandler("dinner result"),
+					},
+				},
+			})
+
+			bkr1.Start()
+			bkr2.Start()
+			time.Sleep(100 * time.Millisecond)
+
+			mParams := map[string]map[string]interface{}{
+				"food-lunch": map[string]interface{}{
+					"action": "food.lunch",
+					"params": "lunch param",
+				},
+				"food-dinner": map[string]interface{}{
+					"action": "food.dinner",
+					"params": "dinner param",
+				},
+				"music-start": map[string]interface{}{
+					"action": "music.start",
+					"params": "start param",
+				},
+				"music-end": map[string]interface{}{
+					"action": "music.end",
+					"params": "end param",
+				},
+			}
+
+			mcallResults := <-bkr2.MCall(mParams)
+			Expect(snap.SnapshotMulti("bkr2-results", mcallResults)).Should(Succeed())
+
+			mcallResults = <-bkr1.MCall(mParams)
+			Expect(snap.SnapshotMulti("bkr1-results", mcallResults)).Should(Succeed())
+
+			bkr1.Stop()
+			bkr2.Stop()
+		})
+
+		// }
+
+		// orderResults := func(values map[string]moleculer.Payload) interface{} {
+		// 	result := make(map[string][]map[string]interface{})
+		// 	for key, payload := range values {
+		// 		orderBy := "name"
+		// 		if key == "nodes" {
+		// 			orderBy = "id"
+		// 		}
+		// 		result[key] = test.OrderMapArray(payload.MapArray(), orderBy)
+		// 	}
+		// 	return result
+		// }
+
+		// It("MCall on $node service actions with all params false",
+		// 	harness("all-false",
+		// 		map[string]interface{}{
+		// 			"withServices":  false,
+		// 			"withActions":   false,
+		// 			"onlyAvailable": false,
+		// 			"withEndpoints": false,
+		// 			"skipInternal":  false,
+		// 		}, orderResults))
+
+		// It("MCall on $node service actions with all params true",
+		// 	harness("all-true",
+		// 		map[string]interface{}{
+		// 			"withServices":  true,
+		// 			"withActions":   true,
+		// 			"onlyAvailable": true,
+		// 			"withEndpoints": true,
+		// 			"skipInternal":  true,
+		// 		}, orderResults))
+
 	})
 
 	Context("Middlewares", func() {

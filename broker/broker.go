@@ -150,7 +150,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 }
 
 func (broker *ServiceBroker) broadcastLocal(eventName string, params ...interface{}) {
-	//TODO
+	broker.LocalBus().EmitAsync(eventName, params)
 }
 
 func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
@@ -243,6 +243,61 @@ func (broker *ServiceBroker) Stop() {
 	broker.broadcastLocal("$broker.stoped")
 
 	broker.middlewares.CallHandlers("brokerStoped", broker.delegates)
+}
+
+type callPair struct {
+	label  string
+	result moleculer.Payload
+}
+
+func (broker *ServiceBroker) invokeMCalls(callMaps map[string]map[string]interface{}, result chan map[string]moleculer.Payload) {
+	if len(callMaps) == 0 {
+		result <- make(map[string]moleculer.Payload)
+		return
+	}
+
+	resultChan := make(chan callPair)
+	for label, content := range callMaps {
+		go func(label, actionName string, params interface{}, results chan callPair) {
+			result := <-broker.Call(actionName, params)
+			results <- callPair{label, result}
+		}(label, content["action"].(string), content["params"], resultChan)
+	}
+
+	timeoutChan := make(chan bool, 1)
+	go func(timeout time.Duration) {
+		time.Sleep(timeout)
+		timeoutChan <- true
+	}(broker.config.MCallTimeout)
+
+	results := make(map[string]moleculer.Payload)
+	for {
+		select {
+		case pair := <-resultChan:
+			results[pair.label] = pair.result
+			if len(results) == len(callMaps) {
+				result <- results
+				return
+			}
+		case <-timeoutChan:
+			timeoutError := errors.New("MCall timeout error.")
+			broker.logger.Error(timeoutError)
+			for label, _ := range callMaps {
+				if _, exists := results[label]; !exists {
+					results[label] = payload.Create(timeoutError)
+				}
+			}
+			result <- results
+			return
+		}
+	}
+}
+
+// MCall perform multiple calls and return all results together in a nice map indexed by name.
+func (broker *ServiceBroker) MCall(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
+	result := make(chan map[string]moleculer.Payload, 1)
+	go broker.invokeMCalls(callMaps, result)
+	return result
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
@@ -354,6 +409,13 @@ func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
 			}
 			return nil
 		},
+		MultActionDelegate: func(callMaps map[string]map[string]interface{}) chan map[string]moleculer.Payload {
+			return broker.MCall(callMaps)
+		},
+		BrokerContext: func() moleculer.BrokerContext {
+			return broker.rootContext
+		},
+		MiddlewareHandler: broker.middlewares.CallHandlers,
 	}
 }
 
