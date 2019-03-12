@@ -1,7 +1,6 @@
 package payload
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -9,7 +8,7 @@ type interfaceArrayFunc func(source *interface{}) []interface{}
 
 type arrayTransformer struct {
 	name           string
-	interfaceArray interfaceArrayFunc
+	InterfaceArray interfaceArrayFunc
 }
 
 var arrayTransformers = []arrayTransformer{
@@ -120,14 +119,14 @@ var arrayTransformers = []arrayTransformer{
 	},
 }
 
-// getMapTransformer : return the map transformer for the specific map type
-func getArrayTransformer(value *interface{}) *arrayTransformer {
-	valueType := getValueType(value)
+// MapTransformer : return the map transformer for the specific map type
+func ArrayTransformer(value *interface{}) *arrayTransformer {
+	valueType := GetValueType(value)
 	for _, transformer := range arrayTransformers {
 		if valueType == transformer.name {
 			return &transformer
 		}
 	}
-	fmt.Println("getArrayTransformer() no transformer for  valueType -> ", valueType)
+	//fmt.Println("ArrayTransformer() no transformer for  valueType -> ", valueType)
 	return nil
 }

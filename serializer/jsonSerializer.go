@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/payload"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -40,7 +41,56 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 	return payload
 }
 
+var invalidTypes = []string{"func()"}
+
+func validTypeForSerializing(vType string) bool {
+	for _, item := range invalidTypes {
+		if item == vType {
+			return false
+		}
+	}
+	return true
+}
+
+// cleanUpForSerialization clean the map from invalid values for serialization, example: functions.
+func cleanUpForSerialization(values *map[string]interface{}) *map[string]interface{} {
+	result := map[string]interface{}{}
+	for key, value := range *values {
+		vType := payload.GetValueType(&value)
+		mTransformer := payload.MapTransformer(&value)
+		if mTransformer != nil {
+			value := mTransformer.AsMap(&value)
+			temp := cleanUpForSerialization(&value)
+			result[key] = temp
+			continue
+		}
+		aTransformer := payload.ArrayTransformer(&value)
+		if aTransformer != nil {
+			iArray := aTransformer.InterfaceArray(&value)
+			valueA := []interface{}{}
+			for _, item := range iArray {
+				mTransformer := payload.MapTransformer(&item)
+				if mTransformer != nil {
+					mValue := mTransformer.AsMap(&item)
+					valueA = append(valueA, cleanUpForSerialization(&mValue))
+					continue
+				}
+				if validTypeForSerializing(payload.GetValueType(&item)) {
+					valueA = append(valueA, item)
+				}
+			}
+			result[key] = valueA
+			continue
+		}
+		if validTypeForSerializing(vType) {
+			result[key] = value
+		}
+	}
+	return &result
+}
+
 func (serializer JSONSerializer) MapToPayload(mapValue *map[string]interface{}) (moleculer.Payload, error) {
+	mapValue = cleanUpForSerialization(mapValue)
 	json, err := sjson.Set("{root:false}", "root", mapValue)
 	if err != nil {
 		serializer.logger.Error("MapToPayload() Error when parsing the map: ", mapValue, " Error: ", err)
