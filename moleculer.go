@@ -77,7 +77,7 @@ type Service struct {
 	Mixins       []Mixin
 	Actions      []Action
 	Events       []Event
-	Created      LifecycleFunc
+	Created      CreatedFunc
 	Started      LifecycleFunc
 	Stopped      LifecycleFunc
 }
@@ -89,7 +89,7 @@ type Mixin struct {
 	Hooks    map[string]interface{}
 	Actions  []Action
 	Events   []Event
-	Created  LifecycleFunc
+	Created  CreatedFunc
 	Started  LifecycleFunc
 	Stopped  LifecycleFunc
 }
@@ -167,7 +167,8 @@ type RetryPolicy struct {
 
 type ActionHandler func(context Context, params Payload) interface{}
 type EventHandler func(context Context, params Payload)
-type LifecycleFunc func(service Service, logger *log.Entry)
+type CreatedFunc func(Service, *log.Entry)
+type LifecycleFunc func(BrokerContext, Service)
 
 type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
@@ -226,6 +227,7 @@ type BrokerContext interface {
 	TargetNodeID() string
 
 	ID() string
+	RequestID() string
 	Meta() *map[string]interface{}
 
 	Logger() *log.Entry

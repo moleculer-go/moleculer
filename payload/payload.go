@@ -2,6 +2,7 @@ package payload
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -49,7 +50,11 @@ func (rawPayload *RawPayload) Int64() int64 {
 }
 
 func (rawPayload *RawPayload) Bool() bool {
-	return rawPayload.source.(bool)
+	value, ok := rawPayload.source.(bool)
+	if !ok {
+		value = strings.ToLower(fmt.Sprint(rawPayload.source)) == "true"
+	}
+	return value
 }
 
 func (rawPayload *RawPayload) Uint() uint64 {

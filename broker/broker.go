@@ -100,7 +100,7 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 // stopService stop the service.
 func (broker *ServiceBroker) stopService(svc *service.Service) {
 	broker.middlewares.CallHandlers("serviceStoping", svc)
-	svc.Stop()
+	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.Create(nil)))
 	broker.middlewares.CallHandlers("serviceStoped", svc)
 }
 
@@ -111,7 +111,7 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.waitForDependencies(svc)
 
-	svc.Start()
+	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.Create(nil)))
 
 	broker.registry.AddLocalService(svc)
 

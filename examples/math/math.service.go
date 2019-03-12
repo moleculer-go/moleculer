@@ -41,10 +41,10 @@ func MathServiceSchema() Service {
 		Created: func(service moleculer.Service, logger *log.Entry) {
 			fmt.Println("math service created !")
 		},
-		Started: func(service moleculer.Service, logger *log.Entry) {
+		Started: func(ctx moleculer.BrokerContext, service moleculer.Service) {
 			fmt.Println("math service started !")
 		},
-		Stopped: func(service moleculer.Service, logger *log.Entry) {
+		Stopped: func(ctx moleculer.BrokerContext, service moleculer.Service) {
 			fmt.Println("math service stopped !")
 		},
 	}

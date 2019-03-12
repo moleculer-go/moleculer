@@ -46,7 +46,7 @@
           Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
         }
       },
-      Created: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+      Created: (moleculer.CreatedFunc) <moleculer.CreatedFunc Value>,
       Started: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
       Stopped: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>
     }
@@ -82,7 +82,7 @@
       Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
     }
   },
-  Created: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+  Created: (moleculer.CreatedFunc) <moleculer.CreatedFunc Value>,
   Started: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
   Stopped: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>
 }

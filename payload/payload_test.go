@@ -17,6 +17,20 @@ var _ = test.Describe("Payload", func() {
 
 	test.It("Should convert numbers correctly", func() {
 
+		Expect(Create(true).Bool()).Should(BeTrue())
+		Expect(Create("true").Bool()).Should(BeTrue())
+
+		Expect(Create(false).Bool()).Should(BeFalse())
+		Expect(Create("false").Bool()).Should(BeFalse())
+		Expect(Create("anything else").Bool()).Should(BeFalse())
+		Expect(Create("").Bool()).Should(BeFalse())
+
+		Expect(Create("10").Int()).Should(Equal(int(10)))
+		Expect(Create("10").Int64()).Should(Equal(int64(10)))
+		Expect(Create("10").Float32()).Should(Equal(float32(10)))
+		Expect(Create("10").Float()).Should(Equal(float64(10)))
+		Expect(Create("10").Uint()).Should(Equal(uint64(10)))
+
 		Expect(Create(10).Int64()).Should(Equal(int64(10)))
 		Expect(Create(10).Float32()).Should(Equal(float32(10)))
 		Expect(Create(10).Float()).Should(Equal(float64(10)))

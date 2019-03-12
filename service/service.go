@@ -49,7 +49,7 @@ type Service struct {
 	metadata     map[string]interface{}
 	actions      []Action
 	events       []Event
-	created      []moleculer.LifecycleFunc
+	created      []moleculer.CreatedFunc
 	started      []moleculer.LifecycleFunc
 	stopped      []moleculer.LifecycleFunc
 	schema       *moleculer.Service
@@ -473,15 +473,15 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 }
 
 // Start called by the broker when the service is starting.
-func (service *Service) Start() {
+func (service *Service) Start(context moleculer.BrokerContext) {
 	for _, handler := range service.started {
-		go handler((*service.schema), service.logger)
+		go handler(context, (*service.schema))
 	}
 }
 
 // Stop called by the broker when the service is stoping.
-func (service *Service) Stop() {
+func (service *Service) Stop(context moleculer.BrokerContext) {
 	for _, handler := range service.stopped {
-		go handler((*service.schema), service.logger)
+		go handler(context, (*service.schema))
 	}
 }
