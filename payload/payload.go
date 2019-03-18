@@ -1,9 +1,14 @@
 package payload
 
 import (
+	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/moleculer-go/moleculer"
 )
@@ -243,14 +248,43 @@ func (rawPayload *RawPayload) Float32() float32 {
 	return value
 }
 
-func (rawPayload *RawPayload) String() string {
-	return fmt.Sprintf("%v", rawPayload.source)
+func orderedKeys(m map[string]moleculer.Payload) []string {
+	keys := make([]string, len(m))
+	i := 0
+	for key := range m {
+		keys[i] = key
+		i++
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (raw *RawPayload) String() string {
+	ident := "  "
+	if raw.IsMap() {
+		m := raw.Map()
+
+		out := "(len=" + strconv.Itoa(len(m)) + ") {\n"
+		for _, key := range orderedKeys(m) {
+			out = out + ident + `"` + key + `": ` + m[key].String() + "," + "\n"
+		}
+		if len(m) == 0 {
+			out = out + "\n"
+		}
+		out = out + "}"
+		return out
+	}
+	rawString, ok := raw.source.(string)
+	if !ok {
+		return fmt.Sprintf("%v", raw.source)
+	}
+	return rawString
 }
 
 func (rawPayload *RawPayload) Map() map[string]moleculer.Payload {
 	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
 		source := transformer.AsMap(&rawPayload.source)
-		newMap := make(map[string]moleculer.Payload)
+		newMap := make(map[string]moleculer.Payload, len(source))
 		for key, item := range source {
 			newPayload := RawPayload{item}
 			newMap[key] = &newPayload
@@ -263,6 +297,25 @@ func (rawPayload *RawPayload) Map() map[string]moleculer.Payload {
 func (rawPayload *RawPayload) RawMap() map[string]interface{} {
 	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
 		return transformer.AsMap(&rawPayload.source)
+	}
+	return nil
+}
+
+func (raw *RawPayload) Bson() bson.M {
+	valueType := GetValueType(&raw.source)
+	if valueType == "bson.M" {
+		return raw.source.(bson.M)
+	}
+	if raw.IsMap() {
+		bm := bson.M{}
+		for key, value := range raw.Map() {
+			if value.IsMap() {
+				bm[key] = value.Bson()
+			} else {
+				bm[key] = value.Value()
+			}
+		}
+		return bm
 	}
 	return nil
 }
@@ -284,6 +337,26 @@ func (rawPayload *RawPayload) Get(path string) moleculer.Payload {
 
 func (rawPayload *RawPayload) Value() interface{} {
 	return rawPayload.source
+}
+
+func (rawPayload *RawPayload) Merge(toAdd map[string]interface{}) moleculer.Payload {
+	m := rawPayload.RawMap()
+	for key, value := range toAdd {
+		m[key] = value
+	}
+	return Create(m)
+}
+
+//Merge merge paylaod with new fields/values in a map.
+func Merge(in moleculer.Payload, toAdd map[string]interface{}) moleculer.Payload {
+	if !in.IsMap() {
+		return Error("payload.Merge can only accept map payloads.")
+	}
+	return in.Merge(toAdd)
+}
+
+func Error(msgs ...interface{}) moleculer.Payload {
+	return Create(errors.New(fmt.Sprint(msgs...)))
 }
 
 func Create(source interface{}) moleculer.Payload {

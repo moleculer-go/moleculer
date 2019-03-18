@@ -20,6 +20,39 @@ var _ = Describe("JSON Serializer", func() {
 	brokerDelegates := BrokerDelegates("test-node")
 	contextA := context.BrokerContext(brokerDelegates)
 
+	It("Bson should return a bson map", func() {
+
+		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
+		p, _ := serial.MapToPayload(&map[string]interface{}{
+			"name":     "John",
+			"lastname": "Snow",
+			"faction":  "Stark",
+			"Winter":   "is coming!",
+		})
+
+		bs := p.Bson()
+
+		Expect(snap.SnapshotMulti("Bson()", bs)).ShouldNot(HaveOccurred())
+	})
+
+	It("Merge should add fields to payload", func() {
+
+		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
+		p, _ := serial.MapToPayload(&map[string]interface{}{
+			"name":     "John",
+			"lastname": "Snow",
+			"faction":  "Stark",
+			"Winter":   "is coming!",
+		})
+
+		m := p.Merge(map[string]interface{}{
+			"page":     1,
+			"pageSize": 15,
+		})
+
+		Expect(snap.SnapshotMulti("Merge()", m)).ShouldNot(HaveOccurred())
+	})
+
 	It("Should handle each return type", func() {
 		logger := log.WithField("serializer", "JSON")
 		serializer := serializer.CreateJSONSerializer(logger)

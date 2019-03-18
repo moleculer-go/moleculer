@@ -29,7 +29,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]string",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]string)))
 			for key, value := range (*source).(map[string]string) {
 				result[key] = value
 			}
@@ -39,7 +39,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]int",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]int)))
 			for key, value := range (*source).(map[string]int) {
 				result[key] = value
 			}
@@ -49,7 +49,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]int64",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]int64)))
 			for key, value := range (*source).(map[string]int64) {
 				result[key] = value
 			}
@@ -59,7 +59,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]uint64",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]uint64)))
 			for key, value := range (*source).(map[string]uint64) {
 				result[key] = value
 			}
@@ -69,7 +69,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]float32",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]float32)))
 			for key, value := range (*source).(map[string]float32) {
 				result[key] = value
 			}
@@ -79,7 +79,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]float64",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]float64)))
 			for key, value := range (*source).(map[string]float64) {
 				result[key] = value
 			}
@@ -89,7 +89,7 @@ var mapTransformers = []mapTransformer{
 	mapTransformer{
 		"map[string]time.Time",
 		func(source *interface{}) map[string]interface{} {
-			result := make(map[string]interface{})
+			result := make(map[string]interface{}, len((*source).(map[string]time.Time)))
 			for key, value := range (*source).(map[string]time.Time) {
 				result[key] = value
 			}

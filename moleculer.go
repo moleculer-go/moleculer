@@ -6,6 +6,7 @@ import (
 
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer/util"
+	"go.mongodb.org/mongo-driver/bson"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -15,8 +16,10 @@ type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
 // Payload contains the data sent/return to actions.
 // I has convinience methods to read action parameters by name with the right type.
 type Payload interface {
+	Merge(map[string]interface{}) Payload
 	MapArray() []map[string]interface{}
 	RawMap() map[string]interface{}
+	Bson() bson.M
 	Map() map[string]Payload
 	Exists() bool
 	IsError() bool
@@ -58,6 +61,7 @@ type Action struct {
 	Name        string
 	Handler     ActionHandler
 	Schema      ActionSchema
+	Settings    map[string]interface{}
 	Description string
 }
 

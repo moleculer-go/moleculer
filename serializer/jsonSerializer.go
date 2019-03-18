@@ -2,6 +2,8 @@ package serializer
 
 import (
 	"errors"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -9,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type JSONSerializer struct {
@@ -39,6 +42,19 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 	result := gjson.ParseBytes(*bytes)
 	payload := JSONPayload{result, serializer.logger}
 	return payload
+}
+
+func (jpayload JSONPayload) Merge(toAdd map[string]interface{}) moleculer.Payload {
+	var err error
+	json := jpayload.result.Raw
+	for key, value := range toAdd {
+		json, err = sjson.Set(json, key, value)
+		if err != nil {
+			return payload.Error("Error serializng value into JSON. error: ", err.Error())
+		}
+	}
+	result := gjson.Parse(json)
+	return JSONPayload{result, jpayload.logger}
 }
 
 var invalidTypes = []string{"func()"}
@@ -262,6 +278,21 @@ func (payload JSONPayload) FloatArray() []float64 {
 	return nil
 }
 
+func (jp JSONPayload) Bson() bson.M {
+	if jp.IsMap() {
+		bm := bson.M{}
+		for key, value := range jp.Map() {
+			if value.IsMap() {
+				bm[key] = value.Bson()
+			} else {
+				bm[key] = value.Value()
+			}
+		}
+		return bm
+	}
+	return nil
+}
+
 func (payload JSONPayload) BoolArray() []bool {
 	if payload.IsArray() {
 		source := payload.result.Array()
@@ -334,8 +365,33 @@ func (payload JSONPayload) Error() error {
 	return nil
 }
 
-func (payload JSONPayload) String() string {
-	return payload.result.String()
+func orderedKeys(m map[string]moleculer.Payload) []string {
+	keys := make([]string, len(m))
+	i := 0
+	for key := range m {
+		keys[i] = key
+		i++
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (jp JSONPayload) String() string {
+	if jp.IsMap() {
+		ident := "  "
+		m := jp.Map()
+
+		out := "(len=" + strconv.Itoa(len(m)) + ") {\n"
+		for _, key := range orderedKeys(m) {
+			out = out + ident + `"` + key + `": ` + m[key].String() + "," + "\n"
+		}
+		if len(m) == 0 {
+			out = out + "\n"
+		}
+		out = out + "}"
+		return out
+	}
+	return jp.result.String()
 }
 
 func (payload JSONPayload) RawMap() map[string]interface{} {
@@ -349,7 +405,7 @@ func (payload JSONPayload) RawMap() map[string]interface{} {
 
 func (payload JSONPayload) Map() map[string]moleculer.Payload {
 	if source := payload.result.Map(); source != nil {
-		newMap := make(map[string]moleculer.Payload)
+		newMap := make(map[string]moleculer.Payload, len(source))
 		for key, item := range source {
 			newMap[key] = &JSONPayload{item, payload.logger}
 		}
