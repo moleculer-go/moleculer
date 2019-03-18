@@ -6,16 +6,16 @@ import (
 	snap "github.com/moleculer-go/cupaloy"
 	"github.com/moleculer-go/moleculer"
 
-	test "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 )
 
 var logger = log.WithField("Unit Test", true)
 
-var _ = test.Describe("Service", func() {
+var _ = Describe("Service", func() {
 
-	test.It("isInternalEvent() should reconized internal events", func() {
+	It("isInternalEvent() should reconized internal events", func() {
 
 		Expect(isInternalEvent(Event{
 			name:        "$services.changed",
@@ -105,20 +105,20 @@ var _ = test.Describe("Service", func() {
 		},
 	}
 
-	test.It("Should merge and overwrite existing actions", func() {
+	It("Should merge and overwrite existing actions", func() {
 		merged := extendActions(serviceSchema, &moonMixIn)
 		actions := merged.Actions
 		Expect(actions).Should(HaveLen(2))
 		Expect(snap.Snapshot(actions)).Should(Succeed())
 	})
 
-	test.It("Should merge and overwrite existing events", func() {
+	It("Should merge and overwrite existing events", func() {
 		merged := concatenateEvents(serviceSchema, &moonMixIn)
 		Expect(merged.Events).Should(HaveLen(3))
 		Expect(snap.Snapshot(merged.Events)).Should(Succeed())
 	})
 
-	test.It("Should merge and overwrite existing settings", func() {
+	It("Should merge and overwrite existing settings", func() {
 
 		mergedServiceSettings := extendSettings(serviceSchema, &moonMixIn)
 		Expect(mergedServiceSettings.Settings).Should(Equal(map[string]interface{}{
@@ -128,7 +128,7 @@ var _ = test.Describe("Service", func() {
 		))
 	})
 
-	test.It("Should merge and overwrite existing metadata", func() {
+	It("Should merge and overwrite existing metadata", func() {
 
 		mergedServiceMetadata := extendMetadata(serviceSchema, &moonMixIn)
 		Expect(mergedServiceMetadata.Metadata).Should(Equal(map[string]interface{}{
@@ -138,7 +138,7 @@ var _ = test.Describe("Service", func() {
 		))
 	})
 
-	test.It("Should merge and overwrite existing hooks", func() {
+	It("Should merge and overwrite existing hooks", func() {
 		mergedServiceHooks := extendHooks(serviceSchema, &moonMixIn)
 		Expect(mergedServiceHooks.Hooks).Should(Equal(map[string]interface{}{
 			"solar-system": "true",
@@ -147,7 +147,7 @@ var _ = test.Describe("Service", func() {
 		))
 	})
 
-	test.It("Should apply mixins collectively", func() {
+	It("Should apply mixins collectively", func() {
 		merged := applyMixins(serviceSchema)
 		Expect(merged.Actions).Should(HaveLen(2))
 		Expect(merged.Events).Should(HaveLen(3))
