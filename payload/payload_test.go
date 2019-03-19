@@ -10,16 +10,25 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer/payload"
-	"github.com/moleculer-go/moleculer/serializer"
-	log "github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Payload", func() {
 
+	It("Remove should remove fields from the payload and return a new copy", func() {
+
+		p := Create(map[string]string{
+			"name":     "John",
+			"lastname": "Snow",
+			"faction":  "Stark",
+			"Winter":   "is coming!",
+		})
+
+		Expect(snap.SnapshotMulti("Remove()", p.Remove("Winter", "name"))).ShouldNot(HaveOccurred())
+	})
+
 	It("Bson should return a bson map", func() {
 
-		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
-		p, _ := serial.MapToPayload(&map[string]interface{}{
+		p := Create(map[string]string{
 			"name":     "John",
 			"lastname": "Snow",
 			"faction":  "Stark",
@@ -31,7 +40,7 @@ var _ = Describe("Payload", func() {
 		Expect(snap.SnapshotMulti("Bson()", bs)).ShouldNot(HaveOccurred())
 	})
 
-	It("Merge should add fields to payload", func() {
+	It("Add should add fields to payload", func() {
 
 		p := Create(map[string]string{
 			"name":     "John",
@@ -40,12 +49,12 @@ var _ = Describe("Payload", func() {
 			"Winter":   "is coming!",
 		})
 
-		m := p.Merge(map[string]interface{}{
+		m := p.Add(map[string]interface{}{
 			"page":     1,
 			"pageSize": 15,
 		})
 
-		Expect(snap.SnapshotMulti("Merge()", m)).ShouldNot(HaveOccurred())
+		Expect(snap.SnapshotMulti("Add()", m)).ShouldNot(HaveOccurred())
 	})
 
 	It("Should convert numbers correctly", func() {

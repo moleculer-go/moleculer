@@ -1,0 +1,24 @@
+(map[string]interface {}) (len=1) {
+  (string) (len=7) "rootMap": (map[string]interface {}) (len=3) {
+    (string) (len=4) "text": (string) (len=14) "shit happened!",
+    (string) (len=7) "objList": ([]interface {}) (len=2) {
+      (map[string]interface {}) (len=1) {
+        (string) (len=6) "subMap": (map[string]interface {}) (len=1) {
+          (string) (len=5) "prop1": (string) (len=5) "value"
+        }
+      },
+      (map[string]interface {}) (len=2) {
+        (string) (len=4) "list": ([]interface {}) (len=3) {
+          (float64) 1,
+          (float64) 2,
+          (float64) 3
+        },
+        (string) (len=4) "name": (string) (len=4) "john"
+      }
+    },
+    (string) (len=8) "textList": ([]interface {}) (len=2) {
+      (string) (len=5) "item1",
+      (string) (len=5) "item2"
+    }
+  }
+}

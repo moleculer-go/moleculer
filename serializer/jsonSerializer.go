@@ -44,7 +44,19 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 	return payload
 }
 
-func (jpayload JSONPayload) Merge(toAdd map[string]interface{}) moleculer.Payload {
+func (jpayload JSONPayload) Remove(fields ...string) moleculer.Payload {
+	var err error
+	json := jpayload.result.Raw
+	for _, item := range fields {
+		json, err = sjson.Delete(json, item)
+		if err != nil {
+			return payload.Error("Error serializng value into JSON. error: ", err.Error())
+		}
+	}
+	return JSONPayload{gjson.Parse(json), jpayload.logger}
+}
+
+func (jpayload JSONPayload) Add(toAdd map[string]interface{}) moleculer.Payload {
 	var err error
 	json := jpayload.result.Raw
 	for key, value := range toAdd {
@@ -53,8 +65,7 @@ func (jpayload JSONPayload) Merge(toAdd map[string]interface{}) moleculer.Payloa
 			return payload.Error("Error serializng value into JSON. error: ", err.Error())
 		}
 	}
-	result := gjson.Parse(json)
-	return JSONPayload{result, jpayload.logger}
+	return JSONPayload{gjson.Parse(json), jpayload.logger}
 }
 
 var invalidTypes = []string{"func()"}
@@ -149,6 +160,13 @@ func (payload JSONPayload) Uint() uint64 {
 
 func (payload JSONPayload) Time() time.Time {
 	return payload.result.Time()
+}
+
+func (jp JSONPayload) Len() int {
+	if jp.IsArray() {
+		return len(jp.result.Array())
+	}
+	return -1
 }
 
 func (payload JSONPayload) StringArray() []string {

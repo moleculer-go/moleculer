@@ -186,6 +186,13 @@ func (rawPayload *RawPayload) TimeArray() []time.Time {
 	return nil
 }
 
+func (rawPayload *RawPayload) Len() int {
+	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil {
+		return transformer.ArrayLen(&rawPayload.source)
+	}
+	return -1
+}
+
 func (rawPayload *RawPayload) Array() []moleculer.Payload {
 	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil {
 		source := transformer.InterfaceArray(&rawPayload.source)
@@ -266,7 +273,7 @@ func (raw *RawPayload) String() string {
 
 		out := "(len=" + strconv.Itoa(len(m)) + ") {\n"
 		for _, key := range orderedKeys(m) {
-			out = out + ident + `"` + key + `": ` + m[key].String() + "," + "\n"
+			out = out + ident + `"` + key + `": ` + m[key].String() + ",\n"
 		}
 		if len(m) == 0 {
 			out = out + "\n"
@@ -274,6 +281,25 @@ func (raw *RawPayload) String() string {
 		out = out + "}"
 		return out
 	}
+	if raw.IsArray() {
+		arr := raw.Array()
+		out := "(array (len=" + strconv.Itoa(len(arr)) + ")) {\n"
+		lines := make([]string, len(arr))
+		for index, item := range arr {
+			lines[index] = item.String()
+		}
+		sort.Strings(lines)
+
+		for _, item := range lines {
+			out = out + ident + item + ",\n"
+		}
+		if len(arr) == 0 {
+			out = out + "\n"
+		}
+		out = out + "}"
+		return out
+	}
+
 	rawString, ok := raw.source.(string)
 	if !ok {
 		return fmt.Sprintf("%v", raw.source)
@@ -339,7 +365,37 @@ func (rawPayload *RawPayload) Value() interface{} {
 	return rawPayload.source
 }
 
-func (rawPayload *RawPayload) Merge(toAdd map[string]interface{}) moleculer.Payload {
+func match(key string, options []string) bool {
+	for _, item := range options {
+		if item == key {
+			return true
+		}
+	}
+	return false
+}
+
+func (rawPayload *RawPayload) Remove(fields ...string) moleculer.Payload {
+	if rawPayload.IsMap() {
+		new := map[string]interface{}{}
+		for key, value := range rawPayload.RawMap() {
+			if !match(key, fields) {
+				new[key] = value
+			}
+		}
+		return Create(new)
+	}
+	if rawPayload.IsArray() {
+		arr := rawPayload.Array()
+		new := make([]moleculer.Payload, len(arr))
+		for index, item := range arr {
+			new[index] = item.Remove(fields...)
+		}
+		return Create(new)
+	}
+	return Error("payload.Remove can only deal with map and array payloads.")
+}
+
+func (rawPayload *RawPayload) Add(toAdd map[string]interface{}) moleculer.Payload {
 	m := rawPayload.RawMap()
 	for key, value := range toAdd {
 		m[key] = value
@@ -348,11 +404,11 @@ func (rawPayload *RawPayload) Merge(toAdd map[string]interface{}) moleculer.Payl
 }
 
 //Merge merge paylaod with new fields/values in a map.
-func Merge(in moleculer.Payload, toAdd map[string]interface{}) moleculer.Payload {
+func Add(in moleculer.Payload, toAdd map[string]interface{}) moleculer.Payload {
 	if !in.IsMap() {
-		return Error("payload.Merge can only accept map payloads.")
+		return Error("payload.Add can only deal with map payloads.")
 	}
-	return in.Merge(toAdd)
+	return in.Add(toAdd)
 }
 
 func Error(msgs ...interface{}) moleculer.Payload {

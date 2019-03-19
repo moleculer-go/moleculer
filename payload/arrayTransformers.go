@@ -2,13 +2,17 @@ package payload
 
 import (
 	"time"
+
+	"github.com/moleculer-go/moleculer"
 )
 
 type interfaceArrayFunc func(source *interface{}) []interface{}
+type arrayLenFunc func(source *interface{}) int
 
 type arrayTransformer struct {
 	name           string
 	InterfaceArray interfaceArrayFunc
+	ArrayLen       arrayLenFunc
 }
 
 var arrayTransformers = []arrayTransformer{
@@ -16,6 +20,9 @@ var arrayTransformers = []arrayTransformer{
 		"[]interface {}",
 		func(source *interface{}) []interface{} {
 			return (*source).([]interface{})
+		},
+		func(source *interface{}) int {
+			return len((*source).([]interface{}))
 		},
 	},
 	arrayTransformer{
@@ -28,6 +35,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).([]string))
+		},
 	},
 	arrayTransformer{
 		"[]int",
@@ -38,6 +48,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).([]int))
 		},
 	},
 	arrayTransformer{
@@ -50,6 +63,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).([]bool))
+		},
 	},
 	arrayTransformer{
 		"[]int64",
@@ -60,6 +76,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).([]int64))
 		},
 	},
 	arrayTransformer{
@@ -72,6 +91,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).([]float32))
+		},
 	},
 	arrayTransformer{
 		"[]float64",
@@ -82,6 +104,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).([]float64))
 		},
 	},
 	arrayTransformer{
@@ -94,6 +119,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).([]uint64))
+		},
 	},
 	arrayTransformer{
 		"[]time.Time",
@@ -105,6 +133,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).([]time.Time))
+		},
 	},
 	arrayTransformer{
 		"[]map[string]interface {}",
@@ -115,6 +146,23 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).([]map[string]interface{}))
+		},
+	},
+	arrayTransformer{
+		"[]moleculer.Payload",
+		func(source *interface{}) []interface{} {
+			sourceList := (*source).([]moleculer.Payload)
+			result := make([]interface{}, len(sourceList))
+			for index, value := range sourceList {
+				result[index] = value.Value()
+			}
+			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).([]moleculer.Payload))
 		},
 	},
 }
