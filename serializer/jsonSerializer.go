@@ -56,7 +56,32 @@ func (jpayload JSONPayload) Remove(fields ...string) moleculer.Payload {
 	return JSONPayload{gjson.Parse(json), jpayload.logger}
 }
 
-func (jpayload JSONPayload) Add(toAdd map[string]interface{}) moleculer.Payload {
+func (jpayload JSONPayload) AddItem(value interface{}) moleculer.Payload {
+	if !jpayload.IsArray() {
+		return payload.Error("payload.AddItem can only deal with lists/arrays.")
+	}
+	arr := jpayload.Array()
+	arr = append(arr, payload.Create(value))
+	return payload.Create(arr)
+}
+
+func (jpayload JSONPayload) Add(field string, value interface{}) moleculer.Payload {
+	if !jpayload.IsMap() {
+		return payload.Error("payload.Add can only deal with map payloads.")
+	}
+	var err error
+	json := jpayload.result.Raw
+	json, err = sjson.Set(json, field, value)
+	if err != nil {
+		return payload.Error("Error serializng value into JSON. error: ", err.Error())
+	}
+	return JSONPayload{gjson.Parse(json), jpayload.logger}
+}
+
+func (jpayload JSONPayload) AddMany(toAdd map[string]interface{}) moleculer.Payload {
+	if !jpayload.IsMap() {
+		return payload.Error("payload.Add can only deal with map payloads.")
+	}
 	var err error
 	json := jpayload.result.Raw
 	for key, value := range toAdd {
@@ -296,12 +321,29 @@ func (payload JSONPayload) FloatArray() []float64 {
 	return nil
 }
 
+func (jp JSONPayload) BsonArray() []bson.M {
+	if jp.IsArray() {
+		bm := make([]bson.M, jp.Count())
+		for index, value := range jp.Array() {
+			if value.IsMap() {
+				bm[index] = value.Bson()
+			} else {
+				bm[index] = value.Value()
+			}
+		}
+		return bm
+	}
+	return nil
+}
+
 func (jp JSONPayload) Bson() bson.M {
 	if jp.IsMap() {
 		bm := bson.M{}
 		for key, value := range jp.Map() {
 			if value.IsMap() {
 				bm[key] = value.Bson()
+			} else if value.IsArray() {
+				bm[key] = value.BsonArray()
 			} else {
 				bm[key] = value.Value()
 			}

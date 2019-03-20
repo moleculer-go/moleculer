@@ -329,18 +329,37 @@ func (rawPayload *RawPayload) RawMap() map[string]interface{} {
 
 func (raw *RawPayload) Bson() bson.M {
 	valueType := GetValueType(&raw.source)
-	if valueType == "bson.M" {
+	if valueType == "primitive.M" {
 		return raw.source.(bson.M)
 	}
 	if raw.IsMap() {
 		bm := bson.M{}
-		for key, value := range raw.Map() {
-			if value.IsMap() {
-				bm[key] = value.Bson()
+		raw.ForEach(func(key interface{}, value moleculer.Payload) bool {
+			if value.IsArray() {
+				bm[key.(string)] = value.BsonArray()
+			} else if value.IsMap() {
+				bm[key.(string)] = value.Bson()
 			} else {
-				bm[key] = value.Value()
+				bm[key.(string)] = value.Value()
 			}
-		}
+			return true
+		})
+		return bm
+	}
+	return nil
+}
+
+func (raw *RawPayload) BsonArray() []bson.M {
+	valueType := GetValueType(&raw.source)
+	if valueType == "[]primitive.M" {
+		return raw.source.([]bson.M)
+	}
+	if raw.IsArray() {
+		bm := make([]bson.M, raw.Len())
+		raw.ForEach(func(index interface{}, value moleculer.Payload) bool {
+			bm[index.(int)] = value.Bson()
+			return true
+		})
 		return bm
 	}
 	return nil
@@ -395,7 +414,30 @@ func (rawPayload *RawPayload) Remove(fields ...string) moleculer.Payload {
 	return Error("payload.Remove can only deal with map and array payloads.")
 }
 
-func (rawPayload *RawPayload) Add(toAdd map[string]interface{}) moleculer.Payload {
+func (rawPayload *RawPayload) AddItem(value interface{}) moleculer.Payload {
+	if !rawPayload.IsArray() {
+		return Error("payload.AddItem can only deal with lists/arrays.")
+	}
+	arr := rawPayload.Array()
+	arr = append(arr, Create(value))
+	return Create(arr)
+}
+
+//Add add the field:value pair to the existing values and return a new payload.
+func (rawPayload *RawPayload) Add(field string, value interface{}) moleculer.Payload {
+	if !rawPayload.IsMap() {
+		return Error("payload.Add can only deal with map payloads.")
+	}
+	m := rawPayload.RawMap()
+	m[field] = value
+	return Create(m)
+}
+
+//AddMany merge the maps with eh existing values and return a new payload.
+func (rawPayload *RawPayload) AddMany(toAdd map[string]interface{}) moleculer.Payload {
+	if !rawPayload.IsMap() {
+		return Error("payload.Add can only deal with map payloads.")
+	}
 	m := rawPayload.RawMap()
 	for key, value := range toAdd {
 		m[key] = value
@@ -403,16 +445,16 @@ func (rawPayload *RawPayload) Add(toAdd map[string]interface{}) moleculer.Payloa
 	return Create(m)
 }
 
-//Merge merge paylaod with new fields/values in a map.
-func Add(in moleculer.Payload, toAdd map[string]interface{}) moleculer.Payload {
-	if !in.IsMap() {
-		return Error("payload.Add can only deal with map payloads.")
-	}
-	return in.Add(toAdd)
-}
-
 func Error(msgs ...interface{}) moleculer.Payload {
 	return Create(errors.New(fmt.Sprint(msgs...)))
+}
+
+func EmptyList() moleculer.Payload {
+	return Create([]moleculer.Payload{})
+}
+
+func Empty() moleculer.Payload {
+	return Create(map[string]interface{}{})
 }
 
 func Create(source interface{}) moleculer.Payload {

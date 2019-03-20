@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -167,13 +168,66 @@ var arrayTransformers = []arrayTransformer{
 	},
 }
 
-// MapTransformer : return the map transformer for the specific map type
+func rawPayloadArrayTransformer(source *interface{}) []interface{} {
+	sourceList := (*source).(*RawPayload)
+	result := make([]interface{}, sourceList.Len())
+	sourceList.ForEach(func(index interface{}, value moleculer.Payload) bool {
+		result[index.(int)] = value.Value()
+		return true
+	})
+	return result
+}
+
+func rawPayloadArrayTransformerLen(source *interface{}) int {
+	sourceList := (*source).(*RawPayload)
+	return sourceList.Len()
+}
+
+func reflectionArrayTransformer(source *interface{}) []interface{} {
+	rv := reflect.ValueOf(*source)
+	result := make([]interface{}, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		item := rv.Index(i)
+		value := item.Interface()
+		if item.Kind() == reflect.Map {
+			mt := MapTransformer(&value)
+			result[i] = mt.AsMap(&value)
+		} else if item.Kind() == reflect.Array || item.Kind() == reflect.Slice {
+			at := ArrayTransformer(&value)
+			result[i] = at.InterfaceArray(&value)
+		} else {
+			result[i] = value
+		}
+	}
+	return result
+}
+
+func reflectionArraySize(source *interface{}) int {
+	rv := reflect.ValueOf(*source)
+	return rv.Len()
+}
+
+// ArrayTransformer : return the array/slice transformer for the specific map type
 func ArrayTransformer(value *interface{}) *arrayTransformer {
 	valueType := GetValueType(value)
 	for _, transformer := range arrayTransformers {
 		if valueType == transformer.name {
 			return &transformer
 		}
+	}
+	if valueType == "*payload.RawPayload" {
+		transformer := arrayTransformer{
+			"*payload.RawPayload",
+			rawPayloadArrayTransformer,
+			rawPayloadArrayTransformerLen,
+		}
+		return &transformer
+	}
+
+	//try to use reflection
+	rt := reflect.TypeOf(*value)
+	if rt != nil && rt.Kind() == reflect.Array || rt.Kind() == reflect.Slice {
+		return &arrayTransformer{"reflection", reflectionArrayTransformer, reflectionArraySize}
 	}
 	//fmt.Println("ArrayTransformer() no transformer for  valueType -> ", valueType)
 	return nil

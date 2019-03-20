@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
+
 	snap "github.com/moleculer-go/cupaloy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -49,12 +51,57 @@ var _ = Describe("Payload", func() {
 			"Winter":   "is coming!",
 		})
 
-		m := p.Add(map[string]interface{}{
+		m := p.AddMany(map[string]interface{}{
 			"page":     1,
 			"pageSize": 15,
 		})
 
 		Expect(snap.SnapshotMulti("Add()", m)).ShouldNot(HaveOccurred())
+	})
+
+	type customMap map[string]interface{}
+	type customArray []map[string]interface{}
+
+	It("should deal with custom map types", func() {
+		p := Create(customMap{
+			"name":     "John",
+			"lastname": "Snow",
+			"sub": customMap{
+				"level": 1,
+				"sub": customMap{
+					"level": 2,
+				},
+				"subList": customArray{
+					customMap{
+						"level": 3,
+						"name":  "sub item inside custom array",
+					},
+				},
+			},
+		})
+		Expect(snap.SnapshotMulti("CustomMap()-RawMap()", p.RawMap())).ShouldNot(HaveOccurred())
+		Expect(snap.SnapshotMulti("CustomMap()-Bson()", p.Bson())).ShouldNot(HaveOccurred())
+	})
+
+	It("should deal with bson.M map types", func() {
+		p := Create(bson.M{
+			"name":     "John",
+			"lastname": "Snow",
+			"sub": bson.M{
+				"level": 1,
+				"sub": bson.M{
+					"level": 2,
+				},
+				"subList": []bson.M{
+					bson.M{
+						"level": 3,
+						"name":  "sub item inside custom array",
+					},
+				},
+			},
+		})
+		Expect(snap.SnapshotMulti("Bson-values", p.Bson())).ShouldNot(HaveOccurred())
+
 	})
 
 	It("Should convert numbers correctly", func() {

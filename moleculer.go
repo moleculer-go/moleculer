@@ -17,10 +17,13 @@ type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
 // I has convinience methods to read action parameters by name with the right type.
 type Payload interface {
 	Remove(fields ...string) Payload
-	Add(map[string]interface{}) Payload
+	AddItem(value interface{}) Payload
+	Add(field string, value interface{}) Payload
+	AddMany(map[string]interface{}) Payload
 	MapArray() []map[string]interface{}
 	RawMap() map[string]interface{}
 	Bson() bson.M
+	BsonArray() []bson.M
 	Map() map[string]Payload
 	Exists() bool
 	IsError() bool
