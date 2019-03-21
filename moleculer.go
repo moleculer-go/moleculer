@@ -43,6 +43,7 @@ type Payload interface {
 	FloatArray() []float64
 	String() string
 	StringArray() []string
+	StringIdented(string) string
 	Bool() bool
 	BoolArray() []bool
 	Time() time.Time

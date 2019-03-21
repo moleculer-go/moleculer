@@ -273,45 +273,58 @@ func orderedKeys(m map[string]moleculer.Payload) []string {
 	return keys
 }
 
-func (raw *RawPayload) String() string {
-	ident := "  "
-	if raw.IsMap() {
-		m := raw.Map()
+//mapToString takes in a map of payloads and return a string :)
+func mapToString(m map[string]moleculer.Payload, ident string) string {
+	out := "(len=" + strconv.Itoa(len(m)) + ") {\n"
+	for _, key := range orderedKeys(m) {
+		out = out + ident + `"` + key + `": ` + m[key].String() + ",\n"
+	}
+	if len(m) == 0 {
+		out = out + "\n"
+	}
+	out = out + "}"
+	return out
+}
 
-		out := "(len=" + strconv.Itoa(len(m)) + ") {\n"
-		for _, key := range orderedKeys(m) {
-			out = out + ident + `"` + key + `": ` + m[key].String() + ",\n"
-		}
-		if len(m) == 0 {
-			out = out + "\n"
-		}
-		out = out + "}"
-		return out
+//arrayToString takes in a list of payloads and return a string :)
+func arrayToString(arr []moleculer.Payload, ident string) string {
+	out := "(array (len=" + strconv.Itoa(len(arr)) + ")) {\n"
+	lines := make([]string, len(arr))
+	for index, item := range arr {
+		lines[index] = item.String()
+	}
+	sort.Strings(lines)
+	for _, item := range lines {
+		out = out + ident + item + ",\n"
+	}
+	if len(arr) == 0 {
+		out = out + "\n"
+	}
+	out = out + "}"
+	return out
+}
+
+func (raw *RawPayload) String() string {
+	return raw.StringIdented("")
+}
+
+func (raw *RawPayload) StringIdented(ident string) string {
+	if raw.IsMap() {
+		return mapToString(raw.Map(), ident+"  ")
 	}
 	if raw.IsArray() {
-		arr := raw.Array()
-		out := "(array (len=" + strconv.Itoa(len(arr)) + ")) {\n"
-		lines := make([]string, len(arr))
-		for index, item := range arr {
-			lines[index] = item.String()
-		}
-		sort.Strings(lines)
-
-		for _, item := range lines {
-			out = out + ident + item + ",\n"
-		}
-		if len(arr) == 0 {
-			out = out + "\n"
-		}
-		out = out + "}"
-		return out
+		return arrayToString(raw.Array(), ident+"  ")
 	}
-
+	byteList, isBytes := raw.source.([]byte)
+	if isBytes {
+		return string(byteList)
+	}
 	rawString, ok := raw.source.(string)
-	if !ok {
-		return fmt.Sprintf("%v", raw.source)
+	if ok {
+		return rawString
 	}
-	return rawString
+	return fmt.Sprintf("%v", raw.source)
+
 }
 
 func (rawPayload *RawPayload) Map() map[string]moleculer.Payload {

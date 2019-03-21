@@ -439,6 +439,10 @@ func orderedKeys(m map[string]moleculer.Payload) []string {
 	return keys
 }
 
+func (jp JSONPayload) StringIdented(ident string) string {
+	return jp.String()
+}
+
 func (jp JSONPayload) String() string {
 	if jp.IsMap() {
 		ident := "  "

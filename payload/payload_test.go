@@ -18,7 +18,7 @@ var _ = Describe("Payload", func() {
 
 	It("Remove should remove fields from the payload and return a new copy", func() {
 
-		p := Create(map[string]string{
+		p := New(map[string]string{
 			"name":     "John",
 			"lastname": "Snow",
 			"faction":  "Stark",
@@ -30,7 +30,7 @@ var _ = Describe("Payload", func() {
 
 	It("Bson should return a bson map", func() {
 
-		p := Create(map[string]string{
+		p := New(map[string]string{
 			"name":     "John",
 			"lastname": "Snow",
 			"faction":  "Stark",
@@ -44,7 +44,7 @@ var _ = Describe("Payload", func() {
 
 	It("Add should add fields to payload", func() {
 
-		p := Create(map[string]string{
+		p := New(map[string]string{
 			"name":     "John",
 			"lastname": "Snow",
 			"faction":  "Stark",
@@ -63,7 +63,7 @@ var _ = Describe("Payload", func() {
 	type customArray []map[string]interface{}
 
 	It("should deal with custom map types", func() {
-		p := Create(customMap{
+		p := New(customMap{
 			"name":     "John",
 			"lastname": "Snow",
 			"sub": customMap{
@@ -84,7 +84,7 @@ var _ = Describe("Payload", func() {
 	})
 
 	It("should deal with bson.M map types", func() {
-		p := Create(bson.M{
+		p := New(bson.M{
 			"name":     "John",
 			"lastname": "Snow",
 			"sub": bson.M{
@@ -106,44 +106,44 @@ var _ = Describe("Payload", func() {
 
 	It("Should convert numbers correctly", func() {
 
-		Expect(Create(true).Bool()).Should(BeTrue())
-		Expect(Create("true").Bool()).Should(BeTrue())
+		Expect(New(true).Bool()).Should(BeTrue())
+		Expect(New("true").Bool()).Should(BeTrue())
 
-		Expect(Create(false).Bool()).Should(BeFalse())
-		Expect(Create("false").Bool()).Should(BeFalse())
-		Expect(Create("anything else").Bool()).Should(BeFalse())
-		Expect(Create("").Bool()).Should(BeFalse())
+		Expect(New(false).Bool()).Should(BeFalse())
+		Expect(New("false").Bool()).Should(BeFalse())
+		Expect(New("anything else").Bool()).Should(BeFalse())
+		Expect(New("").Bool()).Should(BeFalse())
 
-		Expect(Create("10").Int()).Should(Equal(int(10)))
-		Expect(Create("10").Int64()).Should(Equal(int64(10)))
-		Expect(Create("10").Float32()).Should(Equal(float32(10)))
-		Expect(Create("10").Float()).Should(Equal(float64(10)))
-		Expect(Create("10").Uint()).Should(Equal(uint64(10)))
+		Expect(New("10").Int()).Should(Equal(int(10)))
+		Expect(New("10").Int64()).Should(Equal(int64(10)))
+		Expect(New("10").Float32()).Should(Equal(float32(10)))
+		Expect(New("10").Float()).Should(Equal(float64(10)))
+		Expect(New("10").Uint()).Should(Equal(uint64(10)))
 
-		Expect(Create(10).Int64()).Should(Equal(int64(10)))
-		Expect(Create(10).Float32()).Should(Equal(float32(10)))
-		Expect(Create(10).Float()).Should(Equal(float64(10)))
-		Expect(Create(10).Uint()).Should(Equal(uint64(10)))
+		Expect(New(10).Int64()).Should(Equal(int64(10)))
+		Expect(New(10).Float32()).Should(Equal(float32(10)))
+		Expect(New(10).Float()).Should(Equal(float64(10)))
+		Expect(New(10).Uint()).Should(Equal(uint64(10)))
 
-		Expect(Create(int64(30)).Int()).Should(Equal(30))
-		Expect(Create(int64(30)).Float32()).Should(Equal(float32(30)))
-		Expect(Create(int64(30)).Float()).Should(Equal(float64(30)))
-		Expect(Create(int64(30)).Uint()).Should(Equal(uint64(30)))
+		Expect(New(int64(30)).Int()).Should(Equal(30))
+		Expect(New(int64(30)).Float32()).Should(Equal(float32(30)))
+		Expect(New(int64(30)).Float()).Should(Equal(float64(30)))
+		Expect(New(int64(30)).Uint()).Should(Equal(uint64(30)))
 
-		Expect(Create(float64(60)).Int()).Should(Equal(60))
-		Expect(Create(float64(60)).Float32()).Should(Equal(float32(60)))
-		Expect(Create(float64(60)).Int64()).Should(Equal(int64(60)))
-		Expect(Create(float64(60)).Uint()).Should(Equal(uint64(60)))
+		Expect(New(float64(60)).Int()).Should(Equal(60))
+		Expect(New(float64(60)).Float32()).Should(Equal(float32(60)))
+		Expect(New(float64(60)).Int64()).Should(Equal(int64(60)))
+		Expect(New(float64(60)).Uint()).Should(Equal(uint64(60)))
 
-		Expect(Create(float32(120)).Int()).Should(Equal(120))
-		Expect(Create(float32(120)).Float()).Should(Equal(float64(120)))
-		Expect(Create(float32(120)).Int64()).Should(Equal(int64(120)))
-		Expect(Create(float32(120)).Uint()).Should(Equal(uint64(120)))
+		Expect(New(float32(120)).Int()).Should(Equal(120))
+		Expect(New(float32(120)).Float()).Should(Equal(float64(120)))
+		Expect(New(float32(120)).Int64()).Should(Equal(int64(120)))
+		Expect(New(float32(120)).Uint()).Should(Equal(uint64(120)))
 
-		Expect(Create(uint64(240)).Int()).Should(Equal(240))
-		Expect(Create(uint64(240)).Float()).Should(Equal(float64(240)))
-		Expect(Create(uint64(240)).Int64()).Should(Equal(int64(240)))
-		Expect(Create(uint64(240)).Float32()).Should(Equal(float32(240)))
+		Expect(New(uint64(240)).Int()).Should(Equal(240))
+		Expect(New(uint64(240)).Float()).Should(Equal(float64(240)))
+		Expect(New(uint64(240)).Int64()).Should(Equal(int64(240)))
+		Expect(New(uint64(240)).Float32()).Should(Equal(float32(240)))
 
 	})
 
@@ -153,7 +153,7 @@ var _ = Describe("Payload", func() {
 			"height": 150,
 			"width":  230,
 		}
-		params := Create(source)
+		params := New(source)
 		Expect(params.Get("height").Int()).Should(Equal(150))
 		Expect(params.Get("width").Int()).Should(Equal(230))
 
@@ -161,7 +161,7 @@ var _ = Describe("Payload", func() {
 			"name": "John",
 			"word": "Snow",
 		}
-		params = Create(source)
+		params = New(source)
 		Expect(params.Get("name").Value()).Should(Equal("John"))
 		Expect(params.Get("word").String()).Should(Equal("Snow"))
 
@@ -171,7 +171,7 @@ var _ = Describe("Payload", func() {
 			"height": lHeight,
 			"width":  lWidth,
 		}
-		params = Create(source)
+		params = New(source)
 		Expect(params.Get("height").Int64()).Should(Equal(lHeight))
 		Expect(params.Get("width").Int64()).Should(Equal(lWidth))
 
@@ -181,7 +181,7 @@ var _ = Describe("Payload", func() {
 			"height": f32Height,
 			"width":  f32Width,
 		}
-		params = Create(source)
+		params = New(source)
 		Expect(params.Get("height").Float32()).Should(Equal(f32Height))
 		Expect(params.Get("width").Float32()).Should(Equal(f32Width))
 
@@ -191,7 +191,7 @@ var _ = Describe("Payload", func() {
 			"height": f64Height,
 			"width":  f64Width,
 		}
-		params = Create(source)
+		params = New(source)
 		Expect(params.Get("height").Float()).Should(Equal(f64Height))
 		Expect(params.Get("width").Float()).Should(Equal(f64Width))
 
@@ -216,7 +216,7 @@ var _ = Describe("Payload", func() {
 			"timeArray":    timeArray,
 			"boolArray":    []bool{true, false, true},
 		}
-		params = Create(source)
+		params = New(source)
 		Expect(params.Get("notFound").Value()).Should(BeNil())
 		Expect(params.Get("string").String()).Should(Equal("Hellow Night!"))
 
@@ -229,42 +229,42 @@ var _ = Describe("Payload", func() {
 		}
 		Expect(snap.SnapshotMulti("RawMap()", rawMap)).ShouldNot(HaveOccurred())
 
-		moreOfTheSame := Create(params)
+		moreOfTheSame := New(params)
 		Expect(moreOfTheSame.Get("notFound").Value()).Should(BeNil())
 		Expect(moreOfTheSame.Get("string").String()).Should(Equal("Hellow Night!"))
 
 		Expect(params.Get("stringArray").StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
-		Expect(Create([]string{"value1", "value2", "value3"}).StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
-		Expect(Create(map[string]string{"key1": "value1", "key2": "value2"}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": "value1", "key2": "value2"}))
+		Expect(New([]string{"value1", "value2", "value3"}).StringArray()).Should(Equal([]string{"value1", "value2", "value3"}))
+		Expect(New(map[string]string{"key1": "value1", "key2": "value2"}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": "value1", "key2": "value2"}))
 
 		Expect(params.Get("intArray").IntArray()).Should(BeEquivalentTo([]int{10, 20, 30}))
-		Expect(Create([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
-		Expect(Create(map[string]int{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": 1, "key2": 2}))
+		Expect(New([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
+		Expect(New(map[string]int{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": 1, "key2": 2}))
 
 		Expect(params.Get("boolArray").BoolArray()).Should(BeEquivalentTo([]bool{true, false, true}))
-		Expect(Create([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
-		Expect(Create([]int{10, 20, 30}).IsArray()).Should(Equal(true))
+		Expect(New([]int{10, 20, 30}).IntArray()).Should(Equal([]int{10, 20, 30}))
+		Expect(New([]int{10, 20, 30}).IsArray()).Should(Equal(true))
 
 		Expect(params.Get("int64Array").Int64Array()).Should(BeEquivalentTo([]int64{100, 200, 300}))
-		Expect(Create([]int64{100, 200, 300}).Int64Array()).Should(Equal([]int64{100, 200, 300}))
-		Expect(Create(map[string]int64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": int64(1), "key2": int64(2)}))
+		Expect(New([]int64{100, 200, 300}).Int64Array()).Should(Equal([]int64{100, 200, 300}))
+		Expect(New(map[string]int64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": int64(1), "key2": int64(2)}))
 
 		Expect(params.Get("float64Array").FloatArray()).Should(BeEquivalentTo([]float64{100.45, 200.56, 300.67}))
-		Expect(Create([]float64{100.45, 200.56, 300.67}).FloatArray()).Should(Equal([]float64{100.45, 200.56, 300.67}))
-		Expect(Create(map[string]float64{"key1": 100.45, "key2": 200.56}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": float64(100.45), "key2": float64(200.56)}))
+		Expect(New([]float64{100.45, 200.56, 300.67}).FloatArray()).Should(Equal([]float64{100.45, 200.56, 300.67}))
+		Expect(New(map[string]float64{"key1": 100.45, "key2": 200.56}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": float64(100.45), "key2": float64(200.56)}))
 
 		Expect(params.Get("float32Array").Float32Array()).Should(BeEquivalentTo([]float32{100.45, 200.56, 300.67}))
-		Expect(Create([]float32{100.45, 200.56, 300.67}).Float32Array()).Should(Equal([]float32{100.45, 200.56, 300.67}))
-		Expect(Create(map[string]float32{"key1": 100.45, "key2": 200.56}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": float32(100.45), "key2": float32(200.56)}))
+		Expect(New([]float32{100.45, 200.56, 300.67}).Float32Array()).Should(Equal([]float32{100.45, 200.56, 300.67}))
+		Expect(New(map[string]float32{"key1": 100.45, "key2": 200.56}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": float32(100.45), "key2": float32(200.56)}))
 
 		Expect(params.Get("uintArray").UintArray()).Should(BeEquivalentTo([]uint64{1000, 2000, 3000}))
-		Expect(Create([]uint64{1000, 2000, 3000}).UintArray()).Should(Equal([]uint64{1000, 2000, 3000}))
-		Expect(Create(map[string]uint64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": uint64(1), "key2": uint64(2)}))
+		Expect(New([]uint64{1000, 2000, 3000}).UintArray()).Should(Equal([]uint64{1000, 2000, 3000}))
+		Expect(New(map[string]uint64{"key1": 1, "key2": 2}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": uint64(1), "key2": uint64(2)}))
 
 		Expect(params.Get("valueArray").ValueArray()).Should(BeEquivalentTo([]interface{}{"value1", 20, 25.5}))
 		Expect(params.Get("timeArray").TimeArray()).Should(BeEquivalentTo(timeArray))
 		now := time.Now()
-		Expect(Create(map[string]time.Time{"key1": now, "key2": now}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": now, "key2": now}))
+		Expect(New(map[string]time.Time{"key1": now, "key2": now}).RawMap()).Should(BeEquivalentTo(map[string]interface{}{"key1": now, "key2": now}))
 
 		Expect(params.Get("int").Int()).Should(Equal(12345678910))
 		Expect(params.Get("int64").Int64()).Should(Equal(lHeight))
@@ -316,10 +316,10 @@ var _ = Describe("Payload", func() {
 		Expect(params.Get("string").BoolArray()).Should(BeNil())
 
 		Expect(params.Exists()).Should(Equal(true))
-		Expect(Create(nil).Exists()).Should(Equal(false))
+		Expect(New(nil).Exists()).Should(Equal(false))
 
 		someErrror := errors.New("some error")
-		params = Create(someErrror)
+		params = New(someErrror)
 		Expect(params.IsError()).Should(Equal(true))
 		Expect(params.Error()).Should(Equal(someErrror))
 	})
