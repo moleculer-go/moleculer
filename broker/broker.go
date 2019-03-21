@@ -100,7 +100,7 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 // stopService stop the service.
 func (broker *ServiceBroker) stopService(svc *service.Service) {
 	broker.middlewares.CallHandlers("serviceStoping", svc)
-	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.Create(nil)))
+	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.New(nil)))
 	broker.middlewares.CallHandlers("serviceStoped", svc)
 }
 
@@ -111,7 +111,7 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.waitForDependencies(svc)
 
-	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.Create(nil)))
+	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
 
 	broker.registry.AddLocalService(svc)
 
@@ -284,7 +284,7 @@ func (broker *ServiceBroker) invokeMCalls(callMaps map[string]map[string]interfa
 			broker.logger.Error(timeoutError)
 			for label, _ := range callMaps {
 				if _, exists := results[label]; !exists {
-					results[label] = payload.Create(timeoutError)
+					results[label] = payload.New(timeoutError)
 				}
 			}
 			result <- results
@@ -306,7 +306,7 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before making calls :("))
 	}
-	actionContext := broker.rootContext.ChildActionContext(actionName, payload.Create(params), options.Wrap(opts))
+	actionContext := broker.rootContext.ChildActionContext(actionName, payload.New(params), options.Wrap(opts))
 	return broker.registry.LoadBalanceCall(actionContext, options.Wrap(opts))
 }
 
@@ -315,7 +315,7 @@ func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...st
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before emiting events :("))
 	}
-	newContext := broker.rootContext.ChildEventContext(event, payload.Create(params), groups, false)
+	newContext := broker.rootContext.ChildEventContext(event, payload.New(params), groups, false)
 	broker.registry.LoadBalanceEvent(newContext)
 }
 
@@ -324,7 +324,7 @@ func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups 
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before broadcasting events :("))
 	}
-	newContext := broker.rootContext.ChildEventContext(event, payload.Create(params), groups, true)
+	newContext := broker.rootContext.ChildEventContext(event, payload.New(params), groups, true)
 	broker.registry.BroadcastEvent(newContext)
 }
 

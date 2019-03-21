@@ -61,8 +61,8 @@ func (jpayload JSONPayload) AddItem(value interface{}) moleculer.Payload {
 		return payload.Error("payload.AddItem can only deal with lists/arrays.")
 	}
 	arr := jpayload.Array()
-	arr = append(arr, payload.Create(value))
-	return payload.Create(arr)
+	arr = append(arr, payload.New(value))
+	return payload.New(arr)
 }
 
 func (jpayload JSONPayload) Add(field string, value interface{}) moleculer.Payload {
@@ -198,7 +198,7 @@ func (jp JSONPayload) First() moleculer.Payload {
 	if jp.IsArray() {
 		return JSONPayload{jp.result.Array()[0], jp.logger}
 	}
-	return payload.Create(nil)
+	return payload.New(nil)
 }
 
 func (payload JSONPayload) StringArray() []string {

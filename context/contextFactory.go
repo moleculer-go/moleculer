@@ -130,7 +130,7 @@ func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface
 	}
 	level = values["level"].(int)
 	parentID = values["parentID"].(string)
-	params := payload.Create(values["params"])
+	params := payload.New(values["params"])
 
 	if values["timeout"] != nil {
 		timeout = values["timeout"].(int)
@@ -168,7 +168,7 @@ func EventContext(broker moleculer.BrokerDelegates, values map[string]interface{
 	if !isEvent {
 		panic(errors.New("Can't create an event context, you need an event field!"))
 	}
-	params := payload.Create(values["params"])
+	params := payload.New(values["params"])
 
 	newContext := Context{
 		broker:       broker,
@@ -245,20 +245,20 @@ func (context *Context) MCall(callMaps map[string]map[string]interface{}) chan m
 // Call : main entry point to call actions.
 // chained action invocation
 func (context *Context) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-	actionContext := context.ChildActionContext(actionName, payload.Create(params), options.Wrap(opts))
+	actionContext := context.ChildActionContext(actionName, payload.New(params), options.Wrap(opts))
 	return context.broker.ActionDelegate(actionContext, options.Wrap(opts))
 }
 
 // Emit : Emit an event (grouped & balanced global event)
 func (context *Context) Emit(eventName string, params interface{}, groups ...string) {
 	context.Logger().Debug("Context Emit() eventName: ", eventName)
-	newContext := context.ChildEventContext(eventName, payload.Create(params), groups, false)
+	newContext := context.ChildEventContext(eventName, payload.New(params), groups, false)
 	context.broker.EmitEvent(newContext)
 }
 
 // Broadcast : Broadcast an event for all local & remote services
 func (context *Context) Broadcast(eventName string, params interface{}, groups ...string) {
-	newContext := context.ChildEventContext(eventName, payload.Create(params), groups, true)
+	newContext := context.ChildEventContext(eventName, payload.New(params), groups, true)
 	context.broker.EmitEvent(newContext)
 }
 

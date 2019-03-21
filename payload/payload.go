@@ -195,9 +195,9 @@ func (rawPayload *RawPayload) Len() int {
 
 func (rawPayload *RawPayload) First() moleculer.Payload {
 	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil && transformer.ArrayLen(&rawPayload.source) > 0 {
-		return Create(transformer.First(&rawPayload.source))
+		return New(transformer.First(&rawPayload.source))
 	}
-	return Create(nil)
+	return New(nil)
 }
 
 func (rawPayload *RawPayload) Array() []moleculer.Payload {
@@ -205,7 +205,7 @@ func (rawPayload *RawPayload) Array() []moleculer.Payload {
 		source := transformer.InterfaceArray(&rawPayload.source)
 		array := make([]moleculer.Payload, len(source))
 		for index, item := range source {
-			array[index] = Create(item)
+			array[index] = New(item)
 		}
 		return array
 	}
@@ -382,9 +382,9 @@ func (rawPayload *RawPayload) mapGet(path string) (interface{}, bool) {
 
 func (rawPayload *RawPayload) Get(path string) moleculer.Payload {
 	if value, ok := rawPayload.mapGet(path); ok {
-		return Create(value)
+		return New(value)
 	}
-	return Create(nil)
+	return New(nil)
 }
 
 func (rawPayload *RawPayload) Value() interface{} {
@@ -408,7 +408,7 @@ func (rawPayload *RawPayload) Remove(fields ...string) moleculer.Payload {
 				new[key] = value
 			}
 		}
-		return Create(new)
+		return New(new)
 	}
 	if rawPayload.IsArray() {
 		arr := rawPayload.Array()
@@ -416,7 +416,7 @@ func (rawPayload *RawPayload) Remove(fields ...string) moleculer.Payload {
 		for index, item := range arr {
 			new[index] = item.Remove(fields...)
 		}
-		return Create(new)
+		return New(new)
 	}
 	return Error("payload.Remove can only deal with map and array payloads.")
 }
@@ -426,8 +426,8 @@ func (rawPayload *RawPayload) AddItem(value interface{}) moleculer.Payload {
 		return Error("payload.AddItem can only deal with lists/arrays.")
 	}
 	arr := rawPayload.Array()
-	arr = append(arr, Create(value))
-	return Create(arr)
+	arr = append(arr, New(value))
+	return New(arr)
 }
 
 //Add add the field:value pair to the existing values and return a new payload.
@@ -437,7 +437,7 @@ func (rawPayload *RawPayload) Add(field string, value interface{}) moleculer.Pay
 	}
 	m := rawPayload.RawMap()
 	m[field] = value
-	return Create(m)
+	return New(m)
 }
 
 //AddMany merge the maps with eh existing values and return a new payload.
@@ -449,22 +449,22 @@ func (rawPayload *RawPayload) AddMany(toAdd map[string]interface{}) moleculer.Pa
 	for key, value := range toAdd {
 		m[key] = value
 	}
-	return Create(m)
+	return New(m)
 }
 
 func Error(msgs ...interface{}) moleculer.Payload {
-	return Create(errors.New(fmt.Sprint(msgs...)))
+	return New(errors.New(fmt.Sprint(msgs...)))
 }
 
 func EmptyList() moleculer.Payload {
-	return Create([]moleculer.Payload{})
+	return New([]moleculer.Payload{})
 }
 
 func Empty() moleculer.Payload {
-	return Create(map[string]interface{}{})
+	return New(map[string]interface{}{})
 }
 
-func Create(source interface{}) moleculer.Payload {
+func New(source interface{}) moleculer.Payload {
 	valueType := GetValueType(&source)
 	if valueType == "*payload.RawPayload" {
 		return source.(moleculer.Payload)

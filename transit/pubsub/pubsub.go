@@ -80,7 +80,7 @@ func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 
 	pending, exists := pubsub.pendingRequests[nodeID]
 	if exists {
-		(*pending.resultChan) <- payload.Create(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
+		(*pending.resultChan) <- payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
 		delete(pubsub.pendingRequests, nodeID)
 	}
 	pubsub.neighboursMutex.Lock()
@@ -320,7 +320,7 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 		if message.Get("success").Bool() {
 			result = message.Get("data")
 		} else {
-			result = payload.Create(errors.New(message.Get("error").String()))
+			result = payload.New(errors.New(message.Get("error").String()))
 		}
 
 		pubsub.logger.Trace("reponseHandler() id: ", id, " result: ", result)

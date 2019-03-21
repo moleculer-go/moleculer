@@ -284,7 +284,7 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 		registry.logger.Trace("remote request done! action: ", context.ActionName(), " results: ", actionResult)
 		if registry.stoping {
 			registry.logger.Error("invokeRemoteAction() - registry is stoping. Discarding action result -> name: ", context.ActionName())
-			result <- payload.Create(errors.New("can't complete request! registry stoping..."))
+			result <- payload.New(errors.New("can't complete request! registry stoping..."))
 		} else {
 			result <- actionResult
 		}
@@ -456,9 +456,9 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 // subscribeInternalEvent subscribe event listeners for internal events (e.g. $node.disconnected) using the localBus.
 func (registry *ServiceRegistry) subscribeInternalEvent(event service.Event) {
 	registry.broker.Bus().On(event.Name(), func(data ...interface{}) {
-		params := payload.Create(nil)
+		params := payload.New(nil)
 		if len(data) > 0 {
-			params = payload.Create(data[0])
+			params = payload.New(data[0])
 		}
 		brokerContext := registry.broker.BrokerContext()
 		eventContext := brokerContext.ChildEventContext(event.Name(), params, nil, false)

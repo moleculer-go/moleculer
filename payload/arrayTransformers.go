@@ -271,7 +271,7 @@ func ArrayTransformer(value *interface{}) *arrayTransformer {
 
 	//try to use reflection
 	rt := reflect.TypeOf(*value)
-	if rt != nil && rt.Kind() == reflect.Array || rt.Kind() == reflect.Slice {
+	if rt != nil && (rt.Kind() == reflect.Array || rt.Kind() == reflect.Slice) {
 		return &arrayTransformer{"reflection", reflectionArrayTransformer, reflectionArrayTransformerFirst, reflectionArraySize}
 	}
 	//fmt.Println("ArrayTransformer() no transformer for  valueType -> ", valueType)
