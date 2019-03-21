@@ -136,6 +136,17 @@ func reflectionMapTransformer(source *interface{}) map[string]interface{} {
 
 // MapTransformer : return the map transformer for the specific map type
 func MapTransformer(value *interface{}) *mapTransformer {
+
+	//try this
+	// switch vt := (*value).(type) {
+	// case map[string]interface{}:
+	// 	//do something.
+	// 	fmt.Println("worked vt: ", vt)
+	// default:
+	// 	//do something else
+	// 	fmt.Println("worked also vt: ", vt)
+	// }
+
 	valueType := GetValueType(value)
 	for _, transformer := range mapTransformers {
 		if valueType == transformer.name {

@@ -9,10 +9,12 @@ import (
 
 type interfaceArrayFunc func(source *interface{}) []interface{}
 type arrayLenFunc func(source *interface{}) int
+type firstFunc func(source *interface{}) interface{}
 
 type arrayTransformer struct {
 	name           string
 	InterfaceArray interfaceArrayFunc
+	First          firstFunc
 	ArrayLen       arrayLenFunc
 }
 
@@ -21,6 +23,9 @@ var arrayTransformers = []arrayTransformer{
 		"[]interface {}",
 		func(source *interface{}) []interface{} {
 			return (*source).([]interface{})
+		},
+		func(source *interface{}) interface{} {
+			return (*source).([]interface{})[0]
 		},
 		func(source *interface{}) int {
 			return len((*source).([]interface{}))
@@ -36,6 +41,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) interface{} {
+			return (*source).([]string)[0]
+		},
 		func(source *interface{}) int {
 			return len((*source).([]string))
 		},
@@ -49,6 +57,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) interface{} {
+			return (*source).([]int)[0]
 		},
 		func(source *interface{}) int {
 			return len((*source).([]int))
@@ -64,6 +75,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) interface{} {
+			return (*source).([]bool)[0]
+		},
 		func(source *interface{}) int {
 			return len((*source).([]bool))
 		},
@@ -77,6 +91,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) interface{} {
+			return (*source).([]int64)[0]
 		},
 		func(source *interface{}) int {
 			return len((*source).([]int64))
@@ -92,6 +109,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) interface{} {
+			return (*source).([]float32)[0]
+		},
 		func(source *interface{}) int {
 			return len((*source).([]float32))
 		},
@@ -105,6 +125,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) interface{} {
+			return (*source).([]float64)[0]
 		},
 		func(source *interface{}) int {
 			return len((*source).([]float64))
@@ -120,6 +143,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) interface{} {
+			return (*source).([]uint64)[0]
+		},
 		func(source *interface{}) int {
 			return len((*source).([]uint64))
 		},
@@ -133,6 +159,9 @@ var arrayTransformers = []arrayTransformer{
 				result[index] = value
 			}
 			return result
+		},
+		func(source *interface{}) interface{} {
+			return (*source).([]time.Time)[0]
 		},
 		func(source *interface{}) int {
 			return len((*source).([]time.Time))
@@ -148,6 +177,9 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) interface{} {
+			return (*source).([]map[string]interface{})[0]
+		},
 		func(source *interface{}) int {
 			return len((*source).([]map[string]interface{}))
 		},
@@ -162,10 +194,17 @@ var arrayTransformers = []arrayTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) interface{} {
+			return (*source).([]moleculer.Payload)[0]
+		},
 		func(source *interface{}) int {
 			return len((*source).([]moleculer.Payload))
 		},
 	},
+}
+
+func rawPayloadArrayTransformerFirst(source *interface{}) interface{} {
+	return (*source).(*RawPayload).First()
 }
 
 func rawPayloadArrayTransformer(source *interface{}) []interface{} {
@@ -181,6 +220,11 @@ func rawPayloadArrayTransformer(source *interface{}) []interface{} {
 func rawPayloadArrayTransformerLen(source *interface{}) int {
 	sourceList := (*source).(*RawPayload)
 	return sourceList.Len()
+}
+
+func reflectionArrayTransformerFirst(source *interface{}) interface{} {
+	rv := reflect.ValueOf(*source)
+	return rv.Index(0).Interface()
 }
 
 func reflectionArrayTransformer(source *interface{}) []interface{} {
@@ -219,6 +263,7 @@ func ArrayTransformer(value *interface{}) *arrayTransformer {
 		transformer := arrayTransformer{
 			"*payload.RawPayload",
 			rawPayloadArrayTransformer,
+			rawPayloadArrayTransformerFirst,
 			rawPayloadArrayTransformerLen,
 		}
 		return &transformer
@@ -227,7 +272,7 @@ func ArrayTransformer(value *interface{}) *arrayTransformer {
 	//try to use reflection
 	rt := reflect.TypeOf(*value)
 	if rt != nil && rt.Kind() == reflect.Array || rt.Kind() == reflect.Slice {
-		return &arrayTransformer{"reflection", reflectionArrayTransformer, reflectionArraySize}
+		return &arrayTransformer{"reflection", reflectionArrayTransformer, reflectionArrayTransformerFirst, reflectionArraySize}
 	}
 	//fmt.Println("ArrayTransformer() no transformer for  valueType -> ", valueType)
 	return nil

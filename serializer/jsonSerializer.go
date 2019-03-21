@@ -194,6 +194,13 @@ func (jp JSONPayload) Len() int {
 	return -1
 }
 
+func (jp JSONPayload) First() moleculer.Payload {
+	if jp.IsArray() {
+		return JSONPayload{jp.result.Array()[0], jp.logger}
+	}
+	return payload.Create(nil)
+}
+
 func (payload JSONPayload) StringArray() []string {
 	if payload.IsArray() {
 		source := payload.result.Array()
@@ -323,13 +330,9 @@ func (payload JSONPayload) FloatArray() []float64 {
 
 func (jp JSONPayload) BsonArray() []bson.M {
 	if jp.IsArray() {
-		bm := make([]bson.M, jp.Count())
+		bm := make([]bson.M, jp.Len())
 		for index, value := range jp.Array() {
-			if value.IsMap() {
-				bm[index] = value.Bson()
-			} else {
-				bm[index] = value.Value()
-			}
+			bm[index] = value.Bson()
 		}
 		return bm
 	}

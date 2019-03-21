@@ -190,7 +190,14 @@ func (rawPayload *RawPayload) Len() int {
 	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil {
 		return transformer.ArrayLen(&rawPayload.source)
 	}
-	return -1
+	return 0
+}
+
+func (rawPayload *RawPayload) First() moleculer.Payload {
+	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil && transformer.ArrayLen(&rawPayload.source) > 0 {
+		return Create(transformer.First(&rawPayload.source))
+	}
+	return Create(nil)
 }
 
 func (rawPayload *RawPayload) Array() []moleculer.Payload {
