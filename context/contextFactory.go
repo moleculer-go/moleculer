@@ -15,7 +15,7 @@ import (
 type Context struct {
 	id           string
 	requestID    string
-	broker       moleculer.BrokerDelegates
+	broker       *moleculer.BrokerDelegates
 	targetNodeID string
 	sourceNodeID string
 	parentID     string
@@ -29,7 +29,7 @@ type Context struct {
 	level        int
 }
 
-func BrokerContext(broker moleculer.BrokerDelegates) moleculer.BrokerContext {
+func BrokerContext(broker *moleculer.BrokerDelegates) moleculer.BrokerContext {
 	localNodeID := broker.LocalNode().GetID()
 	id := fmt.Sprint("rootContext-broker-", localNodeID, "-", util.RandomString(12))
 	context := Context{
@@ -75,7 +75,7 @@ func (context *Context) ChildEventContext(eventName string, params moleculer.Pay
 }
 
 // Config return the broker config attached to this context.
-func (context *Context) BrokerDelegates() moleculer.BrokerDelegates {
+func (context *Context) BrokerDelegates() *moleculer.BrokerDelegates {
 	return context.broker
 }
 
@@ -116,7 +116,7 @@ func checkMaxCalls(context *Context) {
 }
 
 // ActionContext create an action context for remote call.
-func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	var level int
 	var parentID string
 	var timeout int
@@ -156,7 +156,7 @@ func ActionContext(broker moleculer.BrokerDelegates, values map[string]interface
 }
 
 // EventContext create an event context for a remote call.
-func EventContext(broker moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	var level int
 	var parentID string
 	var timeout int

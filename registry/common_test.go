@@ -14,10 +14,10 @@ func CreateLogger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-func BrokerDelegates(nodeID string) moleculer.BrokerDelegates {
+func BrokerDelegates(nodeID string) *moleculer.BrokerDelegates {
 	localBus := Construct()
 	localNode := registry.CreateNode(nodeID, true, logger)
-	broker := moleculer.BrokerDelegates{
+	broker := &moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
 			return localNode
 		},

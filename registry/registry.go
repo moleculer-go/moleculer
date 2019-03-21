@@ -32,7 +32,7 @@ type ServiceRegistry struct {
 	services              *ServiceCatalog
 	actions               *ActionCatalog
 	events                *EventCatalog
-	broker                moleculer.BrokerDelegates
+	broker                *moleculer.BrokerDelegates
 	strategy              strategy.Strategy
 	stoping               bool
 	heartbeatFrequency    time.Duration
@@ -42,18 +42,18 @@ type ServiceRegistry struct {
 }
 
 // createTransit create a transit instance based on the config.
-func createTransit(broker moleculer.BrokerDelegates) transit.Transit {
+func createTransit(broker *moleculer.BrokerDelegates) transit.Transit {
 	transit := pubsub.Create(broker)
 	return transit
 }
 
 // createStrategy create a strsategy instance based on the config.
-func createStrategy(broker moleculer.BrokerDelegates) strategy.Strategy {
+func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	//TODO: when new strategies are addes.. adde config check here to load the right one.
 	return strategy.RoundRobinStrategy{}
 }
 
-func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
+func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)

@@ -87,7 +87,7 @@ type ServiceBroker struct {
 
 	config moleculer.Config
 
-	delegates moleculer.BrokerDelegates
+	delegates *moleculer.BrokerDelegates
 
 	localNode moleculer.Node
 }
@@ -383,8 +383,8 @@ func (broker *ServiceBroker) init() {
 
 }
 
-func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
-	return moleculer.BrokerDelegates{
+func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
+	return &moleculer.BrokerDelegates{
 		LocalNode: broker.LocalNode,
 		Logger:    broker.newLogger,
 		Bus:       broker.LocalBus,

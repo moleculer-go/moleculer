@@ -25,7 +25,7 @@ import (
 type PubSub struct {
 	logger               *log.Entry
 	transport            transit.Transport
-	broker               moleculer.BrokerDelegates
+	broker               *moleculer.BrokerDelegates
 	isConnected          bool
 	pendingRequests      map[string]pendingRequest
 	pendingRequestsMutex *sync.Mutex
@@ -48,7 +48,7 @@ func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
 	}
 }
 
-func Create(broker moleculer.BrokerDelegates) transit.Transit {
+func Create(broker *moleculer.BrokerDelegates) transit.Transit {
 	pendingRequests := make(map[string]pendingRequest)
 	knownNeighbours := make(map[string]int64)
 	transitImpl := PubSub{
