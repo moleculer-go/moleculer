@@ -259,7 +259,7 @@ func ArrayTransformer(value *interface{}) *arrayTransformer {
 			return &transformer
 		}
 	}
-	if valueType == "*payload.RawPayload" {
+	if valueType == "*payload.RawPayload" && (*value).(*RawPayload).IsArray() {
 		transformer := arrayTransformer{
 			"*payload.RawPayload",
 			rawPayloadArrayTransformer,
