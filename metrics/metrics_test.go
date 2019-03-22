@@ -15,7 +15,7 @@ var _ = Describe("Metrics", func() {
 
 	It("metricEnd() should record  endTime, duration and fire span.finish event", func() {
 		var eventPayload moleculer.Payload
-		delegates := test.DelegatesWithIdAndConfig("nodex", moleculer.BrokerConfig{})
+		delegates := test.DelegatesWithIdAndConfig("nodex", moleculer.Config{})
 		delegates.EmitEvent = func(context moleculer.BrokerContext) {
 			if context.EventName() == "metrics.trace.span.finish" {
 				eventPayload = context.Payload()
@@ -73,7 +73,7 @@ var _ = Describe("Metrics", func() {
 
 	It("metricStart() should record startTime and fire span.start event", func() {
 		var eventPayload moleculer.Payload
-		delegates := test.DelegatesWithIdAndConfig("nodex", moleculer.BrokerConfig{})
+		delegates := test.DelegatesWithIdAndConfig("nodex", moleculer.Config{})
 		delegates.EmitEvent = func(context moleculer.BrokerContext) {
 			Expect(context.EventName()).Should(Equal("metrics.trace.span.start"))
 			eventPayload = context.Payload()
@@ -110,12 +110,12 @@ var _ = Describe("Metrics", func() {
 
 	It("createShouldMetric() should be false", func() {
 
-		shouldMetric := createShouldMetric(moleculer.BrokerConfig{})
+		shouldMetric := createShouldMetric(moleculer.Config{})
 
-		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.BrokerConfig{}))
+		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.Config{}))
 		Expect(shouldMetric(brokerContext)).Should(BeFalse())
 
-		brokerContext = context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.BrokerConfig{
+		brokerContext = context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.Config{
 			Metrics: false,
 		}))
 		actionContext := brokerContext.ChildActionContext("a", payload.Create(nil))
@@ -123,7 +123,7 @@ var _ = Describe("Metrics", func() {
 	})
 
 	It("createShouldMetric() should be true", func() {
-		config := moleculer.BrokerConfig{
+		config := moleculer.Config{
 			Metrics:     true,
 			MetricsRate: 1,
 		}
@@ -135,7 +135,7 @@ var _ = Describe("Metrics", func() {
 
 	It("createShouldMetric() should be true on for half of the requests", func() {
 
-		config := moleculer.BrokerConfig{
+		config := moleculer.Config{
 			Metrics:     true,
 			MetricsRate: .5,
 		}
@@ -151,7 +151,7 @@ var _ = Describe("Metrics", func() {
 
 	It("createShouldMetric() should be true 1/10 of the requests", func() {
 
-		config := moleculer.BrokerConfig{
+		config := moleculer.Config{
 			Metrics:     true,
 			MetricsRate: .1,
 		}

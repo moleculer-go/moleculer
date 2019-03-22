@@ -142,9 +142,9 @@ var numberTransformers = []numberTransformer{
 	},
 }
 
-// getMapTransformer : return the map transformer for the specific map type
+// MapTransformer : return the map transformer for the specific map type
 func getNumberTransformer(value *interface{}) *numberTransformer {
-	valueType := getValueType(value)
+	valueType := GetValueType(value)
 	for _, transformer := range numberTransformers {
 		if valueType == transformer.name {
 			return &transformer

@@ -56,7 +56,7 @@ func Create(broker moleculer.BrokerDelegates) transit.Transit {
 		isConnected:          false,
 		pendingRequests:      pendingRequests,
 		logger:               broker.Logger("Transit", ""),
-		serializer:           serializer.FromConfig(broker),
+		serializer:           serializer.New(broker),
 		neighboursTimeout:    broker.Config.NeighboursCheckTimeout,
 		knownNeighbours:      knownNeighbours,
 		neighboursMutex:      &sync.Mutex{},

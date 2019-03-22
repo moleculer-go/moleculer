@@ -26,7 +26,7 @@ var _ = Describe("Broker Internals", func() {
 			verse := "3 little birds..."
 			chorus := "don't worry..."
 			mem := &memory.SharedMemory{}
-			baseConfig := &moleculer.BrokerConfig{
+			baseConfig := &moleculer.Config{
 				LogLevel: logLevel,
 				TransporterFactory: func() interface{} {
 					transport := memory.Create(log.WithField("transport", "memory"), mem)
@@ -39,7 +39,7 @@ var _ = Describe("Broker Internals", func() {
 				currentStep++
 				fmt.Println("\n############# New Test Cycle step: ", currentStep, " #############")
 
-				soundsBroker := FromConfig(baseConfig, &moleculer.BrokerConfig{
+				soundsBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "SoundsBroker" },
 				})
 				soundsBroker.AddService(moleculer.Service{
@@ -138,7 +138,7 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
 
-				visualBroker := FromConfig(baseConfig, &moleculer.BrokerConfig{
+				visualBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "VisualBroker" },
 				})
 				visualBroker.localBus.On("$node.disconnected", func(data ...interface{}) {
@@ -206,7 +206,7 @@ var _ = Describe("Broker Internals", func() {
 
 				fmt.Println("\n############# second instance of the VJ service #############")
 				//add a second instance of the vj service, but only one should receive emit events.
-				aquaBroker := FromConfig(baseConfig, &moleculer.BrokerConfig{
+				aquaBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "AquaBroker" },
 				})
 				aquaBroker.AddService(vjService)
@@ -240,7 +240,7 @@ var _ = Describe("Broker Internals", func() {
 
 				fmt.Println("\n############# second instance of the DJ service #############")
 				//add a second instance of the dj service
-				stormBroker := FromConfig(baseConfig, &moleculer.BrokerConfig{
+				stormBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "StormBroker" },
 				})
 				stormBroker.AddService(djService)
@@ -356,8 +356,8 @@ var _ = Describe("Broker Internals", func() {
 			}
 			logLevel := "FATAL"
 			mem := &memory.SharedMemory{}
-			bkr1 := FromConfig(
-				&moleculer.BrokerConfig{
+			bkr1 := New(
+				&moleculer.Config{
 					MCallTimeout:   MCallTimeout,
 					LogLevel:       logLevel,
 					DiscoverNodeID: func() string { return "test-broker1" },
@@ -381,8 +381,8 @@ var _ = Describe("Broker Internals", func() {
 				},
 			})
 
-			bkr2 := FromConfig(
-				&moleculer.BrokerConfig{
+			bkr2 := New(
+				&moleculer.Config{
 					MCallTimeout:   MCallTimeout,
 					LogLevel:       logLevel,
 					DiscoverNodeID: func() string { return "test-broker2" },
@@ -480,70 +480,70 @@ var _ = Describe("Broker Internals", func() {
 
 		It("Should register user middlewares", func() {
 
-			config := moleculer.BrokerConfig{DisableInternalMiddlewares: true}
-			bkr := FromConfig(&config)
-			Expect(bkr.middlewares.Has("brokerConfig")).Should(BeFalse())
+			config := moleculer.Config{DisableInternalMiddlewares: true}
+			bkr := New(&config)
+			Expect(bkr.middlewares.Has("Config")).Should(BeFalse())
 
-			config = moleculer.BrokerConfig{
+			config = moleculer.Config{
 				DisableInternalMiddlewares: true,
 				Middlewares: []moleculer.Middlewares{
 					map[string]moleculer.MiddlewareHandler{
-						"brokerConfig": func(params interface{}, next func(...interface{})) {
+						"Config": func(params interface{}, next func(...interface{})) {
 							next()
 						},
 					},
 				},
 			}
-			bkr = FromConfig(&config)
+			bkr = New(&config)
 			fmt.Println(bkr.config)
 			fmt.Println(bkr.middlewares)
-			Expect(bkr.middlewares.Has("brokerConfig")).Should(BeTrue())
+			Expect(bkr.middlewares.Has("Config")).Should(BeTrue())
 			Expect(bkr.middlewares.Has("anotherOne")).Should(BeFalse())
 		})
 
-		It("Should call brokerConfig middleware on Start and not change the config", func() {
+		It("Should call Config middleware on Start and not change the config", func() {
 
-			brokerConfigCalls := 0
-			config := moleculer.BrokerConfig{
+			ConfigCalls := 0
+			config := moleculer.Config{
 				DontWaitForNeighbours:      true,
 				DisableInternalMiddlewares: true,
 				Middlewares: []moleculer.Middlewares{
 					map[string]moleculer.MiddlewareHandler{
-						"brokerConfig": func(params interface{}, next func(...interface{})) {
-							brokerConfigCalls++
+						"Config": func(params interface{}, next func(...interface{})) {
+							ConfigCalls++
 							next()
 						},
 					},
 				},
 			}
-			bkr := FromConfig(&config)
-			Expect(bkr.middlewares.Has("brokerConfig")).Should(BeTrue())
+			bkr := New(&config)
+			Expect(bkr.middlewares.Has("Config")).Should(BeTrue())
 			bkr.Start()
-			Expect(brokerConfigCalls).Should(Equal(1))
+			Expect(ConfigCalls).Should(Equal(1))
 			bkr.Stop()
 		})
 
-		It("Should call brokerConfig middleware on Start and not change the config", func() {
+		It("Should call Config middleware on Start and not change the config", func() {
 
-			brokerConfigCalls := 0
-			config := moleculer.BrokerConfig{
+			ConfigCalls := 0
+			config := moleculer.Config{
 				DontWaitForNeighbours: true,
 				Metrics:               true,
 				Middlewares: []moleculer.Middlewares{
 					map[string]moleculer.MiddlewareHandler{
-						"brokerConfig": func(params interface{}, next func(...interface{})) {
-							brokerConfig := params.(moleculer.BrokerConfig)
-							brokerConfig.Metrics = false
-							brokerConfigCalls++
-							next(brokerConfig)
+						"Config": func(params interface{}, next func(...interface{})) {
+							Config := params.(moleculer.Config)
+							Config.Metrics = false
+							ConfigCalls++
+							next(Config)
 						},
 					},
 				},
 			}
 			Expect(config.Metrics).Should(BeTrue())
-			bkr := FromConfig(&config)
+			bkr := New(&config)
 			bkr.Start()
-			Expect(brokerConfigCalls).Should(Equal(1))
+			Expect(ConfigCalls).Should(Equal(1))
 			Expect(bkr.config.Metrics).Should(BeFalse())
 			bkr.Stop()
 		})

@@ -18,7 +18,7 @@ func (rawPayload *RawPayload) Exists() bool {
 }
 
 func (rawPayload *RawPayload) IsError() bool {
-	valueType := getValueType(&rawPayload.source)
+	valueType := GetValueType(&rawPayload.source)
 	return valueType == "*errors.errorString"
 }
 
@@ -182,8 +182,8 @@ func (rawPayload *RawPayload) TimeArray() []time.Time {
 }
 
 func (rawPayload *RawPayload) Array() []moleculer.Payload {
-	if transformer := getArrayTransformer(&rawPayload.source); transformer != nil {
-		source := transformer.interfaceArray(&rawPayload.source)
+	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil {
+		source := transformer.InterfaceArray(&rawPayload.source)
 		array := make([]moleculer.Payload, len(source))
 		for index, item := range source {
 			array[index] = Create(item)
@@ -214,12 +214,12 @@ func (rawPayload *RawPayload) ForEach(iterator func(key interface{}, value molec
 }
 
 func (rawPayload *RawPayload) IsArray() bool {
-	transformer := getArrayTransformer(&rawPayload.source)
+	transformer := ArrayTransformer(&rawPayload.source)
 	return transformer != nil
 }
 
 func (rawPayload *RawPayload) IsMap() bool {
-	transformer := getMapTransformer(&rawPayload.source)
+	transformer := MapTransformer(&rawPayload.source)
 	return transformer != nil
 }
 
@@ -248,8 +248,8 @@ func (rawPayload *RawPayload) String() string {
 }
 
 func (rawPayload *RawPayload) Map() map[string]moleculer.Payload {
-	if transformer := getMapTransformer(&rawPayload.source); transformer != nil {
-		source := transformer.asMap(&rawPayload.source)
+	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
+		source := transformer.AsMap(&rawPayload.source)
 		newMap := make(map[string]moleculer.Payload)
 		for key, item := range source {
 			newPayload := RawPayload{item}
@@ -261,15 +261,15 @@ func (rawPayload *RawPayload) Map() map[string]moleculer.Payload {
 }
 
 func (rawPayload *RawPayload) RawMap() map[string]interface{} {
-	if transformer := getMapTransformer(&rawPayload.source); transformer != nil {
-		return transformer.asMap(&rawPayload.source)
+	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
+		return transformer.AsMap(&rawPayload.source)
 	}
 	return nil
 }
 
 // mapGet try to get the value at the path assuming the source is a map
 func (rawPayload *RawPayload) mapGet(path string) (interface{}, bool) {
-	if transformer := getMapTransformer(&rawPayload.source); transformer != nil {
+	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
 		return transformer.get(path, &rawPayload.source)
 	}
 	return nil, false
@@ -287,7 +287,7 @@ func (rawPayload *RawPayload) Value() interface{} {
 }
 
 func Create(source interface{}) moleculer.Payload {
-	valueType := getValueType(&source)
+	valueType := GetValueType(&source)
 	if valueType == "*payload.RawPayload" {
 		return source.(moleculer.Payload)
 	} else if valueType == "serializer.JSONPayload" {

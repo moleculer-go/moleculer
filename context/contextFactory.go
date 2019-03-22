@@ -183,7 +183,16 @@ func EventContext(broker moleculer.BrokerDelegates, values map[string]interface{
 		level:        level,
 	}
 	if values["groups"] != nil {
-		newContext.groups = values["groups"].([]string)
+		temp := values["groups"]
+		aTransformer := payload.ArrayTransformer(&temp)
+		if aTransformer != nil {
+			iArray := aTransformer.InterfaceArray(&temp)
+			sGroups := make([]string, len(iArray))
+			for index, item := range iArray {
+				sGroups[index] = item.(string)
+			}
+			newContext.groups = sGroups
+		}
 	}
 	return &newContext
 }
