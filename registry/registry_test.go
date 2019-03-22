@@ -19,7 +19,7 @@ import (
 var logLevel = "ERROR"
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
-	broker := broker.FromConfig(&moleculer.BrokerConfig{
+	broker := broker.New(&moleculer.Config{
 		DiscoverNodeID: func() string { return "node_printerBroker" },
 		LogLevel:       logLevel,
 		TransporterFactory: func() interface{} {
@@ -53,7 +53,7 @@ func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 }
 
 func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
-	broker := broker.FromConfig(&moleculer.BrokerConfig{
+	broker := broker.New(&moleculer.Config{
 		DiscoverNodeID: func() string { return "node_scannerBroker" },
 		LogLevel:       logLevel,
 		TransporterFactory: func() interface{} {
@@ -87,7 +87,7 @@ func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 }
 
 func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
-	broker := broker.FromConfig(&moleculer.BrokerConfig{
+	broker := broker.New(&moleculer.Config{
 		DiscoverNodeID: func() string { return "node_cpuBroker" },
 		LogLevel:       logLevel,
 		TransporterFactory: func() interface{} {
@@ -410,7 +410,7 @@ var _ = Describe("Registry", func() {
 			addedChan := make(chan bool)
 			var serviceRemoved []string
 			mem := &memory.SharedMemory{}
-			bkr1 := broker.FromConfig(&moleculer.BrokerConfig{
+			bkr1 := broker.New(&moleculer.Config{
 				DiscoverNodeID: func() string { return "test-node1" },
 				LogLevel:       logLevel,
 				TransporterFactory: func() interface{} {
@@ -451,7 +451,7 @@ var _ = Describe("Registry", func() {
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			//add another node.. so test service removed is invoked
-			bkr2 := broker.FromConfig(&moleculer.BrokerConfig{
+			bkr2 := broker.New(&moleculer.Config{
 				DiscoverNodeID: func() string { return "test-node2" },
 				LogLevel:       logLevel,
 				TransporterFactory: func() interface{} {

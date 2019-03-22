@@ -20,7 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func mergeConfigs(baseConfig moleculer.BrokerConfig, userConfig []*moleculer.BrokerConfig) moleculer.BrokerConfig {
+func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) moleculer.Config {
 	if len(userConfig) > 0 {
 		for _, config := range userConfig {
 			if config.LogLevel != "" {
@@ -85,7 +85,7 @@ type ServiceBroker struct {
 
 	rootContext moleculer.BrokerContext
 
-	config moleculer.BrokerConfig
+	config moleculer.Config
 
 	delegates moleculer.BrokerDelegates
 
@@ -372,9 +372,9 @@ func (broker *ServiceBroker) init() {
 
 	broker.registerMiddlewares()
 
-	broker.logger.Debug("brokerConfig middleware before: \n", broker.config)
-	broker.config = broker.middlewares.CallHandlers("brokerConfig", broker.config).(moleculer.BrokerConfig)
-	broker.logger.Debug("brokerConfig middleware after: \n", broker.config)
+	broker.logger.Debug("Config middleware before: \n", broker.config)
+	broker.config = broker.middlewares.CallHandlers("Config", broker.config).(moleculer.Config)
+	broker.logger.Debug("Config middleware after: \n", broker.config)
 
 	broker.delegates = broker.createDelegates()
 	broker.registry = registry.CreateRegistry(broker.delegates)
@@ -419,12 +419,12 @@ func (broker *ServiceBroker) createDelegates() moleculer.BrokerDelegates {
 	}
 }
 
-// FromConfig : returns a valid broker based on environment configuration
+// New : returns a valid broker based on environment configuration
 // this is usually called when creating a broker to starting the service(s)
-func FromConfig(userConfig ...*moleculer.BrokerConfig) *ServiceBroker {
+func New(userConfig ...*moleculer.Config) *ServiceBroker {
 	config := mergeConfigs(moleculer.DefaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
-	broker.logger.Info("Broker - FromConfig() ")
+	broker.logger.Info("Broker - New() ")
 	return &broker
 }

@@ -12,7 +12,7 @@ func Logger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-func DelegatesWithIdAndConfig(nodeID string, config moleculer.BrokerConfig) moleculer.BrokerDelegates {
+func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) moleculer.BrokerDelegates {
 	localBus := bus.Construct()
 	localNode := NodeMock{ID: nodeID}
 	broker := moleculer.BrokerDelegates{

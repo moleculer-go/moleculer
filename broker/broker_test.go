@@ -30,7 +30,7 @@ var _ = Describe("Broker", func() {
 			},
 		}
 
-		broker := broker.FromConfig(&moleculer.BrokerConfig{
+		broker := broker.New(&moleculer.Config{
 			LogLevel: "ERROR",
 		})
 		broker.AddService(service)
@@ -60,17 +60,17 @@ var _ = Describe("Broker", func() {
 			},
 		}
 		mem := &memory.SharedMemory{}
-		baseConfig := &moleculer.BrokerConfig{
+		baseConfig := &moleculer.Config{
 			LogLevel: "DEBUG",
 			TransporterFactory: func() interface{} {
 				transport := memory.Create(log.WithField("transport", "memory"), mem)
 				return &transport
 			},
 		}
-		bkrConfig := &moleculer.BrokerConfig{
+		bkrConfig := &moleculer.Config{
 			DiscoverNodeID: func() string { return "do-broker" },
 		}
-		bkr := broker.FromConfig(baseConfig, bkrConfig)
+		bkr := broker.New(baseConfig, bkrConfig)
 		bkr.AddService(service)
 		bkr.Start()
 
@@ -96,10 +96,10 @@ var _ = Describe("Broker", func() {
 				},
 			},
 		}
-		bkrConfig = &moleculer.BrokerConfig{
+		bkrConfig = &moleculer.Config{
 			DiscoverNodeID: func() string { return "remote-broker" },
 		}
-		bkr = broker.FromConfig(baseConfig, bkrConfig)
+		bkr = broker.New(baseConfig, bkrConfig)
 		bkr.AddService(service)
 		bkr.Start()
 
@@ -144,7 +144,7 @@ var _ = Describe("Broker", func() {
 			},
 		}
 
-		broker := broker.FromConfig(&moleculer.BrokerConfig{
+		broker := broker.New(&moleculer.Config{
 			LogLevel: "ERROR",
 		})
 		broker.AddService(service)
