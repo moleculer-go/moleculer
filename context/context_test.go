@@ -11,7 +11,7 @@ import (
 var _ = g.Describe("Context", func() {
 
 	g.It("Should be able to cast into moleculer.Context", func() {
-		delegates := test.DelegatesWithIdAndConfig("x", moleculer.BrokerConfig{})
+		delegates := test.DelegatesWithIdAndConfig("x", moleculer.Config{})
 		rawContext := BrokerContext(delegates)
 		Expect(func() {
 			moleculerContest := rawContext.(moleculer.Context)
@@ -21,7 +21,7 @@ var _ = g.Describe("Context", func() {
 
 	g.It("Should create a child context with metrics on", func() {
 
-		config := moleculer.BrokerConfig{
+		config := moleculer.Config{
 			Metrics: true,
 		}
 		brokerContext := BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))
@@ -33,7 +33,7 @@ var _ = g.Describe("Context", func() {
 		Expect(eventContext.Meta()).ShouldNot(BeNil())
 		Expect((*eventContext.Meta())["metrics"]).Should(BeTrue())
 
-		config = moleculer.BrokerConfig{
+		config = moleculer.Config{
 			Metrics: false,
 		}
 		brokerContext = BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))

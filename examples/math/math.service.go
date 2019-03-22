@@ -4,52 +4,44 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
-	. "github.com/moleculer-go/moleculer"
-	log "github.com/sirupsen/logrus"
 )
 
-// Create a Service Schema
-func MathServiceSchema() Service {
-
-	schema := Service{
-		Name: "math",
-		Actions: []Action{
-			{
-				Name:    "add",
-				Handler: addAction,
-			},
-			{
-				Name:    "sub",
-				Handler: subAction,
-			},
-			{
-				Name:    "mult",
-				Handler: multAction,
-			},
+var mathService = moleculer.Service{
+	Name: "math",
+	Actions: []Action{
+		{
+			Name:    "add",
+			Handler: addAction,
 		},
-		Events: []Event{
-			{
-				Name:    "math.add.called",
-				Handler: onAddEvent,
-			},
-			{
-				Name:    "math.sub.called",
-				Handler: onSubEvent,
-			},
+		{
+			Name:    "sub",
+			Handler: subAction,
 		},
-		//Mixins: []*Mixin(helloWorldSchema),
-		Created: func(service moleculer.Service, logger *log.Entry) {
-			fmt.Println("math service created !")
+		{
+			Name:    "mult",
+			Handler: multAction,
 		},
-		Started: func(ctx moleculer.BrokerContext, service moleculer.Service) {
-			fmt.Println("math service started !")
+	},
+	Events: []Event{
+		{
+			Name:    "math.add.called",
+			Handler: onAddEvent,
 		},
-		Stopped: func(ctx moleculer.BrokerContext, service moleculer.Service) {
-			fmt.Println("math service stopped !")
+		{
+			Name:    "math.sub.called",
+			Handler: onSubEvent,
 		},
-	}
-
-	return schema
+	},
+	//Mixins: []*Mixin(helloWorldSchema),
+	Created: func(service moleculer.Service, logger *log.Entry) {
+		fmt.Println("math service created !")
+	},
+	Started: func(ctx moleculer.BrokerContext, service moleculer.Service) {
+		fmt.Println("math service started !")
+	},
+	Stopped: func(ctx moleculer.BrokerContext, service moleculer.Service) {
+		fmt.Println("math service stopped !")
+	},
 }
 
 func onAddEvent(ctx Context, params Payload) {

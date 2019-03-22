@@ -96,7 +96,7 @@ type Mixin struct {
 
 type TransporterFactoryFunc func() interface{}
 
-type BrokerConfig struct {
+type Config struct {
 	LogLevel                   string
 	LogFormat                  string
 	DiscoverNodeID             func() string
@@ -124,7 +124,7 @@ type BrokerConfig struct {
 	Stoped                     func()
 }
 
-var DefaultConfig = BrokerConfig{
+var DefaultConfig = Config{
 	LogLevel:                   "INFO",
 	LogFormat:                  "TEXT",
 	DiscoverNodeID:             discoverNodeID,
@@ -239,7 +239,7 @@ type BrokerDelegates struct {
 	Logger             LoggerFunc
 	Bus                BusFunc
 	IsStarted          isStartedFunc
-	Config             BrokerConfig
+	Config             Config
 	MultActionDelegate MultActionDelegateFunc
 	ActionDelegate     ActionDelegateFunc
 	EmitEvent          EmitEventFunc
