@@ -3,7 +3,6 @@ package test
 import (
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
-	"github.com/moleculer-go/moleculer/context"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -13,7 +12,7 @@ func Logger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) moleculer.BrokerDelegates {
+func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) *moleculer.BrokerDelegates {
 	localBus := bus.Construct()
 	localNode := NodeMock{ID: nodeID}
 	broker := &moleculer.BrokerDelegates{
@@ -29,8 +28,8 @@ func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) moleculer.
 	return broker
 }
 
-func ContextAndDelegated(nodeID string, config moleculer.BrokerConfig) (moleculer.BrokerContext, *moleculer.BrokerDelegates) {
-	dl := DelegatesWithIdAndConfig(nodeID, config)
-	ctx := context.BrokerContext(dl)
-	return ctx, dl
-}
+// func ContextAndDelegated(nodeID string, config moleculer.Config) (moleculer.BrokerContext, *moleculer.BrokerDelegates) {
+// 	dl := DelegatesWithIdAndConfig(nodeID, config)
+// 	ctx := context.BrokerContext(dl)
+// 	return ctx, dl
+// }

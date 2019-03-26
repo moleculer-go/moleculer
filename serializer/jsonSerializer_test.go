@@ -58,7 +58,7 @@ var _ = Describe("JSON Serializer", func() {
 			"Winter":   "is coming!",
 		})
 
-		m := p.Add(map[string]interface{}{
+		m := p.AddMany(map[string]interface{}{
 			"page":     1,
 			"pageSize": 15,
 		})

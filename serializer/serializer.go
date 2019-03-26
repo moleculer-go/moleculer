@@ -8,6 +8,6 @@ type Serializer interface {
 	MapToPayload(mapValue *map[string]interface{}) (moleculer.Payload, error)
 }
 
-func New(broker moleculer.BrokerDelegates) Serializer {
+func New(broker *moleculer.BrokerDelegates) Serializer {
 	return CreateJSONSerializer(broker.Logger("serializer", "json"))
 }
