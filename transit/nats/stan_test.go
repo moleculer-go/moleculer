@@ -112,21 +112,21 @@ var _ = Describe("Transit", func() {
 
 			var userBroker, contactBroker, profileBroker *broker.ServiceBroker
 			bench.Time("brokers creation", func() {
-				userBroker = broker.FromConfig(&moleculer.BrokerConfig{
+				userBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: "STAN",
 				})
 				addUserService(userBroker)
 				userBroker.Start()
 
-				contactBroker = broker.FromConfig(&moleculer.BrokerConfig{
+				contactBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: "STAN",
 				})
 				addContactService(contactBroker)
 				contactBroker.Start()
 
-				profileBroker = broker.FromConfig(&moleculer.BrokerConfig{
+				profileBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: "STAN",
 				})

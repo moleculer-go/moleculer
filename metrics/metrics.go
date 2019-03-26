@@ -61,13 +61,13 @@ func metricsPayload(brokerContext moleculer.BrokerContext) map[string]interface{
 }
 
 // shouldMetric check if it should metric for this context.
-func createShouldMetric(brokerConfig moleculer.BrokerConfig) func(context moleculer.BrokerContext) bool {
+func createShouldMetric(Config moleculer.Config) func(context moleculer.BrokerContext) bool {
 	var callsCount float32 = 0
 	return func(context moleculer.BrokerContext) bool {
 		if context.Meta() != nil && (*context.Meta())["metrics"] != nil && (*context.Meta())["metrics"].(bool) {
 			//fmt.Println("createShouldMetric() metrics is on inside meta!")
 			callsCount++
-			if callsCount*brokerConfig.MetricsRate >= 1.0 {
+			if callsCount*Config.MetricsRate >= 1.0 {
 				//fmt.Println("createShouldMetric() rate is good!")
 
 				callsCount = 0
@@ -82,13 +82,13 @@ func createShouldMetric(brokerConfig moleculer.BrokerConfig) func(context molecu
 
 // Middleware create a metrics middleware
 func Middlewares() moleculer.Middlewares {
-	var brokerConfig = moleculer.DefaultConfig
-	shouldMetric := createShouldMetric(brokerConfig)
+	var Config = moleculer.DefaultConfig
+	shouldMetric := createShouldMetric(Config)
 	return map[string]moleculer.MiddlewareHandler{
 		// store the broker config
-		"brokerConfig": func(params interface{}, next func(...interface{})) {
-			brokerConfig = params.(moleculer.BrokerConfig)
-			shouldMetric = createShouldMetric(brokerConfig)
+		"Config": func(params interface{}, next func(...interface{})) {
+			Config = params.(moleculer.Config)
+			shouldMetric = createShouldMetric(Config)
 			next()
 		},
 		"afterLocalAction": func(params interface{}, next func(...interface{})) {

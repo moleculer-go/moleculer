@@ -20,7 +20,7 @@ func Dispatcher(logger *log.Entry) *Dispatch {
 	return &Dispatch{handlers, logger}
 }
 
-var validHandlers = []string{"brokerConfig", "brokerStoping", "brokerStoped", "brokerStarting", "brokerStarted", "serviceStoping", "serviceStoped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
+var validHandlers = []string{"Config", "brokerStoping", "brokerStoped", "brokerStarting", "brokerStarted", "serviceStoping", "serviceStoped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
 
 // validHandler check if the name of handlers midlewares are tryignt o register exists!
 func (dispatch *Dispatch) validHandler(name string) bool {
@@ -72,7 +72,6 @@ func nextHandler(handlers *[]moleculer.MiddlewareHandler, index *int, params int
 func (dispatch *Dispatch) CallHandlers(name string, params interface{}) interface{} {
 	handlers := dispatch.handlers[name]
 	if len(handlers) > 0 {
-		dispatch.logger.Info("hanve Handlers len(handlers) ", len(handlers))
 		result := make(chan interface{})
 		index := 0
 		go func() {

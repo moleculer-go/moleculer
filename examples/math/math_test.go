@@ -28,7 +28,7 @@ var _ = test.Describe("Math", func() {
 	})
 
 	test.It("Can start broker with service and call actions", func() {
-		broker := broker.FromConfig()
+		broker := broker.New()
 		broker.AddService(MathServiceSchema())
 		broker.Start()
 
