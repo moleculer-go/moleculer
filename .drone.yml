@@ -5,12 +5,23 @@ platform:
   os: linux
   arch: amd64
 
+services:
+  - name: nats-streaming
+    image: nats-streaming
+    command: [-mc, 0]
+    ports:
+      - 4222
+
 steps:
-  - name: branch-push
+  - name: tests
     image: golang
+    environment:
+      CODECOV_TOKEN:
+        from_secret: CODECOV_TOKEN
+      COVERALLS_TOKEN:
+        from_secret: COVERALLS_TOKEN
     commands:
-      - apt-get update
-      - apt-get install unzip
+      - export STAN_HOST="nats-streaming"
       - go get -v golang.org/x/lint/golint
       - go get -v golang.org/x/tools/cmd/cover
       - go get -v github.com/mattn/goveralls
@@ -19,16 +30,12 @@ steps:
       - go get -v github.com/onsi/ginkgo/ginkgo
       - go get -v github.com/onsi/gomega
       - go get -v github.com/moleculer-go/cupaloy
-      - curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip
-      - unzip nats.zip && ls
-      - nohup nats-*/nats-streaming-server -mc 0 -l /dev/null &
       - mkdir /usr/local/go/src/github.com/
       - mkdir /usr/local/go/src/github.com/moleculer-go
       - ln -s /drone/src/ /usr/local/go/src/github.com/moleculer-go/moleculer
       - cd /usr/local/go/src/github.com/moleculer-go/moleculer
       - go get -d ./...
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
-      - export CODECOV_TOKEN="e1ecc5e9-6a8a-47cf-b3bb-c046d2fd9f1c"
       - gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash
-      - goveralls -coverprofile=coverage.txt -service=drone.io -repotoken cXy9o2ocOliHLtJ4HMMQQ8MAFHWV7Io1q
+      - goveralls -coverprofile=coverage.txt -service=drone.io

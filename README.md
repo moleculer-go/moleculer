@@ -5,17 +5,11 @@
 Lightning fast, lightweight, simple and fun to develop with. Also easy, very easy to test ;)
 
 [![Gitter](https://badges.gitter.im/moleculer-go/community.svg)](https://gitter.im/moleculer-go/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-
 [![Travis Build Status](https://travis-ci.org/moleculer-go/moleculer.svg?branch=master)](https://travis-ci.org/moleculer-go/moleculer)
-
 [![Drone.io Build Status](https://cloud.drone.io/api/badges/moleculer-go/moleculer/status.svg)](https://cloud.drone.io/moleculer-go/moleculer)
-
 [![Go Report Card](https://goreportcard.com/badge/github.com/moleculer-go/moleculer)](https://goreportcard.com/report/github.com/moleculer-go/moleculer)
-
 [![Coverage -> Coveralls](https://coveralls.io/repos/github/moleculer-go/moleculer/badge.svg?branch=master)](https://coveralls.io/github/moleculer-go/moleculer?branch=master)
-
 [![Coverage -> Codecov](https://codecov.io/gh/moleculer-go/moleculer/branch/develop/graph/badge.svg)](https://codecov.io/gh/moleculer-go/moleculer)
-
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield)
 
 <!--
@@ -25,9 +19,9 @@ Lightning fast, lightweight, simple and fun to develop with. Also easy, very eas
 ![](https://img.shields.io/badge/performance---42%25-red.svg)
 -->
 
-**Website**: [tbd](https://moleculer.services)
+**Website**: [tbd](https://gomicro.services)
 
-**Documentation**: [tbd](https://moleculer.services/docs)
+**Documentation**: [tbd](https://gomicro.services/docs)
 
 Status: In development !
 

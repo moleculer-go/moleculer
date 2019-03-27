@@ -2,6 +2,7 @@ package nats_test
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
@@ -83,7 +84,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	contextA := context.BrokerContext(brokerDelegates)
 	logger := contextA.Logger()
 	var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
-	url := "stan://localhost:4222"
+	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
 	options := nats.StanOptions{
 		"MOL",
 		url,

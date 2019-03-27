@@ -15,6 +15,7 @@ matrix:
     - os: windows
 
 before_install:
+  - export STAN_HOST="localhost"
   - go get -v golang.org/x/lint/golint
   - go get -v golang.org/x/tools/cmd/cover
   - go get -v github.com/mattn/goveralls
