@@ -29,6 +29,6 @@ steps:
       - go get -d ./...
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - export CODECOV_TOKEN="e1ecc5e9-6a8a-47cf-b3bb-c046d2fd9f1c"
-      - curl -s https://codecov.io/bash | bash
       - gover
+      - curl -s https://codecov.io/bash | bash
       - goveralls -service=drone.io -repotoken cXy9o2ocOliHLtJ4HMMQQ8MAFHWV7Io1q
