@@ -25,9 +25,9 @@ Lightning fast, lightweight, simple and fun to develop with. Also easy, very eas
 ![](https://img.shields.io/badge/performance---42%25-red.svg)
 -->
 
-**Website**: [tbd](https://moleculer.services)
+**Website**: [tbd](https://gomicro.services)
 
-**Documentation**: [tbd](https://moleculer.services/docs)
+**Documentation**: [tbd](https://gomicro.services/docs)
 
 Status: In development !
 
