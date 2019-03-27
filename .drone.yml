@@ -21,7 +21,7 @@ steps:
       - go get -v github.com/moleculer-go/cupaloy
       - curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip
       - unzip nats.zip && ls
-      - nohup nats-*/nats-streaming-server -mc 0 &
+      - nohup nats-*/nats-streaming-server -mc 0 -l /dev/null 2&>1 &
       - mkdir /usr/local/go/src/github.com/
       - mkdir /usr/local/go/src/github.com/moleculer-go
       - ln -s /drone/src/ /usr/local/go/src/github.com/moleculer-go/moleculer
