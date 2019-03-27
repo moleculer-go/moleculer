@@ -44,6 +44,15 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 	return payload
 }
 
+func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byte {
+	jp, isJson := payload.(JSONPayload)
+	if !isJson {
+		//TODO maybe I need to handle this.. not sure yet
+		panic("JSON serializer only support JSONPayloads")
+	}
+	return []byte(jp.result.String())
+}
+
 func (jpayload JSONPayload) Remove(fields ...string) moleculer.Payload {
 	var err error
 	json := jpayload.result.Raw

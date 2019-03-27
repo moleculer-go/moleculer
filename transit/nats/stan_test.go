@@ -49,7 +49,8 @@ func addContactService(bkr *broker.ServiceBroker) {
 
 func addProfileService(bkr *broker.ServiceBroker) {
 	bkr.AddService(moleculer.Service{
-		Name: "profile",
+		Name:         "profile",
+		Dependencies: []string{"user", "contact"},
 		Actions: []moleculer.Action{
 			{
 				Name: "update",
@@ -77,8 +78,7 @@ func stopBrokers(brokers ...*broker.ServiceBroker) {
 	}
 }
 
-var _ = Describe("Transit", func() {
-
+var _ = Describe("NATS Streaming Transit", func() {
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
 	logger := contextA.Logger()
@@ -206,7 +206,11 @@ var _ = Describe("Transit", func() {
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {
 
+			fmt.Println("message.RawMap() ", message.RawMap())
+
 			contextMap := serializer.PayloadToContextMap(message)
+			fmt.Println("contextMap #2 ", contextMap)
+
 			newContext := context.ActionContext(brokerDelegates, contextMap)
 			Expect(newContext.ActionName()).Should(Equal(actionName))
 			contextParams := newContext.Payload()
@@ -216,9 +220,15 @@ var _ = Describe("Transit", func() {
 			received <- true
 		})
 
+		fmt.Println("actionContext ", actionContext)
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "someone"
+		fmt.Println("contextMap #1 ", contextMap)
+
 		msg, _ := serializer.MapToPayload(&contextMap)
+
+		fmt.Println("msg ", msg)
+
 		transporter.Publish("topicA", "node1", msg)
 
 		Expect(<-received).Should(Equal(true))
