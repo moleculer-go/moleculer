@@ -168,6 +168,6 @@ func getNumberTransformer(value *interface{}) *numberTransformer {
 			return &transformer
 		}
 	}
-	fmt.Println("getNumberTransformer() no transformer for  valueType -> ", valueType)
+	fmt.Println("[WARN] getNumberTransformer() no transformer for  valueType -> ", valueType)
 	return nil
 }

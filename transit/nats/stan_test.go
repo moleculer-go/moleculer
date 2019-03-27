@@ -206,10 +206,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {
 
-			fmt.Println("message.RawMap() ", message.RawMap())
-
 			contextMap := serializer.PayloadToContextMap(message)
-			fmt.Println("contextMap #2 ", contextMap)
 
 			newContext := context.ActionContext(brokerDelegates, contextMap)
 			Expect(newContext.ActionName()).Should(Equal(actionName))
@@ -220,14 +217,10 @@ var _ = Describe("NATS Streaming Transit", func() {
 			received <- true
 		})
 
-		fmt.Println("actionContext ", actionContext)
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "someone"
-		fmt.Println("contextMap #1 ", contextMap)
 
 		msg, _ := serializer.MapToPayload(&contextMap)
-
-		fmt.Println("msg ", msg)
 
 		transporter.Publish("topicA", "node1", msg)
 

@@ -122,7 +122,6 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 	var timeout int
 	var meta map[string]interface{}
 
-	fmt.Println("values ", values)
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
 	actionName, isAction := values["action"]
