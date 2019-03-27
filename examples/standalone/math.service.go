@@ -24,7 +24,7 @@ func main() {
 	var bkr = broker.New(&moleculer.Config{LogLevel: "error"})
 	bkr.AddService(mathService)
 	bkr.Start()
-	result := <-bkr.Call("math.add", payload.Create(map[string]int{
+	result := <-bkr.Call("math.add", payload.New(map[string]int{
 		"a": 10,
 		"b": 130,
 	}))

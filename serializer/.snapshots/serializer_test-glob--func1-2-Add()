@@ -1,0 +1,8 @@
+(serializer.JSONPayload) (len=6) {
+  "Winter": is coming!,
+  "faction": Stark,
+  "lastname": Snow,
+  "name": John,
+  "page": 1,
+  "pageSize": 15,
+}

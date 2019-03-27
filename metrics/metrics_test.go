@@ -31,8 +31,8 @@ var _ = Describe("Metrics", func() {
 				Version: "2",
 			}
 		}
-		actionContext := context.BrokerContext(delegates).ChildActionContext("math.add", payload.Create(nil))
-		result := payload.Create(errors.New("some error"))
+		actionContext := context.BrokerContext(delegates).ChildActionContext("math.add", payload.New(nil))
+		result := payload.New(errors.New("some error"))
 
 		//calling metricEnd without calling metricStart should not
 		//emit the event, since there is not startTime in the context
@@ -84,7 +84,7 @@ var _ = Describe("Metrics", func() {
 				Version: "2",
 			}
 		}
-		actionContext := context.BrokerContext(delegates).ChildActionContext("math.add", payload.Create(nil))
+		actionContext := context.BrokerContext(delegates).ChildActionContext("math.add", payload.New(nil))
 		metricStart(actionContext)
 		Expect(eventPayload).ShouldNot(BeNil())
 		Expect(eventPayload.Exists()).Should(BeTrue())
@@ -118,7 +118,7 @@ var _ = Describe("Metrics", func() {
 		brokerContext = context.BrokerContext(test.DelegatesWithIdAndConfig("x", moleculer.Config{
 			Metrics: false,
 		}))
-		actionContext := brokerContext.ChildActionContext("a", payload.Create(nil))
+		actionContext := brokerContext.ChildActionContext("a", payload.New(nil))
 		Expect(shouldMetric(actionContext)).Should(BeFalse())
 	})
 
@@ -129,7 +129,7 @@ var _ = Describe("Metrics", func() {
 		}
 		shouldMetric := createShouldMetric(config)
 		context := context.BrokerContext(test.DelegatesWithIdAndConfig("x", config))
-		actionContext := context.ChildActionContext("a", payload.Create(nil))
+		actionContext := context.ChildActionContext("a", payload.New(nil))
 		Expect(shouldMetric(actionContext)).Should(BeTrue())
 	})
 
@@ -142,7 +142,7 @@ var _ = Describe("Metrics", func() {
 		shouldMetric := createShouldMetric(config)
 
 		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", config))
-		actionContext := brokerContext.ChildActionContext("a", payload.Create(nil))
+		actionContext := brokerContext.ChildActionContext("a", payload.New(nil))
 		Expect(shouldMetric(actionContext)).Should(BeFalse())
 		Expect(shouldMetric(actionContext)).Should(BeTrue())
 		Expect(shouldMetric(actionContext)).Should(BeFalse())
@@ -158,7 +158,7 @@ var _ = Describe("Metrics", func() {
 		shouldMetric := createShouldMetric(config)
 
 		brokerContext := context.BrokerContext(test.DelegatesWithIdAndConfig("x", config))
-		actionContext := brokerContext.ChildActionContext("a", payload.Create(nil))
+		actionContext := brokerContext.ChildActionContext("a", payload.New(nil))
 		Expect(shouldMetric(actionContext)).Should(BeFalse())
 		Expect(shouldMetric(actionContext)).Should(BeFalse())
 		Expect(shouldMetric(actionContext)).Should(BeFalse())

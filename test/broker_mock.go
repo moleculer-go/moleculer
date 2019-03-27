@@ -12,10 +12,10 @@ func Logger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) moleculer.BrokerDelegates {
+func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) *moleculer.BrokerDelegates {
 	localBus := bus.Construct()
 	localNode := NodeMock{ID: nodeID}
-	broker := moleculer.BrokerDelegates{
+	broker := &moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
 			return &localNode
 		},
@@ -27,3 +27,9 @@ func DelegatesWithIdAndConfig(nodeID string, config moleculer.Config) moleculer.
 	}
 	return broker
 }
+
+// func ContextAndDelegated(nodeID string, config moleculer.Config) (moleculer.BrokerContext, *moleculer.BrokerDelegates) {
+// 	dl := DelegatesWithIdAndConfig(nodeID, config)
+// 	ctx := context.BrokerContext(dl)
+// 	return ctx, dl
+// }

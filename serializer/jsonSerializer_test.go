@@ -20,6 +20,19 @@ var _ = Describe("JSON Serializer", func() {
 	brokerDelegates := BrokerDelegates("test-node")
 	contextA := context.BrokerContext(brokerDelegates)
 
+	It("Remove should remove fields from the payload", func() {
+
+		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
+		p, _ := serial.MapToPayload(&map[string]interface{}{
+			"name":     "John",
+			"lastname": "Snow",
+			"faction":  "Stark",
+			"Winter":   "is coming!",
+		})
+
+		Expect(snap.SnapshotMulti("Remove()", p.Remove("Winter", "name"))).ShouldNot(HaveOccurred())
+	})
+
 	It("Bson should return a bson map", func() {
 
 		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
@@ -35,7 +48,7 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(snap.SnapshotMulti("Bson()", bs)).ShouldNot(HaveOccurred())
 	})
 
-	It("Merge should add fields to payload", func() {
+	It("Add should add fields to payload", func() {
 
 		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
 		p, _ := serial.MapToPayload(&map[string]interface{}{
@@ -45,12 +58,12 @@ var _ = Describe("JSON Serializer", func() {
 			"Winter":   "is coming!",
 		})
 
-		m := p.Merge(map[string]interface{}{
+		m := p.AddMany(map[string]interface{}{
 			"page":     1,
 			"pageSize": 15,
 		})
 
-		Expect(snap.SnapshotMulti("Merge()", m)).ShouldNot(HaveOccurred())
+		Expect(snap.SnapshotMulti("Add()", m)).ShouldNot(HaveOccurred())
 	})
 
 	It("Should handle each return type", func() {
@@ -194,7 +207,7 @@ var _ = Describe("JSON Serializer", func() {
 			"name":     "John",
 			"lastName": "Snow",
 		}
-		actionContext := contextA.ChildActionContext(actionName, payload.Create(params))
+		actionContext := contextA.ChildActionContext(actionName, payload.New(params))
 
 		contextMap := actionContext.AsMap()
 		contextMap["sender"] = "original_sender"

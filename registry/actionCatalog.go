@@ -37,7 +37,7 @@ func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext
 	}
 	if err := recover(); err != nil {
 		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
-		result <- payload.Create(err)
+		result <- payload.New(err)
 	}
 }
 
@@ -55,7 +55,7 @@ func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContex
 		actionEntry.logger.Trace("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
 
-		result <- payload.Create(actionResult)
+		result <- payload.New(actionResult)
 	}()
 
 	return result

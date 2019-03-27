@@ -65,17 +65,13 @@ func createShouldMetric(Config moleculer.Config) func(context moleculer.BrokerCo
 	var callsCount float32 = 0
 	return func(context moleculer.BrokerContext) bool {
 		if context.Meta() != nil && (*context.Meta())["metrics"] != nil && (*context.Meta())["metrics"].(bool) {
-			//fmt.Println("createShouldMetric() metrics is on inside meta!")
 			callsCount++
 			if callsCount*Config.MetricsRate >= 1.0 {
-				//fmt.Println("createShouldMetric() rate is good!")
 
 				callsCount = 0
 				return true
 			}
 		}
-		// fmt.Println("createShouldMetric() metris is NOT ON :( ")
-		// fmt.Println("createShouldMetric() context.Meta() -> ", context.Meta())
 		return false
 	}
 }
@@ -101,7 +97,6 @@ func Middlewares() moleculer.Middlewares {
 			next()
 		},
 		"beforeLocalAction": func(params interface{}, next func(...interface{})) {
-			//fmt.Println("metrics... beforeLocalAction...")
 			context := params.(moleculer.BrokerContext)
 			if shouldMetric(context) {
 				metricStart(context)

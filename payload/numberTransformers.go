@@ -69,6 +69,24 @@ var numberTransformers = []numberTransformer{
 		},
 	},
 	{
+		name: "int32",
+		toInt: func(source *interface{}) int {
+			return int((*source).(int32))
+		},
+		toInt64: func(source *interface{}) int64 {
+			return int64((*source).(int32))
+		},
+		toFloat32: func(source *interface{}) float32 {
+			return float32((*source).(int32))
+		},
+		toFloat64: func(source *interface{}) float64 {
+			return float64((*source).(int32))
+		},
+		toUint64: func(source *interface{}) uint64 {
+			return uint64((*source).(int32))
+		},
+	},
+	{
 		name: "int64",
 		toInt: func(source *interface{}) int {
 			return int((*source).(int64))
@@ -150,6 +168,6 @@ func getNumberTransformer(value *interface{}) *numberTransformer {
 			return &transformer
 		}
 	}
-	fmt.Println("getNumberTransformer() no transformer for  valueType -> ", valueType)
+	fmt.Println("[WARN] getNumberTransformer() no transformer for  valueType -> ", valueType)
 	return nil
 }

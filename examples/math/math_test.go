@@ -5,13 +5,13 @@ import (
 	test "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/moleculer-go/moleculer/examples/math"
+	"github.com/moleculer-go/moleculer/examples/math"
 )
 
 var _ = test.Describe("Math", func() {
 
 	test.It("Can create a valid service definition", func() {
-		serviceDefinition := MathServiceSchema()
+		serviceDefinition := math.ServiceSchema()
 
 		Expect(serviceDefinition).Should(Not(BeNil()))
 		Expect(serviceDefinition.Name).To(Equal("math"))
@@ -29,7 +29,7 @@ var _ = test.Describe("Math", func() {
 
 	test.It("Can start broker with service and call actions", func() {
 		broker := broker.New()
-		broker.AddService(MathServiceSchema())
+		broker.AddService(math.ServiceSchema())
 		broker.Start()
 
 		Expect(broker).Should(Not(BeNil()))

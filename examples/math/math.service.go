@@ -4,11 +4,16 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
+	log "github.com/sirupsen/logrus"
 )
+
+func ServiceSchema() moleculer.Service {
+	return mathService
+}
 
 var mathService = moleculer.Service{
 	Name: "math",
-	Actions: []Action{
+	Actions: []moleculer.Action{
 		{
 			Name:    "add",
 			Handler: addAction,
@@ -22,7 +27,7 @@ var mathService = moleculer.Service{
 			Handler: multAction,
 		},
 	},
-	Events: []Event{
+	Events: []moleculer.Event{
 		{
 			Name:    "math.add.called",
 			Handler: onAddEvent,
@@ -44,17 +49,17 @@ var mathService = moleculer.Service{
 	},
 }
 
-func onAddEvent(ctx Context, params Payload) {
+func onAddEvent(ctx moleculer.Context, params moleculer.Payload) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func onSubEvent(ctx Context, params Payload) {
+func onSubEvent(ctx moleculer.Context, params moleculer.Payload) {
 	fmt.Printf("\n onAddEvent :\n")
 	printEventParams(params)
 }
 
-func addAction(context Context, params Payload) interface{} {
+func addAction(context moleculer.Context, params moleculer.Payload) interface{} {
 	context.Logger().Info("math service add action.")
 	a := params.Get("a").Int()
 	b := params.Get("b").Int()
@@ -71,7 +76,7 @@ func addAction(context Context, params Payload) interface{} {
 	return result
 }
 
-func multAction(context Context, params Payload) interface{} {
+func multAction(context moleculer.Context, params moleculer.Payload) interface{} {
 	a := params.Get("a").Int()
 	b := params.Get("b").Int()
 	var result int
@@ -95,7 +100,7 @@ func multAction(context Context, params Payload) interface{} {
 	return result
 }
 
-func subAction(context Context, params Payload) interface{} {
+func subAction(context moleculer.Context, params moleculer.Payload) interface{} {
 	a := params.Get("a").Int()
 	b := params.Get("b").Int()
 	result := a - b

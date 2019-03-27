@@ -44,7 +44,53 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 	return payload
 }
 
-func (jpayload JSONPayload) Merge(toAdd map[string]interface{}) moleculer.Payload {
+func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byte {
+	jp, isJson := payload.(JSONPayload)
+	if !isJson {
+		//TODO maybe I need to handle this.. not sure yet
+		panic("JSON serializer only support JSONPayloads")
+	}
+	return []byte(jp.result.String())
+}
+
+func (jpayload JSONPayload) Remove(fields ...string) moleculer.Payload {
+	var err error
+	json := jpayload.result.Raw
+	for _, item := range fields {
+		json, err = sjson.Delete(json, item)
+		if err != nil {
+			return payload.Error("Error serializng value into JSON. error: ", err.Error())
+		}
+	}
+	return JSONPayload{gjson.Parse(json), jpayload.logger}
+}
+
+func (jpayload JSONPayload) AddItem(value interface{}) moleculer.Payload {
+	if !jpayload.IsArray() {
+		return payload.Error("payload.AddItem can only deal with lists/arrays.")
+	}
+	arr := jpayload.Array()
+	arr = append(arr, payload.New(value))
+	return payload.New(arr)
+}
+
+func (jpayload JSONPayload) Add(field string, value interface{}) moleculer.Payload {
+	if !jpayload.IsMap() {
+		return payload.Error("payload.Add can only deal with map payloads.")
+	}
+	var err error
+	json := jpayload.result.Raw
+	json, err = sjson.Set(json, field, value)
+	if err != nil {
+		return payload.Error("Error serializng value into JSON. error: ", err.Error())
+	}
+	return JSONPayload{gjson.Parse(json), jpayload.logger}
+}
+
+func (jpayload JSONPayload) AddMany(toAdd map[string]interface{}) moleculer.Payload {
+	if !jpayload.IsMap() {
+		return payload.Error("payload.Add can only deal with map payloads.")
+	}
 	var err error
 	json := jpayload.result.Raw
 	for key, value := range toAdd {
@@ -53,8 +99,7 @@ func (jpayload JSONPayload) Merge(toAdd map[string]interface{}) moleculer.Payloa
 			return payload.Error("Error serializng value into JSON. error: ", err.Error())
 		}
 	}
-	result := gjson.Parse(json)
-	return JSONPayload{result, jpayload.logger}
+	return JSONPayload{gjson.Parse(json), jpayload.logger}
 }
 
 var invalidTypes = []string{"func()"}
@@ -149,6 +194,20 @@ func (payload JSONPayload) Uint() uint64 {
 
 func (payload JSONPayload) Time() time.Time {
 	return payload.result.Time()
+}
+
+func (jp JSONPayload) Len() int {
+	if jp.IsArray() {
+		return len(jp.result.Array())
+	}
+	return -1
+}
+
+func (jp JSONPayload) First() moleculer.Payload {
+	if jp.IsArray() {
+		return JSONPayload{jp.result.Array()[0], jp.logger}
+	}
+	return payload.New(nil)
 }
 
 func (payload JSONPayload) StringArray() []string {
@@ -278,12 +337,25 @@ func (payload JSONPayload) FloatArray() []float64 {
 	return nil
 }
 
+func (jp JSONPayload) BsonArray() []bson.M {
+	if jp.IsArray() {
+		bm := make([]bson.M, jp.Len())
+		for index, value := range jp.Array() {
+			bm[index] = value.Bson()
+		}
+		return bm
+	}
+	return nil
+}
+
 func (jp JSONPayload) Bson() bson.M {
 	if jp.IsMap() {
 		bm := bson.M{}
 		for key, value := range jp.Map() {
 			if value.IsMap() {
 				bm[key] = value.Bson()
+			} else if value.IsArray() {
+				bm[key] = value.BsonArray()
 			} else {
 				bm[key] = value.Value()
 			}
@@ -374,6 +446,10 @@ func orderedKeys(m map[string]moleculer.Payload) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func (jp JSONPayload) StringIdented(ident string) string {
+	return jp.String()
 }
 
 func (jp JSONPayload) String() string {

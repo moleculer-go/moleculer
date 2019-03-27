@@ -21,10 +21,10 @@ func createLogger(name string, value string) *log.Entry {
 	return logger.WithField(name, value)
 }
 
-func brokerDelegates(nodeID string) moleculer.BrokerDelegates {
+func brokerDelegates(nodeID string) *moleculer.BrokerDelegates {
 	localBus := bus.Construct()
 	localNode := test.NodeMock{ID: nodeID}
-	broker := moleculer.BrokerDelegates{
+	broker := &moleculer.BrokerDelegates{
 		LocalNode: func() moleculer.Node {
 			return &localNode
 		},
