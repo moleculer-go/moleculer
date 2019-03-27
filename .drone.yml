@@ -12,8 +12,13 @@ services:
       - 4222
 
 steps:
-  - name: branch-push
+  - name: tests
     image: golang
+    environment:
+      CODECOV_TOKEN:
+        from_secret: CODECOV_TOKEN
+      COVERALLS_TOKEN:
+        from_secret: COVERALLS_TOKEN
     commands:
       - export STAN_HOST="nats-streaming"
       - go get -v golang.org/x/lint/golint
