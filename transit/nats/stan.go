@@ -55,7 +55,7 @@ func (transporter *StanTransporter) Connect() chan bool {
 		connection, error := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
 		if error != nil {
 			transporter.logger.Error("\nConnect() - Error: ", error, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
-			panic(error)
+			panic("Error trying to connect to stan server. url: " + transporter.url + " clusterID: " + transporter.clusterID + " clientID: " + transporter.clientID + " -> Stan error: " + error.Error())
 		}
 		transporter.logger.Info("Connect() - connection success!")
 
