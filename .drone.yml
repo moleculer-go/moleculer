@@ -8,7 +8,7 @@ platform:
 services:
   - name: nats-streaming
     image: nats-streaming
-    command: [--mc 0]
+    command: [nats-streaming-server, -mc, 0]
     ports:
       - 4222
 
