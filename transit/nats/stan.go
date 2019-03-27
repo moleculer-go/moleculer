@@ -132,5 +132,6 @@ func (transporter *StanTransporter) Publish(command, nodeID string, message mole
 	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
-	transporter.connection.Publish(topic, []byte(message.String()))
+	bmsg := transporter.serializer.PayloadToBytes(message)
+	transporter.connection.Publish(topic, bmsg)
 }

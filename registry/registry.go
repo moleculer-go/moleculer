@@ -32,7 +32,7 @@ type ServiceRegistry struct {
 	services              *ServiceCatalog
 	actions               *ActionCatalog
 	events                *EventCatalog
-	broker                moleculer.BrokerDelegates
+	broker                *moleculer.BrokerDelegates
 	strategy              strategy.Strategy
 	stoping               bool
 	heartbeatFrequency    time.Duration
@@ -42,18 +42,18 @@ type ServiceRegistry struct {
 }
 
 // createTransit create a transit instance based on the config.
-func createTransit(broker moleculer.BrokerDelegates) transit.Transit {
+func createTransit(broker *moleculer.BrokerDelegates) transit.Transit {
 	transit := pubsub.Create(broker)
 	return transit
 }
 
 // createStrategy create a strsategy instance based on the config.
-func createStrategy(broker moleculer.BrokerDelegates) strategy.Strategy {
+func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	//TODO: when new strategies are addes.. adde config check here to load the right one.
 	return strategy.RoundRobinStrategy{}
 }
 
-func CreateRegistry(broker moleculer.BrokerDelegates) *ServiceRegistry {
+func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)
@@ -284,7 +284,7 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 		registry.logger.Trace("remote request done! action: ", context.ActionName(), " results: ", actionResult)
 		if registry.stoping {
 			registry.logger.Error("invokeRemoteAction() - registry is stoping. Discarding action result -> name: ", context.ActionName())
-			result <- payload.Create(errors.New("can't complete request! registry stoping..."))
+			result <- payload.New(errors.New("can't complete request! registry stoping..."))
 		} else {
 			result <- actionResult
 		}
@@ -456,9 +456,9 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 // subscribeInternalEvent subscribe event listeners for internal events (e.g. $node.disconnected) using the localBus.
 func (registry *ServiceRegistry) subscribeInternalEvent(event service.Event) {
 	registry.broker.Bus().On(event.Name(), func(data ...interface{}) {
-		params := payload.Create(nil)
+		params := payload.New(nil)
 		if len(data) > 0 {
-			params = payload.Create(data[0])
+			params = payload.New(data[0])
 		}
 		brokerContext := registry.broker.BrokerContext()
 		eventContext := brokerContext.ChildEventContext(event.Name(), params, nil, false)
