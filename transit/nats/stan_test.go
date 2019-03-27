@@ -83,7 +83,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	contextA := context.BrokerContext(brokerDelegates)
 	logger := contextA.Logger()
 	var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
-	url := "stan://localhost:4222"
+	url := "stan://nats-streaming:4222"
 	options := nats.StanOptions{
 		"MOL",
 		url,
