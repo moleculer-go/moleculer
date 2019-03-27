@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"time"
 
@@ -126,7 +127,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	//TODO: move this to config and params
 	broker := pubsub.broker
 	prefix := "MOL"
-	url := "stan://localhost:4222"
+	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
 	clusterID := "test-cluster"
 
 	localNodeID := broker.LocalNode().GetID()
