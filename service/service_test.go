@@ -79,7 +79,7 @@ var _ = test.Describe("MergeActions", func() {
 		},
 	}
 
-	test.FIt("Should merge and overwrite existing actions", func() {
+	test.It("Should merge and overwrite existing actions", func() {
 
 		svcCreatedCalled := false
 		serviceSchema.Created = func(svc moleculer.Service, log *log.Entry) {
