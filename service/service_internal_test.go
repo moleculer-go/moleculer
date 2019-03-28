@@ -114,7 +114,7 @@ var _ = Describe("Service", func() {
 
 	It("Should merge and overwrite existing events", func() {
 		merged := concatenateEvents(serviceSchema, &moonMixIn)
-		Expect(merged.Events).Should(HaveLen(3))
+		Expect(merged.Events).Should(HaveLen(2))
 		Expect(snap.Snapshot(merged.Events)).Should(Succeed())
 	})
 
@@ -150,7 +150,7 @@ var _ = Describe("Service", func() {
 	It("Should apply mixins collectively", func() {
 		merged := applyMixins(serviceSchema)
 		Expect(merged.Actions).Should(HaveLen(2))
-		Expect(merged.Events).Should(HaveLen(3))
+		Expect(merged.Events).Should(HaveLen(2))
 		Expect(snap.Snapshot(merged)).Should(Succeed())
 	})
 

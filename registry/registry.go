@@ -34,7 +34,7 @@ type ServiceRegistry struct {
 	events                *EventCatalog
 	broker                *moleculer.BrokerDelegates
 	strategy              strategy.Strategy
-	stopping               bool
+	stopping              bool
 	heartbeatFrequency    time.Duration
 	heartbeatTimeout      time.Duration
 	offlineCheckFrequency time.Duration
@@ -73,7 +73,7 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 		heartbeatFrequency:    config.HeartbeatFrequency,
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
-		stopping:               false,
+		stopping:              false,
 		nodeReceivedMutex:     &sync.Mutex{},
 	}
 
@@ -470,7 +470,7 @@ func (registry *ServiceRegistry) subscribeInternalEvent(event service.Event) {
 // it will create endpoints for all service actions.
 func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	if registry.services.Find(service.Name(), service.Version(), registry.localNode.GetID()) {
-		registry.logger.Debug("registry - AddLocalService() - Service already registered, will ignore.. service fullName: ", service.FullName())
+		registry.logger.Trace("registry - AddLocalService() - Service already registered, will ignore.. service fullName: ", service.FullName())
 		return
 	}
 
@@ -479,7 +479,7 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	actions := service.Actions()
 	events := service.Events()
 
-	registry.logger.Debug("AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events))
+	registry.logger.Debug("registry AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events))
 
 	for _, action := range actions {
 		registry.actions.Add(action, service, true)
