@@ -132,7 +132,7 @@ type Config struct {
 	WaitForNeighboursInterval  time.Duration
 	Created                    func()
 	Started                    func()
-	Stoped                     func()
+	Stopped                    func()
 }
 
 var DefaultConfig = Config{
@@ -151,7 +151,7 @@ var DefaultConfig = Config{
 	DisableInternalMiddlewares: false,
 	Created:                    func() {},
 	Started:                    func() {},
-	Stoped:                     func() {},
+	Stopped:                    func() {},
 	MaxCallLevel:               100,
 	RetryPolicy: RetryPolicy{
 		Enabled: false,

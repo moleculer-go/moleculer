@@ -494,7 +494,7 @@ func (pubsub *PubSub) subscribe() {
 
 }
 
-// sendDisconnect broadcast a DISCONNECT pkt to all nodes informing this one is stoping.
+// sendDisconnect broadcast a DISCONNECT pkt to all nodes informing this one is stopping.
 func (pubsub *PubSub) sendDisconnect() {
 	payload := make(map[string]interface{})
 	payload["sender"] = pubsub.broker.LocalNode().GetID()

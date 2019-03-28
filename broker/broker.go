@@ -99,13 +99,15 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 
 // stopService stop the service.
 func (broker *ServiceBroker) stopService(svc *service.Service) {
-	broker.middlewares.CallHandlers("serviceStoping", svc)
+	broker.middlewares.CallHandlers("serviceStopping", svc)
 	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.New(nil)))
-	broker.middlewares.CallHandlers("serviceStoped", svc)
+	broker.middlewares.CallHandlers("serviceStopped", svc)
 }
 
 // startService start a service.
 func (broker *ServiceBroker) startService(svc *service.Service) {
+
+	broker.logger.Debug("Broker - startService() - fullname: ", svc.FullName())
 
 	broker.middlewares.CallHandlers("serviceStarting", svc)
 
@@ -184,6 +186,8 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 
 // addService internal addService .. adds one service.Service instance to broker.services list.
 func (broker *ServiceBroker) addService(svc *service.Service) {
+	broker.logger.Debug("Broker - addService() - fullname: ", svc.FullName(), " # actions: ", len(svc.Actions()), " # events: ", len(svc.Events()))
+
 	svc.SetNodeID(broker.localNode.GetID())
 	broker.services = append(broker.services, svc)
 	if broker.started {
@@ -229,9 +233,9 @@ func (broker *ServiceBroker) Start() {
 }
 
 func (broker *ServiceBroker) Stop() {
-	broker.logger.Info("Broker -> Stoping...")
+	broker.logger.Info("Broker -> Stopping...")
 
-	broker.middlewares.CallHandlers("brokerStoping", broker.delegates)
+	broker.middlewares.CallHandlers("brokerStopping", broker.delegates)
 
 	for _, service := range broker.services {
 		broker.stopService(service)
@@ -240,9 +244,9 @@ func (broker *ServiceBroker) Stop() {
 	broker.registry.Stop()
 
 	broker.started = false
-	broker.broadcastLocal("$broker.stoped")
+	broker.broadcastLocal("$broker.stopped")
 
-	broker.middlewares.CallHandlers("brokerStoped", broker.delegates)
+	broker.middlewares.CallHandlers("brokerStopped", broker.delegates)
 }
 
 type callPair struct {

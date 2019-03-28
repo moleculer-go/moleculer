@@ -532,7 +532,7 @@ var _ = Describe("Registry", func() {
 
 			Expect(func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
-			}).Should(Panic()) //broker B is stoped ... so it should panic
+			}).Should(Panic()) //broker B is stopped ... so it should panic
 		})
 	})
 })

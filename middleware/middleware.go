@@ -20,7 +20,7 @@ func Dispatcher(logger *log.Entry) *Dispatch {
 	return &Dispatch{handlers, logger}
 }
 
-var validHandlers = []string{"Config", "brokerStoping", "brokerStoped", "brokerStarting", "brokerStarted", "serviceStoping", "serviceStoped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
+var validHandlers = []string{"Config", "brokerStopping", "brokerStopped", "brokerStarting", "brokerStarted", "serviceStopping", "serviceStopped", "serviceStarting", "serviceStarted", "beforeLocalAction", "afterLocalAction", "beforeRemoteAction", "afterRemoteAction"}
 
 // validHandler check if the name of handlers midlewares are tryignt o register exists!
 func (dispatch *Dispatch) validHandler(name string) bool {
