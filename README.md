@@ -21,7 +21,8 @@ Lightning fast, lightweight, simple and fun to develop with. Also easy, very eas
 
 **Website**: [gomicro.services](http://gomicro.services)
 
-**Documentation**: [Docs](https://moleculer-go-site.herokuapp.com/docs)
+**Documentation**: [Docs](http://gomicro.services/docs/)
+**Documentation**: [Docs](https://moleculer-go-site.herokuapp.com/docs/)
 
 Status: In development !
 
