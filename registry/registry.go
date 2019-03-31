@@ -34,7 +34,7 @@ type ServiceRegistry struct {
 	events                *EventCatalog
 	broker                *moleculer.BrokerDelegates
 	strategy              strategy.Strategy
-	stoping               bool
+	stopping              bool
 	heartbeatFrequency    time.Duration
 	heartbeatTimeout      time.Duration
 	offlineCheckFrequency time.Duration
@@ -73,7 +73,7 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 		heartbeatFrequency:    config.HeartbeatFrequency,
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
-		stoping:               false,
+		stopping:              false,
 		nodeReceivedMutex:     &sync.Mutex{},
 	}
 
@@ -118,8 +118,8 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 }
 
 func (registry *ServiceRegistry) Stop() {
-	registry.logger.Debug("Registry Stoping...")
-	registry.stoping = true
+	registry.logger.Debug("Registry Stopping...")
+	registry.stopping = true
 	<-registry.transit.Disconnect()
 	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
 
@@ -132,7 +132,7 @@ func (registry *ServiceRegistry) LocalServices() []*service.Service {
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
-	registry.stoping = false
+	registry.stopping = false
 	connected := <-registry.transit.Connect()
 	if !connected {
 		panic(errors.New("Could not connect to the transit. Check logs for more details."))
@@ -164,8 +164,8 @@ func (registry *ServiceRegistry) ServiceForAction(name string) *service.Service 
 func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerContext) {
 	name := context.EventName()
 	groups := context.Groups()
-	if registry.stoping {
-		registry.logger.Error("HandleRemoteEvent() - registry is stoping. Discarding event -> name: ", name, " groups: ", groups)
+	if registry.stopping {
+		registry.logger.Error("HandleRemoteEvent() - registry is stopping. Discarding event -> name: ", name, " groups: ", groups)
 		return
 	}
 	broadcast := context.IsBroadcast()
@@ -282,9 +282,9 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 	go func() {
 		actionResult := <-registry.transit.Request(context)
 		registry.logger.Trace("remote request done! action: ", context.ActionName(), " results: ", actionResult)
-		if registry.stoping {
-			registry.logger.Error("invokeRemoteAction() - registry is stoping. Discarding action result -> name: ", context.ActionName())
-			result <- payload.New(errors.New("can't complete request! registry stoping..."))
+		if registry.stopping {
+			registry.logger.Error("invokeRemoteAction() - registry is stopping. Discarding action result -> name: ", context.ActionName())
+			result <- payload.New(errors.New("can't complete request! registry stopping..."))
 		} else {
 			result <- actionResult
 		}
@@ -337,10 +337,10 @@ func (registry *ServiceRegistry) checkOfflineNodes() {
 	}
 }
 
-// loopWhileAlive : can the delegate runction in the given frequency and stop whe  the registry is stoping
+// loopWhileAlive : can the delegate runction in the given frequency and stop whe  the registry is stopping
 func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegate func()) {
 	for {
-		if registry.stoping {
+		if registry.stopping {
 			break
 		}
 		delegate()
@@ -350,8 +350,8 @@ func (registry *ServiceRegistry) loopWhileAlive(frequency time.Duration, delegat
 
 func (registry *ServiceRegistry) filterMessages(handler func(message moleculer.Payload)) func(message moleculer.Payload) {
 	return func(message moleculer.Payload) {
-		if registry.stoping {
-			registry.logger.Warn("filterMessages() - registry is stoping. Discarding message: ", message)
+		if registry.stopping {
+			registry.logger.Warn("filterMessages() - registry is stopping. Discarding message: ", message)
 			return
 		}
 		if message.Get("sender").Exists() && message.Get("sender").String() == registry.localNode.GetID() {
@@ -470,15 +470,21 @@ func (registry *ServiceRegistry) subscribeInternalEvent(event service.Event) {
 // it will create endpoints for all service actions.
 func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	if registry.services.Find(service.Name(), service.Version(), registry.localNode.GetID()) {
+		registry.logger.Trace("registry - AddLocalService() - Service already registered, will ignore.. service fullName: ", service.FullName())
 		return
 	}
-	registry.logger.Debug("AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName())
 
 	registry.services.Add(service)
-	for _, action := range service.Actions() {
+
+	actions := service.Actions()
+	events := service.Events()
+
+	registry.logger.Debug("registry AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events))
+
+	for _, action := range actions {
 		registry.actions.Add(action, service, true)
 	}
-	for _, event := range service.Events() {
+	for _, event := range events {
 		if strings.Index(event.Name(), "$") == 0 {
 			registry.subscribeInternalEvent(event)
 		} else {

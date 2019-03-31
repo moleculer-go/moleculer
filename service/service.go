@@ -49,9 +49,9 @@ type Service struct {
 	metadata     map[string]interface{}
 	actions      []Action
 	events       []Event
-	created      []moleculer.CreatedFunc
-	started      []moleculer.LifecycleFunc
-	stopped      []moleculer.LifecycleFunc
+	created      moleculer.CreatedFunc
+	started      moleculer.LifecycleFunc
+	stopped      moleculer.LifecycleFunc
 	schema       *moleculer.Service
 	logger       *log.Entry
 }
@@ -62,6 +62,10 @@ func (service *Service) Schema() *moleculer.Service {
 
 func (service *Service) NodeID() string {
 	return service.nodeID
+}
+
+func (service *Service) Settings() map[string]interface{} {
+	return service.settings
 }
 
 func (service *Service) SetNodeID(nodeID string) {
@@ -112,13 +116,22 @@ func (service *Service) Events() []Event {
 	return service.events
 }
 
+func findAction(name string, actions []moleculer.Action) bool {
+	for _, a := range actions {
+
+		if a.Name == name {
+			return true
+		}
+
+	}
+	return false
+}
+
 // extendActions merges the actions from the base service with the mixin schema.
 func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	for _, mixinAction := range mixin.Actions {
-		for _, serviceAction := range service.Actions {
-			if serviceAction.Name != mixinAction.Name {
-				service.Actions = append(service.Actions, mixinAction)
-			}
+	for _, ma := range mixin.Actions {
+		if !findAction(ma.Name, service.Actions) {
+			service.Actions = append(service.Actions, ma)
 		}
 	}
 	return service
@@ -126,21 +139,24 @@ func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.
 
 func concatenateEvents(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	for _, mixinEvent := range mixin.Events {
-		service.Events = append(service.Events, mixinEvent)
+		for _, serviceEvent := range service.Events {
+			if serviceEvent.Name != mixinEvent.Name {
+				service.Events = append(service.Events, mixinEvent)
+			}
+		}
 	}
 	return service
 }
 
 func extendSettings(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	settings := make(map[string]interface{})
-	for index, setting := range service.Settings {
-		if _, ok := service.Settings[index]; ok {
+	for index, setting := range mixin.Settings {
+		if _, ok := mixin.Settings[index]; ok {
 			settings[index] = setting
 		}
 	}
-
-	for index, setting := range mixin.Settings {
-		if _, ok := mixin.Settings[index]; ok {
+	for index, setting := range service.Settings {
+		if _, ok := service.Settings[index]; ok {
 			settings[index] = setting
 		}
 	}
@@ -150,14 +166,13 @@ func extendSettings(service moleculer.Service, mixin *moleculer.Mixin) moleculer
 
 func extendMetadata(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	metadata := make(map[string]interface{})
-	for index, value := range service.Metadata {
-		if _, ok := service.Metadata[index]; ok {
+	for index, value := range mixin.Metadata {
+		if _, ok := mixin.Metadata[index]; ok {
 			metadata[index] = value
 		}
 	}
-
-	for index, value := range mixin.Metadata {
-		if _, ok := mixin.Metadata[index]; ok {
+	for index, value := range service.Metadata {
+		if _, ok := service.Metadata[index]; ok {
 			metadata[index] = value
 		}
 	}
@@ -182,22 +197,52 @@ func extendHooks(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Se
 	return service
 }
 
-func mergeNames(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service { return service }
-func mergeVersions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func mergeNames(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	if service.Name == "" && mixin.Name != "" {
+		service.Name = mixin.Name
+	}
 	return service
 }
-func mergeMethods(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service { return service }
-func mergeMixins(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service  { return service }
-func mergeDependencies(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+
+// chainCreated chain the Created hook of services and mixins
+func chainCreated(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	if mixin.Created != nil {
+		svcHook := service.Created
+		service.Created = func(svc moleculer.Service, log *log.Entry) {
+			if svcHook != nil {
+				svcHook(svc, log)
+			}
+			mixin.Created(svc, log)
+		}
+	}
 	return service
 }
-func concatenateCreated(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+
+// chainStarted chain the Started hook of services and mixins
+func chainStarted(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	if mixin.Started != nil {
+		svcHook := service.Started
+		service.Started = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+			if svcHook != nil {
+				svcHook(ctx, svc)
+			}
+			mixin.Started(ctx, svc)
+		}
+	}
 	return service
 }
-func concatenateStarted(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	return service
-}
-func concatenateStopped(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+
+// chainStopped chain the Stope hook of services and mixins
+func chainStopped(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	if mixin.Stopped != nil {
+		svcHook := service.Stopped
+		service.Stopped = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+			if svcHook != nil {
+				svcHook(ctx, svc)
+			}
+			mixin.Stopped(ctx, svc)
+		}
+	}
 	return service
 }
 
@@ -227,13 +272,9 @@ func applyMixins(service moleculer.Service) moleculer.Service {
 		service = extendMetadata(service, &mixin)
 		service = extendHooks(service, &mixin)
 		service = mergeNames(service, &mixin)
-		service = mergeVersions(service, &mixin)
-		service = mergeMethods(service, &mixin)
-		service = mergeMixins(service, &mixin)
-		service = mergeDependencies(service, &mixin)
-		service = concatenateCreated(service, &mixin)
-		service = concatenateStarted(service, &mixin)
-		service = concatenateStopped(service, &mixin)
+		service = chainCreated(service, &mixin)
+		service = chainStarted(service, &mixin)
+		service = chainStopped(service, &mixin)
 	}
 	return service
 }
@@ -433,15 +474,9 @@ func (service *Service) populateFromSchema() {
 		}
 	}
 
-	if schema.Created != nil {
-		service.created = append(service.created, schema.Created)
-	}
-	if schema.Started != nil {
-		service.started = append(service.started, schema.Started)
-	}
-	if schema.Stopped != nil {
-		service.stopped = append(service.stopped, schema.Stopped)
-	}
+	service.created = schema.Created
+	service.started = schema.Started
+	service.stopped = schema.Stopped
 }
 
 func FromSchema(schema moleculer.Service, logger *log.Entry) *Service {
@@ -454,9 +489,10 @@ func FromSchema(schema moleculer.Service, logger *log.Entry) *Service {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
 	}
 
-	for _, handler := range service.created {
-		go handler((*service.schema), service.logger)
+	if service.created != nil {
+		go service.created((*service.schema), service.logger)
 	}
+
 	return service
 }
 
@@ -474,14 +510,14 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 
 // Start called by the broker when the service is starting.
 func (service *Service) Start(context moleculer.BrokerContext) {
-	for _, handler := range service.started {
-		go handler(context, (*service.schema))
+	if service.started != nil {
+		go service.started(context, (*service.schema))
 	}
 }
 
-// Stop called by the broker when the service is stoping.
+// Stop called by the broker when the service is stopping.
 func (service *Service) Stop(context moleculer.BrokerContext) {
-	for _, handler := range service.stopped {
-		go handler(context, (*service.schema))
+	if service.stopped != nil {
+		go service.stopped(context, (*service.schema))
 	}
 }

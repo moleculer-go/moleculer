@@ -19,9 +19,9 @@ Lightning fast, lightweight, simple and fun to develop with. Also easy, very eas
 ![](https://img.shields.io/badge/performance---42%25-red.svg)
 -->
 
-**Website**: [tbd](https://gomicro.services)
+**Website**: [gomicro.services](http://gomicro.services)
 
-**Documentation**: [tbd](https://gomicro.services/docs)
+**Documentation**: [Docs](http://gomicro.services/docs/)
 
 Status: In development !
 

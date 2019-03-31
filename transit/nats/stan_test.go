@@ -79,12 +79,13 @@ func stopBrokers(brokers ...*broker.ServiceBroker) {
 	}
 }
 
+var StanTestHost = os.Getenv("STAN_HOST")
 var _ = Describe("NATS Streaming Transit", func() {
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
 	logger := contextA.Logger()
 	var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
-	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
+	url := "stan://" + StanTestHost + ":4222"
 	options := nats.StanOptions{
 		"MOL",
 		url,
