@@ -4,7 +4,7 @@
       (string) (len=5) "level": (int) 2
     },
     (string) (len=5) "level": (int) 1,
-    (string) (len=7) "subList": ([]primitive.M) (len=1) {
+    (string) (len=7) "subList": (primitive.A) (len=1) {
       (primitive.M) (len=2) {
         (string) (len=4) "name": (string) (len=28) "sub item inside custom array",
         (string) (len=5) "level": (int) 3
