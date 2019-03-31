@@ -337,13 +337,19 @@ func (payload JSONPayload) FloatArray() []float64 {
 	return nil
 }
 
-func (jp JSONPayload) BsonArray() []bson.M {
+func (jp JSONPayload) BsonArray() bson.A {
 	if jp.IsArray() {
-		bm := make([]bson.M, jp.Len())
+		ba := make(bson.A, jp.Len())
 		for index, value := range jp.Array() {
-			bm[index] = value.Bson()
+			if value.IsMap() {
+				ba[index] = value.Bson()
+			} else if value.IsArray() {
+				ba[index] = value.BsonArray()
+			} else {
+				ba[index] = value.Value()
+			}
 		}
-		return bm
+		return ba
 	}
 	return nil
 }

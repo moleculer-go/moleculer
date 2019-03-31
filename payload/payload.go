@@ -347,20 +347,21 @@ func (rawPayload *RawPayload) RawMap() map[string]interface{} {
 	return nil
 }
 
+// TODO refactor out as a transformer.. just not depend on bson.
 func (raw *RawPayload) Bson() bson.M {
-	valueType := GetValueType(&raw.source)
-	if valueType == "primitive.M" {
+	if GetValueType(&raw.source) == "primitive.M" {
 		return raw.source.(bson.M)
 	}
 	if raw.IsMap() {
 		bm := bson.M{}
 		raw.ForEach(func(key interface{}, value moleculer.Payload) bool {
+			skey := key.(string)
 			if value.IsArray() {
-				bm[key.(string)] = value.BsonArray()
+				bm[skey] = value.BsonArray()
 			} else if value.IsMap() {
-				bm[key.(string)] = value.Bson()
+				bm[skey] = value.Bson()
 			} else {
-				bm[key.(string)] = value.Value()
+				bm[skey] = value.Value()
 			}
 			return true
 		})
@@ -369,18 +370,23 @@ func (raw *RawPayload) Bson() bson.M {
 	return nil
 }
 
-func (raw *RawPayload) BsonArray() []bson.M {
-	valueType := GetValueType(&raw.source)
-	if valueType == "[]primitive.M" {
-		return raw.source.([]bson.M)
+func (raw *RawPayload) BsonArray() bson.A {
+	if GetValueType(&raw.source) == "[]primitive.A" {
+		return raw.source.(bson.A)
 	}
 	if raw.IsArray() {
-		bm := make([]bson.M, raw.Len())
+		ba := make(bson.A, raw.Len())
 		raw.ForEach(func(index interface{}, value moleculer.Payload) bool {
-			bm[index.(int)] = value.Bson()
+			if value.IsMap() {
+				ba[index.(int)] = value.Bson()
+			} else if value.IsArray() {
+				ba[index.(int)] = value.BsonArray()
+			} else {
+				ba[index.(int)] = value.Value()
+			}
 			return true
 		})
-		return bm
+		return ba
 	}
 	return nil
 }

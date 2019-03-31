@@ -259,7 +259,7 @@ func (context *Context) Emit(eventName string, params interface{}, groups ...str
 // Broadcast : Broadcast an event for all local & remote services
 func (context *Context) Broadcast(eventName string, params interface{}, groups ...string) {
 	newContext := context.ChildEventContext(eventName, payload.New(params), groups, true)
-	context.broker.EmitEvent(newContext)
+	context.broker.BroadcastEvent(newContext)
 }
 
 func (context *Context) ActionName() string {

@@ -116,13 +116,22 @@ func (service *Service) Events() []Event {
 	return service.events
 }
 
+func findAction(name string, actions []moleculer.Action) bool {
+	for _, a := range actions {
+
+		if a.Name == name {
+			return true
+		}
+
+	}
+	return false
+}
+
 // extendActions merges the actions from the base service with the mixin schema.
 func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	for _, mixinAction := range mixin.Actions {
-		for _, serviceAction := range service.Actions {
-			if serviceAction.Name != mixinAction.Name {
-				service.Actions = append(service.Actions, mixinAction)
-			}
+	for _, ma := range mixin.Actions {
+		if !findAction(ma.Name, service.Actions) {
+			service.Actions = append(service.Actions, ma)
 		}
 	}
 	return service

@@ -24,7 +24,7 @@ type Payload interface {
 	MapArray() []map[string]interface{}
 	RawMap() map[string]interface{}
 	Bson() bson.M
-	BsonArray() []bson.M
+	BsonArray() bson.A
 	Map() map[string]Payload
 	Exists() bool
 	IsError() bool
