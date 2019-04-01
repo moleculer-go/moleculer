@@ -137,6 +137,18 @@ func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.
 	return service
 }
 
+func mergeDependencies(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+	list := []string{}
+	for _, item := range mixin.Dependencies {
+		list = append(list, item)
+	}
+	for _, item := range service.Dependencies {
+		list = append(list, item)
+	}
+	service.Dependencies = list
+	return service
+}
+
 func concatenateEvents(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
 	for _, mixinEvent := range mixin.Events {
 		for _, serviceEvent := range service.Events {
@@ -148,59 +160,30 @@ func concatenateEvents(service moleculer.Service, mixin *moleculer.Mixin) molecu
 	return service
 }
 
+func MergeSettings(settings ...map[string]interface{}) map[string]interface{} {
+	result := map[string]interface{}{}
+	for _, set := range settings {
+		if set != nil {
+			for key, value := range set {
+				result[key] = value
+			}
+		}
+	}
+	return result
+}
+
 func extendSettings(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	settings := make(map[string]interface{})
-	for index, setting := range mixin.Settings {
-		if _, ok := mixin.Settings[index]; ok {
-			settings[index] = setting
-		}
-	}
-	for index, setting := range service.Settings {
-		if _, ok := service.Settings[index]; ok {
-			settings[index] = setting
-		}
-	}
-	service.Settings = settings
+	service.Settings = MergeSettings(mixin.Settings, service.Settings)
 	return service
 }
 
 func extendMetadata(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	metadata := make(map[string]interface{})
-	for index, value := range mixin.Metadata {
-		if _, ok := mixin.Metadata[index]; ok {
-			metadata[index] = value
-		}
-	}
-	for index, value := range service.Metadata {
-		if _, ok := service.Metadata[index]; ok {
-			metadata[index] = value
-		}
-	}
-	service.Metadata = metadata
+	service.Metadata = MergeSettings(mixin.Metadata, service.Metadata)
 	return service
 }
 
 func extendHooks(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	hooks := make(map[string]interface{})
-	for index, hook := range service.Hooks {
-		if _, ok := service.Hooks[index]; ok {
-			hooks[index] = hook
-		}
-	}
-
-	for index, hook := range mixin.Hooks {
-		if _, ok := mixin.Hooks[index]; ok {
-			hooks[index] = hook
-		}
-	}
-	service.Hooks = hooks
-	return service
-}
-
-func mergeNames(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
-	if service.Name == "" && mixin.Name != "" {
-		service.Name = mixin.Name
-	}
+	service.Hooks = MergeSettings(mixin.Hooks, service.Hooks)
 	return service
 }
 
@@ -267,11 +250,11 @@ stopped:    	Concatenate listeners.
 func applyMixins(service moleculer.Service) moleculer.Service {
 	for _, mixin := range service.Mixins {
 		service = extendActions(service, &mixin)
+		service = mergeDependencies(service, &mixin)
 		service = concatenateEvents(service, &mixin)
 		service = extendSettings(service, &mixin)
 		service = extendMetadata(service, &mixin)
 		service = extendHooks(service, &mixin)
-		service = mergeNames(service, &mixin)
 		service = chainCreated(service, &mixin)
 		service = chainStarted(service, &mixin)
 		service = chainStopped(service, &mixin)

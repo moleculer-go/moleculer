@@ -94,15 +94,16 @@ type Service struct {
 }
 
 type Mixin struct {
-	Name     string
-	Settings map[string]interface{}
-	Metadata map[string]interface{}
-	Hooks    map[string]interface{}
-	Actions  []Action
-	Events   []Event
-	Created  CreatedFunc
-	Started  LifecycleFunc
-	Stopped  LifecycleFunc
+	Name         string
+	Dependencies []string
+	Settings     map[string]interface{}
+	Metadata     map[string]interface{}
+	Hooks        map[string]interface{}
+	Actions      []Action
+	Events       []Event
+	Created      CreatedFunc
+	Started      LifecycleFunc
+	Stopped      LifecycleFunc
 }
 
 type TransporterFactoryFunc func() interface{}
