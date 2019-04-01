@@ -14,11 +14,6 @@ var mathService = moleculer.Service{
 		{
 			Name: "add",
 			Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
-
-				email := "sergio@hotmail.com"
-				r := <-ctx.Call("profile.search", email)
-				fmt.Printf(r)
-
 				return params.Get("a").Int() + params.Get("b").Int()
 			},
 		},
