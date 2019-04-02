@@ -113,11 +113,11 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.waitForDependencies(svc)
 
-	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
-
 	broker.registry.AddLocalService(svc)
 
 	broker.middlewares.CallHandlers("serviceStarted", svc)
+
+	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
 }
 
 // waitForDependencies wait for all services listed in the service dependencies to be discovered.
@@ -216,11 +216,16 @@ func (broker *ServiceBroker) Start() {
 
 	internalServices := broker.registry.LocalServices()
 	for _, service := range internalServices {
-		broker.addService(service)
+		service.SetNodeID(broker.localNode.GetID())
+		broker.startService(service)
 	}
 
 	for _, service := range broker.services {
 		broker.startService(service)
+	}
+
+	for _, service := range internalServices {
+		broker.addService(service)
 	}
 
 	broker.logger.Debug("Broker -> registry started!")
