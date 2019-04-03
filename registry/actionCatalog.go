@@ -44,14 +44,14 @@ func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext
 func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
 	result := make(chan moleculer.Payload, 1)
 
-	actionEntry.logger.Debug("Before Invoking action: ", context.ActionName())
+	actionEntry.logger.Debug("Before Invoking action: ", context.ActionName(), " params: ", context.Payload())
 
 	go func() {
 		defer actionEntry.catchActionError(context, result)
 		handler := actionEntry.action.Handler()
 		actionResult := handler(context.(moleculer.Context), context.Payload())
 
-		actionEntry.logger.Debug("After Invoking action: ", context.ActionName())
+		actionEntry.logger.Debug("After Invoking action: ", context.ActionName(), " result: ", actionResult)
 		actionEntry.logger.Trace("local action invoked ! action: ", context.ActionName(),
 			" results: ", actionResult)
 
