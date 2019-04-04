@@ -164,21 +164,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 			bench.Time("stop and fail on action call", func() {
 				stopBrokers(userBroker)
 
-				Expect(func() {
-					<-contactBroker.Call("user.update", longList)
-				}).Should(Panic())
-				Expect(func() {
-					<-profileBroker.Call("user.update", longList)
-				}).Should(Panic())
-				// Expect(func() {
-				// 	<-profileBroker.Call("profile.update", longList)
-				// }).Should(Panic())
+				Expect((<-contactBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
+				Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
 
 				stopBrokers(contactBroker)
-
-				Expect(func() {
-					<-profileBroker.Call("contact.update", longList)
-				}).Should(Panic())
+				Expect((<-profileBroker.Call("contact.update", longList)).IsError()).Should(BeTrue())
 
 				stopBrokers(profileBroker)
 				Expect(func() {
