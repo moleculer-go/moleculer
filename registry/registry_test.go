@@ -503,14 +503,14 @@ var _ = Describe("Registry", func() {
 			Expect(printResult.Value()).Should(Equal(printText))
 
 			scanText := "TEXT TO SCAN"
-			Expect(func() {
-				<-printerBroker.Call("scanner.scan", scanText)
-			}).Should(Panic()) //broker B is not started yet.. so should panic
+
+			scanResult := <-printerBroker.Call("scanner.scan", printText)
+			Expect(scanResult.IsError()).Should(BeTrue())
 
 			scannerBroker.Start()
 			time.Sleep(time.Second)
 
-			scanResult := <-scannerBroker.Call("scanner.scan", scanText)
+			scanResult = <-scannerBroker.Call("scanner.scan", scanText)
 			Expect(scanResult.IsError()).ShouldNot(Equal(true))
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
