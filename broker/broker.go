@@ -197,8 +197,8 @@ func (broker *ServiceBroker) addService(svc *service.Service) {
 
 // AddService : for each service schema it will validate and create
 // a service instance in the broker.
-func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
-	for _, schema := range schemas {
+func (broker *ServiceBroker) AddService(services ...moleculer.Service) {
+	for _, schema := range services {
 		broker.addService(service.FromSchema(schema, broker.GetLogger("service", schema.Name)))
 	}
 }
@@ -425,6 +425,7 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 			return broker.rootContext
 		},
 		MiddlewareHandler: broker.middlewares.CallHandlers,
+		AddService:        broker.AddService,
 	}
 }
 
