@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"runtime/debug"
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
@@ -36,7 +37,7 @@ func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext
 		return
 	}
 	if err := recover(); err != nil {
-		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err)
+		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err, "\nstack: ", string(debug.Stack()))
 		result <- payload.New(err)
 	}
 }
@@ -44,17 +45,14 @@ func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext
 func (actionEntry *ActionEntry) invokeLocalAction(context moleculer.BrokerContext) chan moleculer.Payload {
 	result := make(chan moleculer.Payload, 1)
 
-	actionEntry.logger.Debug("Before Invoking action: ", context.ActionName(), " params: ", context.Payload())
+	actionEntry.logger.Trace("Before Invoking action: ", context.ActionName(), " params: ", context.Payload())
 
 	go func() {
 		defer actionEntry.catchActionError(context, result)
 		handler := actionEntry.action.Handler()
 		actionResult := handler(context.(moleculer.Context), context.Payload())
 
-		actionEntry.logger.Debug("After Invoking action: ", context.ActionName(), " result: ", actionResult)
-		actionEntry.logger.Trace("local action invoked ! action: ", context.ActionName(),
-			" results: ", actionResult)
-
+		actionEntry.logger.Trace("After Invoking action: ", context.ActionName(), " result: ", actionResult)
 		result <- payload.New(actionResult)
 	}()
 
