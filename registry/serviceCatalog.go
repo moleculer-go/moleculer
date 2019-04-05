@@ -133,7 +133,7 @@ func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services.Store(key, ServiceEntry{service, nodeID})
 
-	serviceCatalog.logger.Debug("Add service name: ", service.Name(), " nodeID: ", nodeID, " service fullName: ", service.FullName())
+	serviceCatalog.logger.Debug("Add service fullName: ", service.FullName())
 
 	value, exists := serviceCatalog.servicesByName.Load(service.FullName())
 	if exists {

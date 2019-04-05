@@ -8,10 +8,11 @@ import (
 
 type getFunc func(path string, source *interface{}) (interface{}, bool)
 type asMapFunc func(source *interface{}) map[string]interface{}
-
+type lenFunc func(source *interface{}) int
 type mapTransformer struct {
 	name  string
 	AsMap asMapFunc
+	Len   lenFunc
 }
 
 func (transformer *mapTransformer) get(path string, source *interface{}) (interface{}, bool) {
@@ -26,6 +27,9 @@ var mapTransformers = []mapTransformer{
 		func(source *interface{}) map[string]interface{} {
 			return (*source).(map[string]interface{})
 		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]interface{}))
+		},
 	},
 	mapTransformer{
 		"map[string]string",
@@ -35,6 +39,9 @@ var mapTransformers = []mapTransformer{
 				result[key] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]string))
 		},
 	},
 	mapTransformer{
@@ -46,6 +53,9 @@ var mapTransformers = []mapTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]int))
+		},
 	},
 	mapTransformer{
 		"map[string]int64",
@@ -55,6 +65,9 @@ var mapTransformers = []mapTransformer{
 				result[key] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]int64))
 		},
 	},
 	mapTransformer{
@@ -66,6 +79,9 @@ var mapTransformers = []mapTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]uint64))
+		},
 	},
 	mapTransformer{
 		"map[string]float32",
@@ -75,6 +91,9 @@ var mapTransformers = []mapTransformer{
 				result[key] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]float32))
 		},
 	},
 	mapTransformer{
@@ -86,6 +105,9 @@ var mapTransformers = []mapTransformer{
 			}
 			return result
 		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]float64))
+		},
 	},
 	mapTransformer{
 		"map[string]time.Time",
@@ -95,6 +117,9 @@ var mapTransformers = []mapTransformer{
 				result[key] = value
 			}
 			return result
+		},
+		func(source *interface{}) int {
+			return len((*source).(map[string]time.Time))
 		},
 	},
 }
@@ -111,6 +136,16 @@ func GetValueType(value *interface{}) string {
 func rawPayloadMapTransformer(source *interface{}) map[string]interface{} {
 	sourcePayload := (*source).(*RawPayload)
 	return sourcePayload.RawMap()
+}
+
+func rawPayloadMapLen(source *interface{}) int {
+	sourcePayload := (*source).(*RawPayload)
+	return sourcePayload.Len()
+}
+
+func reflectionMapLen(source *interface{}) int {
+	rv := reflect.ValueOf(*source)
+	return rv.Len()
 }
 
 // reflectionMapTransformer takes a value that is map like and transform into a generic map.
@@ -157,6 +192,7 @@ func MapTransformer(value *interface{}) *mapTransformer {
 		transformer := mapTransformer{
 			"*payload.RawPayload",
 			rawPayloadMapTransformer,
+			rawPayloadMapLen,
 		}
 		return &transformer
 	}
@@ -165,7 +201,7 @@ func MapTransformer(value *interface{}) *mapTransformer {
 	rt := reflect.TypeOf(*value)
 	if rt != nil && rt.Kind() == reflect.Map {
 		//fmt.Println("MapTransformer - reflection transformer will be used for valueType: ", valueType)
-		return &mapTransformer{"reflection", reflectionMapTransformer}
+		return &mapTransformer{"reflection", reflectionMapTransformer, reflectionMapLen}
 	}
 	//fmt.Println("MapTransformer - transformer not found for type: ", valueType)
 	return nil
