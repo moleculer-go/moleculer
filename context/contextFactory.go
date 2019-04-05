@@ -307,5 +307,8 @@ func (context *Context) Logger() *log.Entry {
 	if context.actionName != "" {
 		return context.broker.Logger("action", context.actionName)
 	}
+	if context.eventName != "" {
+		return context.broker.Logger("event", context.eventName)
+	}
 	return context.broker.Logger("context", "<root>")
 }
