@@ -113,11 +113,11 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.waitForDependencies(svc)
 
-	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
-
 	broker.registry.AddLocalService(svc)
 
 	broker.middlewares.CallHandlers("serviceStarted", svc)
+
+	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
 }
 
 // waitForDependencies wait for all services listed in the service dependencies to be discovered.
@@ -197,8 +197,8 @@ func (broker *ServiceBroker) addService(svc *service.Service) {
 
 // AddService : for each service schema it will validate and create
 // a service instance in the broker.
-func (broker *ServiceBroker) AddService(schemas ...moleculer.Service) {
-	for _, schema := range schemas {
+func (broker *ServiceBroker) AddService(services ...moleculer.Service) {
+	for _, schema := range services {
 		broker.addService(service.FromSchema(schema, broker.GetLogger("service", schema.Name)))
 	}
 }
@@ -216,11 +216,16 @@ func (broker *ServiceBroker) Start() {
 
 	internalServices := broker.registry.LocalServices()
 	for _, service := range internalServices {
-		broker.addService(service)
+		service.SetNodeID(broker.localNode.GetID())
+		broker.startService(service)
 	}
 
 	for _, service := range broker.services {
 		broker.startService(service)
+	}
+
+	for _, service := range internalServices {
+		broker.addService(service)
 	}
 
 	broker.logger.Debug("Broker -> registry started!")
@@ -420,6 +425,7 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 			return broker.rootContext
 		},
 		MiddlewareHandler: broker.middlewares.CallHandlers,
+		AddService:        broker.AddService,
 	}
 }
 

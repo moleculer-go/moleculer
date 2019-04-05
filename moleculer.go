@@ -94,15 +94,16 @@ type Service struct {
 }
 
 type Mixin struct {
-	Name     string
-	Settings map[string]interface{}
-	Metadata map[string]interface{}
-	Hooks    map[string]interface{}
-	Actions  []Action
-	Events   []Event
-	Created  CreatedFunc
-	Started  LifecycleFunc
-	Stopped  LifecycleFunc
+	Name         string
+	Dependencies []string
+	Settings     map[string]interface{}
+	Metadata     map[string]interface{}
+	Hooks        map[string]interface{}
+	Actions      []Action
+	Events       []Event
+	Created      CreatedFunc
+	Started      LifecycleFunc
+	Stopped      LifecycleFunc
 }
 
 type TransporterFactoryFunc func() interface{}
@@ -192,7 +193,7 @@ type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) cha
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
 type OptionsFunc func(key string) interface{}
-
+type AddServiceFunc func(...Service)
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
 
 type Middlewares map[string]MiddlewareHandler
@@ -242,6 +243,8 @@ type BrokerContext interface {
 	Meta() *map[string]interface{}
 
 	Logger() *log.Entry
+
+	AddService(...Service)
 }
 
 //Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
@@ -259,4 +262,5 @@ type BrokerDelegates struct {
 	ServiceForAction   ServiceForActionFunc
 	BrokerContext      BrokerContextFunc
 	MiddlewareHandler  MiddlewareHandlerFunc
+	AddService         AddServiceFunc
 }

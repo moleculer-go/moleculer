@@ -262,6 +262,10 @@ func (context *Context) Broadcast(eventName string, params interface{}, groups .
 	context.broker.BroadcastEvent(newContext)
 }
 
+func (context *Context) AddService(services ...moleculer.Service) {
+	context.broker.AddService(services...)
+}
+
 func (context *Context) ActionName() string {
 	return context.actionName
 }
@@ -302,6 +306,9 @@ func (context *Context) Meta() *map[string]interface{} {
 func (context *Context) Logger() *log.Entry {
 	if context.actionName != "" {
 		return context.broker.Logger("action", context.actionName)
+	}
+	if context.eventName != "" {
+		return context.broker.Logger("event", context.eventName)
 	}
 	return context.broker.Logger("context", "<root>")
 }

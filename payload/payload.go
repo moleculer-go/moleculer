@@ -190,6 +190,9 @@ func (rawPayload *RawPayload) Len() int {
 	if transformer := ArrayTransformer(&rawPayload.source); transformer != nil {
 		return transformer.ArrayLen(&rawPayload.source)
 	}
+	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
+		return transformer.Len(&rawPayload.source)
+	}
 	return 0
 }
 

@@ -240,9 +240,11 @@ func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext
 
 	actionEntry := registry.nextAction(actionName, registry.strategy, options.Wrap(opts))
 	if actionEntry == nil {
-		msg := fmt.Sprintf("Broker - endpoint not found for actionName: %s", actionName)
+		msg := fmt.Sprint("Registry - endpoint not found for actionName: ", actionName)
 		registry.logger.Error(msg)
-		panic(errors.New(msg))
+		resultChan := make(chan moleculer.Payload, 1)
+		resultChan <- payload.Error(msg)
+		return resultChan
 	}
 	registry.logger.Debug("LoadBalanceCall() - actionName: ", actionName, " target nodeID: ", actionEntry.TargetNodeID())
 

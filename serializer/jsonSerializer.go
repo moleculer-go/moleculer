@@ -45,10 +45,33 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 }
 
 func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byte {
+	var err error
 	jp, isJson := payload.(JSONPayload)
 	if !isJson {
-		//TODO maybe I need to handle this.. not sure yet
-		panic("JSON serializer only support JSONPayloads")
+		if payload.IsArray() {
+			jp, err = serializer.arrayToJsonPayload(payload.ValueArray())
+			if err != nil {
+				panic(err)
+			}
+			return []byte(jp.result.String())
+		}
+		rawMap := payload.RawMap()
+		if payload.IsError() {
+			rawMap = map[string]interface{}{"error": payload.Error().Error()}
+		}
+		if rawMap != nil && len(rawMap) > 0 {
+			jp, err = serializer.mapToJsonPayload(&rawMap)
+			if err != nil {
+				panic(err)
+			}
+			return []byte(jp.result.String())
+		}
+		json, err := sjson.Set("{root:false}", "root", payload.Value())
+		if err != nil {
+			panic(err)
+		}
+		jp = JSONPayload{gjson.Get(json, "root"), serializer.logger}
+		return []byte(jp.result.String())
 	}
 	return []byte(jp.result.String())
 }
@@ -150,16 +173,27 @@ func cleanUpForSerialization(values *map[string]interface{}) *map[string]interfa
 	return &result
 }
 
-func (serializer JSONSerializer) MapToPayload(mapValue *map[string]interface{}) (moleculer.Payload, error) {
+func (serializer JSONSerializer) arrayToJsonPayload(list []interface{}) (JSONPayload, error) {
+	json, err := sjson.Set("{root:false}", "root", list)
+	if err != nil {
+		serializer.logger.Error("arrayToJsonPayload() Error when parsing the map: ", list, " Error: ", err)
+		return JSONPayload{}, err
+	}
+	return JSONPayload{gjson.Get(json, "root"), serializer.logger}, nil
+}
+
+func (serializer JSONSerializer) mapToJsonPayload(mapValue *map[string]interface{}) (JSONPayload, error) {
 	mapValue = cleanUpForSerialization(mapValue)
 	json, err := sjson.Set("{root:false}", "root", mapValue)
 	if err != nil {
-		serializer.logger.Error("MapToPayload() Error when parsing the map: ", mapValue, " Error: ", err)
-		return nil, err
+		serializer.logger.Error("mapToJsonPayload() Error when parsing the map: ", mapValue, " Error: ", err)
+		return JSONPayload{}, err
 	}
-	result := gjson.Get(json, "root")
-	payload := JSONPayload{result, serializer.logger}
-	return payload, nil
+	return JSONPayload{gjson.Get(json, "root"), serializer.logger}, nil
+}
+
+func (serializer JSONSerializer) MapToPayload(mapValue *map[string]interface{}) (moleculer.Payload, error) {
+	return serializer.mapToJsonPayload(mapValue)
 }
 
 func (serializer JSONSerializer) PayloadToContextMap(message moleculer.Payload) map[string]interface{} {
