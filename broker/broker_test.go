@@ -61,7 +61,7 @@ var _ = Describe("Broker", func() {
 		}
 		mem := &memory.SharedMemory{}
 		baseConfig := &moleculer.Config{
-			LogLevel: "DEBUG",
+			LogLevel: "error",
 			TransporterFactory: func() interface{} {
 				transport := memory.Create(log.WithField("transport", "memory"), mem)
 				return &transport
