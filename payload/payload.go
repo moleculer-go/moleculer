@@ -23,8 +23,8 @@ func (rawPayload *RawPayload) Exists() bool {
 }
 
 func (rawPayload *RawPayload) IsError() bool {
-	valueType := GetValueType(&rawPayload.source)
-	return valueType == "*errors.errorString"
+	_, isError := rawPayload.source.(error)
+	return isError
 }
 
 func (rawPayload *RawPayload) Error() error {

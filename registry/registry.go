@@ -329,8 +329,6 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
 	timeout := registry.offlineCheckFrequency * 10
-	registry.logger.Debug("checkOfflineNodes() timeout in seconds: ", timeout.Seconds())
-
 	expiredNodes := registry.nodes.expiredNodes(timeout)
 	for _, node := range expiredNodes {
 		nodeID := node.GetID()
