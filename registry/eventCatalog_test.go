@@ -19,7 +19,7 @@ var _ = Describe("Event Catalog", func() {
 
 		catalog := registry.CreateEventCatalog(log.New().WithField("catalog", "events"))
 
-		srv := service.FromSchema(moleculer.Service{
+		srv := service.FromSchema(moleculer.ServiceSchema{
 			Name: "x",
 			Events: []moleculer.Event{
 				moleculer.Event{

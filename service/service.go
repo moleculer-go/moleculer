@@ -3,9 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/payload"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,6 +41,34 @@ func (event *Event) Group() string {
 	return event.group
 }
 
+type HasName interface {
+	Name() string
+}
+
+type HasVersion interface {
+	Version() string
+}
+
+type HasDependencies interface {
+	Dependencies() []string
+}
+
+type HasSettings interface {
+	Settings() map[string]interface{}
+}
+
+type HasMetadata interface {
+	Metadata() map[string]interface{}
+}
+
+type HasMixins interface {
+	Mixins() []moleculer.Mixin
+}
+
+type HasEvents interface {
+	Events() []moleculer.Event
+}
+
 type Service struct {
 	nodeID       string
 	fullname     string
@@ -52,11 +82,11 @@ type Service struct {
 	created      moleculer.CreatedFunc
 	started      moleculer.LifecycleFunc
 	stopped      moleculer.LifecycleFunc
-	schema       *moleculer.Service
+	schema       *moleculer.ServiceSchema
 	logger       *log.Entry
 }
 
-func (service *Service) Schema() *moleculer.Service {
+func (service *Service) Schema() *moleculer.ServiceSchema {
 	return service.schema
 }
 
@@ -128,7 +158,7 @@ func findAction(name string, actions []moleculer.Action) bool {
 }
 
 // extendActions merges the actions from the base service with the mixin schema.
-func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func extendActions(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	for _, ma := range mixin.Actions {
 		if !findAction(ma.Name, service.Actions) {
 			service.Actions = append(service.Actions, ma)
@@ -137,7 +167,7 @@ func extendActions(service moleculer.Service, mixin *moleculer.Mixin) moleculer.
 	return service
 }
 
-func mergeDependencies(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func mergeDependencies(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	list := []string{}
 	for _, item := range mixin.Dependencies {
 		list = append(list, item)
@@ -149,7 +179,7 @@ func mergeDependencies(service moleculer.Service, mixin *moleculer.Mixin) molecu
 	return service
 }
 
-func concatenateEvents(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func concatenateEvents(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	for _, mixinEvent := range mixin.Events {
 		for _, serviceEvent := range service.Events {
 			if serviceEvent.Name != mixinEvent.Name {
@@ -172,26 +202,26 @@ func MergeSettings(settings ...map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-func extendSettings(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func extendSettings(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	service.Settings = MergeSettings(mixin.Settings, service.Settings)
 	return service
 }
 
-func extendMetadata(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func extendMetadata(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	service.Metadata = MergeSettings(mixin.Metadata, service.Metadata)
 	return service
 }
 
-func extendHooks(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func extendHooks(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	service.Hooks = MergeSettings(mixin.Hooks, service.Hooks)
 	return service
 }
 
 // chainCreated chain the Created hook of services and mixins
-func chainCreated(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func chainCreated(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	if mixin.Created != nil {
 		svcHook := service.Created
-		service.Created = func(svc moleculer.Service, log *log.Entry) {
+		service.Created = func(svc moleculer.ServiceSchema, log *log.Entry) {
 			if svcHook != nil {
 				svcHook(svc, log)
 			}
@@ -202,10 +232,10 @@ func chainCreated(service moleculer.Service, mixin *moleculer.Mixin) moleculer.S
 }
 
 // chainStarted chain the Started hook of services and mixins
-func chainStarted(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func chainStarted(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	if mixin.Started != nil {
 		svcHook := service.Started
-		service.Started = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+		service.Started = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
 			if svcHook != nil {
 				svcHook(ctx, svc)
 			}
@@ -216,10 +246,10 @@ func chainStarted(service moleculer.Service, mixin *moleculer.Mixin) moleculer.S
 }
 
 // chainStopped chain the Stope hook of services and mixins
-func chainStopped(service moleculer.Service, mixin *moleculer.Mixin) moleculer.Service {
+func chainStopped(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	if mixin.Stopped != nil {
 		svcHook := service.Stopped
-		service.Stopped = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+		service.Stopped = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
 			if svcHook != nil {
 				svcHook(ctx, svc)
 			}
@@ -247,7 +277,7 @@ started:    	Concatenate listeners.
 stopped:    	Concatenate listeners.
 */
 
-func applyMixins(service moleculer.Service) moleculer.Service {
+func applyMixins(service moleculer.ServiceSchema) moleculer.ServiceSchema {
 	for _, mixin := range service.Mixins {
 		service = extendActions(service, &mixin)
 		service = mergeDependencies(service, &mixin)
@@ -462,20 +492,273 @@ func (service *Service) populateFromSchema() {
 	service.stopped = schema.Stopped
 }
 
-func FromSchema(schema moleculer.Service, logger *log.Entry) *Service {
+func copyVersion(obj interface{}, schema moleculer.ServiceSchema) moleculer.ServiceSchema {
+	versioner, hasIt := obj.(HasVersion)
+	if hasIt {
+		schema.Version = versioner.Version()
+	}
+	return schema
+}
+
+func copyDependencies(obj interface{}, schema moleculer.ServiceSchema) moleculer.ServiceSchema {
+	del, hasIt := obj.(HasDependencies)
+	if hasIt {
+		schema.Dependencies = del.Dependencies()
+	}
+	return schema
+}
+
+func copyEvents(obj interface{}, schema moleculer.ServiceSchema) moleculer.ServiceSchema {
+	del, hasIt := obj.(HasEvents)
+	if hasIt {
+		schema.Events = del.Events()
+	}
+	return schema
+}
+
+func copyMetadata(obj interface{}, schema moleculer.ServiceSchema) moleculer.ServiceSchema {
+	del, hasIt := obj.(HasMetadata)
+	if hasIt {
+		schema.Metadata = del.Metadata()
+	}
+	return schema
+}
+
+func copyMixins(obj interface{}, schema moleculer.ServiceSchema) moleculer.ServiceSchema {
+	del, hasIt := obj.(HasMixins)
+	if hasIt {
+		schema.Mixins = del.Mixins()
+	}
+	return schema
+}
+
+func copySettings(obj interface{}, schema moleculer.ServiceSchema) moleculer.ServiceSchema {
+	del, hasIt := obj.(HasSettings)
+	if hasIt {
+		schema.Settings = del.Settings()
+	}
+	return schema
+}
+
+var invalid = []string{
+	"Name", "Version", "Dependencies", "Settings",
+	"Metadata", "Mixins", "Events",
+}
+
+// validActionName checks if a given merhod (reflect.Value) is a valid action name.
+func validActionName(name string) bool {
+	for _, item := range invalid {
+		if item == name {
+			return false
+		}
+	}
+	return true
+}
+
+// actionName given a method (reflect.Type) format the action name
+// using camel case. Example: SetLogRate = setLogRate
+func actionName(name string) string {
+	if len(name) < 2 {
+		return strings.ToLower(name)
+	}
+	return strings.ToLower(name[:1]) + name[1:len(name)]
+}
+
+type aHandlerTemplate struct {
+	match func(interface{}) bool
+	wrap  func(reflect.Value, interface{}) moleculer.ActionHandler
+}
+
+// handlerTemplate return an action hanler that is based on a template.
+func handlerTemplate(m reflect.Value) moleculer.ActionHandler {
+	obj := m.Interface()
+	for _, t := range actionHandlerTemplates {
+		if t.match(obj) {
+			return t.wrap(m, obj)
+		}
+	}
+	return nil
+}
+
+// getParamTypes return a list with the type of each arguments
+func getParamTypes(m reflect.Value) []string {
+	t := m.Type()
+	result := make([]string, t.NumIn())
+	for i := 0; i < t.NumIn(); i++ {
+		result[i] = t.In(i).Name()
+	}
+	return result
+}
+
+// payloadToValue converts a payload to value considering the type.
+func payloadToValue(t string, p moleculer.Payload) reflect.Value {
+	if t == "Payload" {
+		return reflect.ValueOf(p)
+	}
+	return reflect.ValueOf(p.Value())
+}
+
+func buildArgs(ptypes []string, p moleculer.Payload) []reflect.Value {
+	args := []reflect.Value{}
+	if p.IsArray() {
+		list := p.Array()
+		for i, t := range ptypes {
+			v := payloadToValue(t, list[i])
+			args = append(args, v)
+		}
+	} else if p.Exists() {
+		v := payloadToValue(ptypes[0], p)
+		args = append(args, v)
+	}
+	return args
+}
+
+// validateArgs check if param is an array and that the lenght matches with the expected form the handler function.
+func validateArgs(ptypes []string, p moleculer.Payload) error {
+	if !p.IsArray() && len(ptypes) > 1 {
+		return errors.New(fmt.Sprint("This action requires arguments to be sent in an array. #", len(ptypes), " arguments - types: ", ptypes))
+	}
+	if p.Len() != len(ptypes) && len(ptypes) > 1 {
+		return errors.New(fmt.Sprint("This action requires #", len(ptypes), " arguments - types: ", ptypes))
+	}
+	return nil
+}
+
+func isError(v interface{}) bool {
+	_, is := v.(error)
+	return is
+}
+
+func checkReturn(in []reflect.Value) interface{} {
+	if in == nil || len(in) == 0 {
+		return nil
+	}
+	if len(in) == 1 {
+		return in[0].Interface()
+	}
+	if isError(in[len(in)-1].Interface()) {
+		return in[len(in)-1].Interface()
+	}
+	return valuesToPayload(in)
+}
+
+// valuesToPayload convert a list (2 or more) of reflect.values to a payload obj.
+func valuesToPayload(vs []reflect.Value) moleculer.Payload {
+	list := make([]interface{}, len(vs))
+	for i, v := range vs {
+		list[i] = v.Interface()
+	}
+	return payload.New(list)
+}
+
+// variableArgsHandler creates an action hanler that deals with variable number of arguments.
+func variableArgsHandler(m reflect.Value) moleculer.ActionHandler {
+	ptypes := getParamTypes(m)
+	return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+		err := validateArgs(ptypes, p)
+		if err != nil {
+			return err
+		}
+		args := buildArgs(ptypes, p)
+		return checkReturn(m.Call(args))
+	}
+}
+
+// wrapAction creates an action that invokes the given a method (reclect.Value).
+func wrapAction(m reflect.Method, v reflect.Value) moleculer.Action {
+	handler := handlerTemplate(v)
+	if handler == nil {
+		handler = variableArgsHandler(v)
+	}
+	return moleculer.Action{
+		Name:    actionName(m.Name),
+		Handler: handler,
+	}
+}
+
+// extractActions uses reflection to get all public methods of the object.
+// from a list of methods decided which ones match the criteria to be an action.
+func extractActions(obj interface{}) []moleculer.Action {
+	actions := []moleculer.Action{}
+	value := reflect.ValueOf(obj)
+	tp := value.Type()
+	for i := 0; i < tp.NumMethod(); i++ {
+		m := tp.Method(i)
+		if validActionName(m.Name) {
+			actions = append(actions, wrapAction(m, value.Method(i)))
+		}
+	}
+	return actions
+}
+
+func getName(obj interface{}) (string, error) {
+	namer, hasName := obj.(HasName)
+	var p interface{} = &obj
+	pnamer, hasPName := p.(HasName)
+	if !hasName && !hasPName {
+		return "", errors.New("Service instance must have a non pointer merhod [ Name() string ]")
+	}
+	if hasName {
+		return namer.Name(), nil
+	}
+	return pnamer.Name(), nil
+}
+
+// objToSchema create a service schema based on a object.
+//checks if
+func objToSchema(obj interface{}) (moleculer.ServiceSchema, error) {
+	schema := moleculer.ServiceSchema{}
+	name, err := getName(obj)
+	if err != nil {
+		return schema, err
+	}
+	schema.Name = name
+	schema = copyVersion(obj, schema)
+	schema = copyDependencies(obj, schema)
+	schema = copyEvents(obj, schema)
+	schema = copyMetadata(obj, schema)
+	schema = copyMixins(obj, schema)
+	schema = copySettings(obj, schema)
+	schema.Actions = mergeActions(extractActions(obj), extractActions(&obj))
+	return schema, nil
+}
+
+func mergeActions(actions ...[]moleculer.Action) []moleculer.Action {
+	r := []moleculer.Action{}
+	for _, list := range actions {
+		for _, a := range list {
+			r = append(r, a)
+		}
+	}
+	return r
+}
+
+// FromObject creates a service based on an object.
+func FromObject(obj interface{}, bkr *moleculer.BrokerDelegates) (*Service, error) {
+	schema, err := objToSchema(obj)
+	if err != nil {
+		return nil, err
+	}
+	return FromSchema(schema, bkr), nil
+}
+
+func serviceLogger(bkr *moleculer.BrokerDelegates, schema moleculer.ServiceSchema) *log.Entry {
+	return bkr.Logger("service", schema.Name)
+}
+
+func FromSchema(schema moleculer.ServiceSchema, bkr *moleculer.BrokerDelegates) *Service {
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
+	logger := serviceLogger(bkr, schema)
 	service := &Service{schema: &schema, logger: logger}
 	service.populateFromSchema()
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
 	}
-
 	if service.created != nil {
 		go service.created((*service.schema), service.logger)
 	}
-
 	return service
 }
 
@@ -503,4 +786,114 @@ func (service *Service) Stop(context moleculer.BrokerContext) {
 	if service.stopped != nil {
 		go service.stopped(context, (*service.schema))
 	}
+}
+
+var actionHandlerTemplates = []aHandlerTemplate{
+	//Complete action
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Context, moleculer.Payload) interface{})
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			return obj.(func(moleculer.Context, moleculer.Payload) interface{})
+		},
+	},
+	//Context, params NO return
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Context, moleculer.Payload))
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func(moleculer.Context, moleculer.Payload))
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				ah(ctx, p)
+				return nil
+			}
+		},
+	},
+	//Just context
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Context) interface{})
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func(moleculer.Context) interface{})
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				return ah(ctx)
+			}
+		},
+	},
+	//Just context, NO return
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Context))
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func(moleculer.Context))
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				ah(ctx)
+				return nil
+			}
+		},
+	},
+
+	//Just params
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Payload) interface{})
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func(moleculer.Payload) interface{})
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				return ah(p)
+			}
+		},
+	},
+	//Just params, NO return
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Payload))
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func(moleculer.Payload))
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				ah(p)
+				return nil
+			}
+		},
+	},
+
+	//no args
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func() interface{})
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func() interface{})
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				return ah()
+			}
+		},
+	},
+	//no args, no return
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func())
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func())
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				ah()
+				return nil
+			}
+		},
+	},
 }

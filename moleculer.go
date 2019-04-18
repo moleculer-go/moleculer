@@ -78,7 +78,7 @@ type Event struct {
 	Handler EventHandler
 }
 
-type Service struct {
+type ServiceSchema struct {
 	Name         string
 	Version      string
 	Dependencies []string
@@ -179,8 +179,8 @@ type RetryPolicy struct {
 
 type ActionHandler func(context Context, params Payload) interface{}
 type EventHandler func(context Context, params Payload)
-type CreatedFunc func(Service, *log.Entry)
-type LifecycleFunc func(BrokerContext, Service)
+type CreatedFunc func(ServiceSchema, *log.Entry)
+type LifecycleFunc func(BrokerContext, ServiceSchema)
 
 type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
@@ -188,12 +188,12 @@ type isStartedFunc func() bool
 type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
 type EmitEventFunc func(context BrokerContext)
-type ServiceForActionFunc func(string) *Service
+type ServiceForActionFunc func(string) *ServiceSchema
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
 type OptionsFunc func(key string) interface{}
-type AddServiceFunc func(...Service)
+type PublishFunc func(...interface{})
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
 
 type Middlewares map[string]MiddlewareHandler
@@ -211,7 +211,7 @@ type Node interface {
 
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
-	AddService(service map[string]interface{})
+	Publish(service map[string]interface{})
 }
 type Context interface {
 	//context methods used by services
@@ -244,7 +244,7 @@ type BrokerContext interface {
 
 	Logger() *log.Entry
 
-	AddService(...Service)
+	Publish(...interface{})
 }
 
 //Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
@@ -262,5 +262,5 @@ type BrokerDelegates struct {
 	ServiceForAction   ServiceForActionFunc
 	BrokerContext      BrokerContextFunc
 	MiddlewareHandler  MiddlewareHandlerFunc
-	AddService         AddServiceFunc
+	Publish            PublishFunc
 }

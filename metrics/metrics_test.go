@@ -25,8 +25,8 @@ var _ = Describe("Metrics", func() {
 				Fail("Invalid event name")
 			}
 		}
-		delegates.ServiceForAction = func(string) *moleculer.Service {
-			return &moleculer.Service{
+		delegates.ServiceForAction = func(string) *moleculer.ServiceSchema {
+			return &moleculer.ServiceSchema{
 				Name:    "math",
 				Version: "2",
 			}
@@ -78,8 +78,8 @@ var _ = Describe("Metrics", func() {
 			Expect(context.EventName()).Should(Equal("metrics.trace.span.start"))
 			eventPayload = context.Payload()
 		}
-		delegates.ServiceForAction = func(string) *moleculer.Service {
-			return &moleculer.Service{
+		delegates.ServiceForAction = func(string) *moleculer.ServiceSchema {
+			return &moleculer.ServiceSchema{
 				Name:    "math",
 				Version: "2",
 			}

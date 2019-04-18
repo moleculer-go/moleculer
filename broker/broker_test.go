@@ -18,7 +18,7 @@ var _ = Describe("Broker", func() {
 
 	It("Should make a local call and return results", func() {
 		actionResult := "abra cadabra"
-		service := moleculer.Service{
+		service := moleculer.ServiceSchema{
 			Name: "do",
 			Actions: []moleculer.Action{
 				moleculer.Action{
@@ -33,7 +33,7 @@ var _ = Describe("Broker", func() {
 		broker := broker.New(&moleculer.Config{
 			LogLevel: "ERROR",
 		})
-		broker.AddService(service)
+		broker.Publish(service)
 		broker.Start()
 
 		result := <-broker.Call("do.stuff", 1)
@@ -45,7 +45,7 @@ var _ = Describe("Broker", func() {
 	})
 
 	It("Should make a local call, call should panic and returned paylod should contain the error", func() {
-		service := moleculer.Service{
+		service := moleculer.ServiceSchema{
 			Name: "do",
 			Actions: []moleculer.Action{
 				moleculer.Action{
@@ -71,7 +71,7 @@ var _ = Describe("Broker", func() {
 			DiscoverNodeID: func() string { return "do-broker" },
 		}
 		bkr := broker.New(baseConfig, bkrConfig)
-		bkr.AddService(service)
+		bkr.Publish(service)
 		bkr.Start()
 
 		result := <-bkr.Call("do.panic", true)
@@ -79,7 +79,7 @@ var _ = Describe("Broker", func() {
 		Expect(result.IsError()).Should(Equal(true))
 		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
-		service = moleculer.Service{
+		service = moleculer.ServiceSchema{
 			Name:         "remote",
 			Dependencies: []string{"do"},
 			Actions: []moleculer.Action{
@@ -100,7 +100,7 @@ var _ = Describe("Broker", func() {
 			DiscoverNodeID: func() string { return "remote-broker" },
 		}
 		bkr = broker.New(baseConfig, bkrConfig)
-		bkr.AddService(service)
+		bkr.Publish(service)
 		bkr.Start()
 
 		result = <-bkr.Call("remote.panic", true)
@@ -117,7 +117,7 @@ var _ = Describe("Broker", func() {
 	It("Should call multiple local calls (in chain)", func() {
 
 		actionResult := "step 1 done ! -> step 2: step 2 done ! -> magic: Just magic !!!"
-		service := moleculer.Service{
+		service := moleculer.ServiceSchema{
 			Name: "machine",
 			Actions: []moleculer.Action{
 				moleculer.Action{
@@ -147,7 +147,7 @@ var _ = Describe("Broker", func() {
 		broker := broker.New(&moleculer.Config{
 			LogLevel: "ERROR",
 		})
-		broker.AddService(service)
+		broker.Publish(service)
 		broker.Start()
 
 		result := <-broker.Call("machine.step1", 1)
