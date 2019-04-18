@@ -3,6 +3,8 @@ package registry_test
 import (
 	"fmt"
 
+	"github.com/moleculer-go/moleculer/test"
+
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/registry"
 	"github.com/moleculer-go/moleculer/service"
@@ -27,7 +29,7 @@ var _ = Describe("Event Catalog", func() {
 					Handler: handler,
 				},
 			},
-		}, CreateLogger("service", "test"))
+		}, test.DelegatesWithId("node-test-1"))
 		srv.SetNodeID("node-test-1")
 		catalog.Add(srv.Events()[0], srv, true)
 		Expect(catalog).ShouldNot(BeNil())
