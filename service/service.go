@@ -542,7 +542,7 @@ func copySettings(obj interface{}, schema moleculer.ServiceSchema) moleculer.Ser
 
 var invalid = []string{
 	"Name", "Version", "Dependencies", "Settings",
-	"Metadata", "Mixins", "Events",
+	"Metadata", "Mixins", "Events", "Created", "Started", "Stopped",
 }
 
 // validActionName checks if a given merhod (reflect.Value) is a valid action name.
@@ -691,6 +691,69 @@ func extractActions(obj interface{}) []moleculer.Action {
 	return actions
 }
 
+type HasCreated interface {
+	Created(moleculer.ServiceSchema, *log.Entry)
+}
+type HasCreatedNoParams interface {
+	Created()
+}
+
+type HasStarted interface {
+	Started(moleculer.BrokerContext, moleculer.ServiceSchema)
+}
+type HasStartedNoParams interface {
+	Started()
+}
+
+type HasStopped interface {
+	Stopped(moleculer.BrokerContext, moleculer.ServiceSchema)
+}
+type HasStoppedNoParams interface {
+	Stopped()
+}
+
+func extractCreated(obj interface{}) moleculer.CreatedFunc {
+	creator, hasIt := obj.(HasCreated)
+	if hasIt {
+		return creator.Created
+	}
+	creator2, hasIt2 := obj.(HasCreatedNoParams)
+	if hasIt2 {
+		return func(moleculer.ServiceSchema, *log.Entry) {
+			creator2.Created()
+		}
+	}
+	return nil
+}
+
+func extractStarted(obj interface{}) moleculer.LifecycleFunc {
+	starter, hasIt := obj.(HasStarted)
+	if hasIt {
+		return starter.Started
+	}
+	starter2, hasIt2 := obj.(HasStartedNoParams)
+	if hasIt2 {
+		return func(moleculer.BrokerContext, moleculer.ServiceSchema) {
+			starter2.Started()
+		}
+	}
+	return nil
+}
+
+func extractStopped(obj interface{}) moleculer.LifecycleFunc {
+	stopper, hasIt := obj.(HasStopped)
+	if hasIt {
+		return stopper.Stopped
+	}
+	stopper2, hasIt2 := obj.(HasStoppedNoParams)
+	if hasIt2 {
+		return func(moleculer.BrokerContext, moleculer.ServiceSchema) {
+			stopper2.Stopped()
+		}
+	}
+	return nil
+}
+
 func getName(obj interface{}) (string, error) {
 	namer, hasName := obj.(HasName)
 	var p interface{} = &obj
@@ -720,6 +783,9 @@ func objToSchema(obj interface{}) (moleculer.ServiceSchema, error) {
 	schema = copyMixins(obj, schema)
 	schema = copySettings(obj, schema)
 	schema.Actions = mergeActions(extractActions(obj), extractActions(&obj))
+	schema.Created = extractCreated(obj)
+	schema.Started = extractStarted(obj)
+	schema.Stopped = extractStopped(obj)
 	return schema, nil
 }
 

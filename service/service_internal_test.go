@@ -397,6 +397,60 @@ var _ = Describe("Service", func() {
 
 	})
 
+	It("extractCreated() should return func with params and wrap func with no params.", func() {
+		svc := &ServiceTestObj{}
+		fn := extractCreated(svc)
+		Expect(fn).ShouldNot(BeNil())
+		fn(moleculer.ServiceSchema{}, nil)
+		Expect(svc.CreatedCalled).Should(BeTrue())
+
+		svc2 := &ServiceTestNoParams{}
+		fn = extractCreated(svc2)
+		Expect(fn).ShouldNot(BeNil())
+		fn(moleculer.ServiceSchema{}, nil)
+		Expect(svc2.CreatedCalled).Should(BeTrue())
+
+		svc3 := &EmptyObj{}
+		fn = extractCreated(svc3)
+		Expect(fn).Should(BeNil())
+	})
+
+	It("extractStarted() should return func with params and wrap func with no params.", func() {
+		svc := &ServiceTestObj{}
+		fn := extractStarted(svc)
+		Expect(fn).ShouldNot(BeNil())
+		fn(nil, moleculer.ServiceSchema{})
+		Expect(svc.StartedCalled).Should(BeTrue())
+
+		svc2 := &ServiceTestNoParams{}
+		fn = extractStarted(svc2)
+		Expect(fn).ShouldNot(BeNil())
+		fn(nil, moleculer.ServiceSchema{})
+		Expect(svc2.StartedCalled).Should(BeTrue())
+
+		svc3 := &EmptyObj{}
+		fn = extractStarted(svc3)
+		Expect(fn).Should(BeNil())
+	})
+
+	It("extractStopped() should return func with params and wrap func with no params.", func() {
+		svc := &ServiceTestObj{}
+		fn := extractStopped(svc)
+		Expect(fn).ShouldNot(BeNil())
+		fn(nil, moleculer.ServiceSchema{})
+		Expect(svc.StoppedCalled).Should(BeTrue())
+
+		svc2 := &ServiceTestNoParams{}
+		fn = extractStopped(svc2)
+		Expect(fn).ShouldNot(BeNil())
+		fn(nil, moleculer.ServiceSchema{})
+		Expect(svc2.StoppedCalled).Should(BeTrue())
+
+		svc3 := &EmptyObj{}
+		fn = extractStopped(svc3)
+		Expect(fn).Should(BeNil())
+	})
+
 })
 
 type NoPointers struct {
@@ -409,6 +463,21 @@ func (svc NoPointers) Name() string {
 type ServiceTestObj struct {
 	NoArgsNoReturnCalled     bool
 	JustParamsNoReturnCalled bool
+	CreatedCalled            bool
+	StartedCalled            bool
+	StoppedCalled            bool
+}
+
+func (svc *ServiceTestObj) Created(moleculer.ServiceSchema, *log.Entry) {
+	svc.CreatedCalled = true
+}
+
+func (svc *ServiceTestObj) Started(moleculer.BrokerContext, moleculer.ServiceSchema) {
+	svc.StartedCalled = true
+}
+
+func (svc *ServiceTestObj) Stopped(moleculer.BrokerContext, moleculer.ServiceSchema) {
+	svc.StoppedCalled = true
 }
 
 func (svc *ServiceTestObj) Name() string {
@@ -453,4 +522,25 @@ func (svc *ServiceTestObj) CompleteAction(context moleculer.Context, params mole
 
 func (svc ServiceTestObj) NonPointerCompleteAction(context moleculer.Context, params moleculer.Payload) interface{} {
 	return "NonPointerCompleteAction Invoked!"
+}
+
+type ServiceTestNoParams struct {
+	CreatedCalled bool
+	StartedCalled bool
+	StoppedCalled bool
+}
+
+func (svc *ServiceTestNoParams) Created(moleculer.ServiceSchema, *log.Entry) {
+	svc.CreatedCalled = true
+}
+
+func (svc *ServiceTestNoParams) Started(moleculer.BrokerContext, moleculer.ServiceSchema) {
+	svc.StartedCalled = true
+}
+
+func (svc *ServiceTestNoParams) Stopped(moleculer.BrokerContext, moleculer.ServiceSchema) {
+	svc.StoppedCalled = true
+}
+
+type EmptyObj struct {
 }
