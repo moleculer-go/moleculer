@@ -759,7 +759,7 @@ func getName(obj interface{}) (string, error) {
 	var p interface{} = &obj
 	pnamer, hasPName := p.(HasName)
 	if !hasName && !hasPName {
-		return "", errors.New("Service instance must have a non pointer merhod [ Name() string ]")
+		return "", errors.New("Service instance must have a non pointer method [ Name() string ]")
 	}
 	if hasName {
 		return namer.Name(), nil
@@ -786,6 +786,7 @@ func objToSchema(obj interface{}) (moleculer.ServiceSchema, error) {
 	schema.Created = extractCreated(obj)
 	schema.Started = extractStarted(obj)
 	schema.Stopped = extractStopped(obj)
+	fmt.Println("schema.Events ", schema.Events)
 	return schema, nil
 }
 

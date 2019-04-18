@@ -491,11 +491,8 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 			registry.events.Add(event, service, true)
 		}
 	}
-
 	registry.localNode.Publish(service.AsMap())
-
 	registry.logger.Infof("Registry - %s service is registered.", service.FullName())
-
 	registry.notifyServiceAded(service.Summary())
 }
 
