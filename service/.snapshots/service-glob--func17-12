@@ -1,4 +1,4 @@
-(moleculer.Service) {
+(moleculer.ServiceSchema) {
   Name: (string) (len=5) "earth",
   Version: (string) (len=3) "0.2",
   Dependencies: ([]string) {

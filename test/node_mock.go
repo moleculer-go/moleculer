@@ -10,7 +10,7 @@ type NodeMock struct {
 	ExportAsMapResult     map[string]interface{}
 	IsAvailableResult     bool
 	IsExpiredResult       bool
-	AddServiceCalls       int
+	PublishCalls       int
 }
 
 func (node *NodeMock) Update(info map[string]interface{}) bool {
@@ -41,6 +41,6 @@ func (node *NodeMock) HeartBeat(heartbeat map[string]interface{}) {
 func (node *NodeMock) IsExpired(timeout time.Duration) bool {
 	return node.IsExpiredResult
 }
-func (node *NodeMock) AddService(service map[string]interface{}) {
-	node.AddServiceCalls++
+func (node *NodeMock) Publish(service map[string]interface{}) {
+	node.PublishCalls++
 }

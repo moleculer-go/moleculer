@@ -59,7 +59,7 @@ var _ = Describe("Dispatcher", func() {
 		}
 		dispatcher.Add(handlers)
 
-		svc := service.FromSchema(moleculer.Service{Name: "serviceA"}, logger)
+		svc := service.FromSchema(moleculer.ServiceSchema{Name: "serviceA"}, brokerDelegates("test-midlewares"))
 		resultSvc := dispatcher.CallHandlers("serviceStarting", svc)
 
 		Expect(hits).Should(Equal(2))

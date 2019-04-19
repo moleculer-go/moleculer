@@ -262,8 +262,8 @@ func (context *Context) Broadcast(eventName string, params interface{}, groups .
 	context.broker.BroadcastEvent(newContext)
 }
 
-func (context *Context) AddService(services ...moleculer.Service) {
-	context.broker.AddService(services...)
+func (context *Context) Publish(services ...interface{}) {
+	context.broker.Publish(services...)
 }
 
 func (context *Context) ActionName() string {

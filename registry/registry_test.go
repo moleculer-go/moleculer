@@ -28,7 +28,7 @@ func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 		},
 	})
 
-	broker.AddService(moleculer.Service{
+	broker.Publish(moleculer.ServiceSchema{
 		Name: "printer",
 		Actions: []moleculer.Action{
 			{
@@ -61,7 +61,7 @@ func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 			return &transport
 		},
 	})
-	broker.AddService(moleculer.Service{
+	broker.Publish(moleculer.ServiceSchema{
 		Name: "scanner",
 		Actions: []moleculer.Action{
 			{
@@ -95,7 +95,7 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 			return &transport
 		},
 	})
-	broker.AddService(moleculer.Service{
+	broker.Publish(moleculer.ServiceSchema{
 		Name: "cpu",
 		Actions: []moleculer.Action{
 			{
@@ -114,7 +114,7 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 			},
 		},
 	})
-	broker.AddService(moleculer.Service{
+	broker.Publish(moleculer.ServiceSchema{
 		Name: "printer",
 		Actions: []moleculer.Action{
 			{
@@ -418,7 +418,7 @@ var _ = Describe("Registry", func() {
 					return &transport
 				},
 			})
-			bkr1.AddService(moleculer.Service{
+			bkr1.Publish(moleculer.ServiceSchema{
 				Name: "internal-consumer",
 				Events: []moleculer.Event{
 					moleculer.Event{
@@ -440,7 +440,7 @@ var _ = Describe("Registry", func() {
 			})
 			bkr1.Start()
 
-			bkr1.AddService(moleculer.Service{
+			bkr1.Publish(moleculer.ServiceSchema{
 				Name: "service-added",
 			})
 
@@ -459,7 +459,7 @@ var _ = Describe("Registry", func() {
 					return &transport
 				},
 			})
-			bkr2.AddService(moleculer.Service{
+			bkr2.Publish(moleculer.ServiceSchema{
 				Name:         "remote-service",
 				Dependencies: []string{"internal-consumer", "service-added"},
 			})
