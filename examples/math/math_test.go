@@ -29,7 +29,7 @@ var _ = test.Describe("Math", func() {
 
 	test.It("Can start broker with service and call actions", func() {
 		broker := broker.New()
-		broker.AddService(math.ServiceSchema())
+		broker.Publish(math.ServiceSchema())
 		broker.Start()
 
 		Expect(broker).Should(Not(BeNil()))

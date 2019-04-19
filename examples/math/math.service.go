@@ -7,11 +7,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func ServiceSchema() moleculer.Service {
+func ServiceSchema() moleculer.ServiceSchema {
 	return mathService
 }
 
-var mathService = moleculer.Service{
+var mathService = moleculer.ServiceSchema{
 	Name: "math",
 	Actions: []moleculer.Action{
 		{
@@ -38,13 +38,13 @@ var mathService = moleculer.Service{
 		},
 	},
 	//Mixins: []*Mixin(helloWorldSchema),
-	Created: func(service moleculer.Service, logger *log.Entry) {
+	Created: func(service moleculer.ServiceSchema, logger *log.Entry) {
 		fmt.Println("math service created !")
 	},
-	Started: func(ctx moleculer.BrokerContext, service moleculer.Service) {
+	Started: func(ctx moleculer.BrokerContext, service moleculer.ServiceSchema) {
 		fmt.Println("math service started !")
 	},
-	Stopped: func(ctx moleculer.BrokerContext, service moleculer.Service) {
+	Stopped: func(ctx moleculer.BrokerContext, service moleculer.ServiceSchema) {
 		fmt.Println("math service stopped !")
 	},
 }

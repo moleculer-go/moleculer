@@ -17,7 +17,7 @@ import (
 )
 
 func addUserService(bkr *broker.ServiceBroker) {
-	bkr.AddService(moleculer.Service{
+	bkr.Publish(moleculer.ServiceSchema{
 		Name: "user",
 		Actions: []moleculer.Action{
 			{
@@ -33,7 +33,7 @@ func addUserService(bkr *broker.ServiceBroker) {
 }
 
 func addContactService(bkr *broker.ServiceBroker) {
-	bkr.AddService(moleculer.Service{
+	bkr.Publish(moleculer.ServiceSchema{
 		Name: "contact",
 		Actions: []moleculer.Action{
 			{
@@ -49,7 +49,7 @@ func addContactService(bkr *broker.ServiceBroker) {
 }
 
 func addProfileService(bkr *broker.ServiceBroker) {
-	bkr.AddService(moleculer.Service{
+	bkr.Publish(moleculer.ServiceSchema{
 		Name:         "profile",
 		Dependencies: []string{"user", "contact"},
 		Actions: []moleculer.Action{

@@ -23,8 +23,8 @@ func (rawPayload *RawPayload) Exists() bool {
 }
 
 func (rawPayload *RawPayload) IsError() bool {
-	valueType := GetValueType(&rawPayload.source)
-	return valueType == "*errors.errorString"
+	_, isError := rawPayload.source.(error)
+	return isError
 }
 
 func (rawPayload *RawPayload) Error() error {
@@ -487,12 +487,9 @@ func Empty() moleculer.Payload {
 }
 
 func New(source interface{}) moleculer.Payload {
-	valueType := GetValueType(&source)
-	if valueType == "*payload.RawPayload" {
-		return source.(moleculer.Payload)
-	} else if valueType == "serializer.JSONPayload" {
-		//TODO make this flexible to other factories can be created for custom types
-		return source.(moleculer.Payload)
+	pl, isPayload := source.(moleculer.Payload)
+	if isPayload {
+		return pl
 	}
 	return &RawPayload{source}
 }

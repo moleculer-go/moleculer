@@ -22,7 +22,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 		delete(in, key)
 		return in
 	}
-	return service.FromSchema(moleculer.Service{
+	return service.FromSchema(moleculer.ServiceSchema{
 		Name: "$node",
 		Actions: []moleculer.Action{
 			moleculer.Action{
@@ -235,7 +235,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 				},
 			},
 		},
-	}, registry.logger)
+	}, registry.broker)
 }
 
 func filterLocal(in []map[string]interface{}) []map[string]interface{} {

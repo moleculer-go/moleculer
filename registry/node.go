@@ -175,7 +175,7 @@ func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
-func (node *Node) AddService(service map[string]interface{}) {
+func (node *Node) Publish(service map[string]interface{}) {
 	node.services = append(node.services, service)
 }
 

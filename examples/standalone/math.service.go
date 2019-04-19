@@ -8,7 +8,7 @@ import (
 	"github.com/moleculer-go/moleculer/payload"
 )
 
-var mathService = moleculer.Service{
+var mathService = moleculer.ServiceSchema{
 	Name: "math",
 	Actions: []moleculer.Action{
 		{
@@ -22,7 +22,7 @@ var mathService = moleculer.Service{
 
 func main() {
 	var bkr = broker.New(&moleculer.Config{LogLevel: "error"})
-	bkr.AddService(mathService)
+	bkr.Publish(mathService)
 	bkr.Start()
 	result := <-bkr.Call("math.add", payload.New(map[string]int{
 		"a": 10,

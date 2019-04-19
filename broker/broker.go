@@ -195,11 +195,28 @@ func (broker *ServiceBroker) addService(svc *service.Service) {
 	}
 }
 
-// AddService : for each service schema it will validate and create
+// createService create a new service instance, from a struct or a schema :)
+func (broker *ServiceBroker) createService(svc interface{}) (*service.Service, error) {
+	schema, isSchema := svc.(moleculer.ServiceSchema)
+	if !isSchema {
+		svc, err := service.FromObject(svc, broker.delegates)
+		if err != nil {
+			return nil, err
+		}
+		return svc, nil
+	}
+	return service.FromSchema(schema, broker.delegates), nil
+}
+
+// Publish : for each service schema it will validate and create
 // a service instance in the broker.
-func (broker *ServiceBroker) AddService(services ...moleculer.Service) {
-	for _, schema := range services {
-		broker.addService(service.FromSchema(schema, broker.GetLogger("service", schema.Name)))
+func (broker *ServiceBroker) Publish(services ...interface{}) {
+	for _, item := range services {
+		svc, err := broker.createService(item)
+		if err != nil {
+			panic(errors.New("Could not publish service - error: " + err.Error()))
+		}
+		broker.addService(svc)
 	}
 }
 
@@ -411,7 +428,7 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		HandleRemoteEvent: func(context moleculer.BrokerContext) {
 			broker.registry.HandleRemoteEvent(context)
 		},
-		ServiceForAction: func(name string) *moleculer.Service {
+		ServiceForAction: func(name string) *moleculer.ServiceSchema {
 			svc := broker.registry.ServiceForAction(name)
 			if svc != nil {
 				return svc.Schema()
@@ -425,7 +442,7 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 			return broker.rootContext
 		},
 		MiddlewareHandler: broker.middlewares.CallHandlers,
-		AddService:        broker.AddService,
+		Publish:           broker.Publish,
 	}
 }
 

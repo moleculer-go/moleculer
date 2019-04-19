@@ -42,7 +42,7 @@ var _ = Describe("Broker Internals", func() {
 				soundsBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "SoundsBroker" },
 				})
-				soundsBroker.AddService(moleculer.Service{
+				soundsBroker.Publish(moleculer.ServiceSchema{
 					Name: "music",
 					Actions: []moleculer.Action{
 						moleculer.Action{
@@ -81,7 +81,7 @@ var _ = Describe("Broker Internals", func() {
 						},
 					},
 				})
-				djService := moleculer.Service{
+				djService := moleculer.ServiceSchema{
 					Name:         "dj",
 					Dependencies: []string{"music"},
 					Events: []moleculer.Event{
@@ -109,7 +109,7 @@ var _ = Describe("Broker Internals", func() {
 						},
 					},
 				}
-				soundsBroker.AddService(djService)
+				soundsBroker.Publish(djService)
 
 				// soundsBroker.delegates.EmitEvent = func(context moleculer.BrokerContext) {
 				// 	entries := soundsBroker.registry.LoadBalanceEvent(context)
@@ -145,7 +145,7 @@ var _ = Describe("Broker Internals", func() {
 					nodeID := data[0].(string)
 					fmt.Println("\n############# visualBroker -> $node.disconnected -> node id: ", nodeID, " #############")
 				})
-				vjService := moleculer.Service{
+				vjService := moleculer.ServiceSchema{
 					Name:         "vj",
 					Dependencies: []string{"music", "dj"},
 					Events: []moleculer.Event{
@@ -172,7 +172,7 @@ var _ = Describe("Broker Internals", func() {
 						},
 					},
 				}
-				visualBroker.AddService(vjService)
+				visualBroker.Publish(vjService)
 
 				visualBroker.Start()
 				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
@@ -209,7 +209,7 @@ var _ = Describe("Broker Internals", func() {
 				aquaBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "AquaBroker" },
 				})
-				aquaBroker.AddService(vjService)
+				aquaBroker.Publish(vjService)
 				aquaBroker.Start()
 				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
 				Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
@@ -243,7 +243,7 @@ var _ = Describe("Broker Internals", func() {
 				stormBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "StormBroker" },
 				})
-				stormBroker.AddService(djService)
+				stormBroker.Publish(djService)
 				stormBroker.localBus.On("$node.disconnected", func(data ...interface{}) {
 					nodeID := data[0].(string)
 					fmt.Println("\n############# stormBroker -> $node.disconnected -> node id: ", nodeID, " #############")
@@ -369,7 +369,7 @@ var _ = Describe("Broker Internals", func() {
 					},
 				},
 			)
-			bkr1.AddService(moleculer.Service{
+			bkr1.Publish(moleculer.ServiceSchema{
 				Name: "music",
 				Actions: []moleculer.Action{
 					moleculer.Action{
@@ -394,7 +394,7 @@ var _ = Describe("Broker Internals", func() {
 					},
 				},
 			)
-			bkr2.AddService(moleculer.Service{
+			bkr2.Publish(moleculer.ServiceSchema{
 				Name:         "food",
 				Dependencies: []string{"music"},
 				Actions: []moleculer.Action{
@@ -549,6 +549,49 @@ var _ = Describe("Broker Internals", func() {
 			Expect(bkr.config.Metrics).Should(BeFalse())
 			bkr.Stop()
 		})
+
+	})
+
+	Describe("Publish()services...interface{}", func() {
+		It("should panic when passing invalid service", func() {
+			bkr := New()
+			Expect(func() {
+				bkr.Publish("some string")
+			}).Should(Panic())
+			Expect(func() {
+				bkr.Publish(10)
+			}).Should(Panic())
+			Expect(func() {
+				bkr.Publish(invalidObj{})
+			}).Should(Panic())
+			Expect(func() {
+				bkr.Publish(validService{})
+			}).ShouldNot(Panic())
+		})
+
+		It("should add service strict obj to broker when valid", func() {
+			bkr := New()
+			Expect(len(bkr.services)).Should(Equal(0))
+			bkr.Publish(validService{})
+			Expect(len(bkr.services)).Should(Equal(1))
+		})
+
+		It("should add service schema obj to broker", func() {
+			bkr := New()
+			Expect(len(bkr.services)).Should(Equal(0))
+			bkr.Publish(moleculer.ServiceSchema{Name: "service from schema"})
+			Expect(len(bkr.services)).Should(Equal(1))
+		})
 	})
 
 })
+
+type invalidObj struct {
+}
+
+type validService struct {
+}
+
+func (s validService) Name() string {
+	return "validService"
+}

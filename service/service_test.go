@@ -4,21 +4,37 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/moleculer-go/moleculer/test"
+
 	log "github.com/sirupsen/logrus"
 
-	test "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"github.com/moleculer-go/moleculer"
-	. "github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/service"
 )
 
 var logger = log.WithField("Unit Test", true)
 
-var _ = test.Describe("MergeActions", func() {
+type MathService struct {
+}
 
-	moonMixIn := Mixin{
+func (s MathService) Name() string {
+	return "math"
+}
+
+func (s *MathService) Add(params moleculer.Payload) int {
+	return params.Get("a").Int() + params.Get("b").Int()
+}
+
+func (s *MathService) Sub(a int, b int) int {
+	return a - b
+}
+
+var _ = Describe("moleculer/service", func() {
+
+	moonMixIn := moleculer.Mixin{
 		Name: "moon",
 		Settings: map[string]interface{}{
 			"craters": true,
@@ -26,31 +42,31 @@ var _ = test.Describe("MergeActions", func() {
 		},
 		Metadata: map[string]interface{}{
 			"resolution": "high",
-		}, Actions: []Action{
-			Action{
+		}, Actions: []moleculer.Action{
+			{
 				Name: "tide",
-				Handler: func(ctx Context, params Payload) interface{} {
+				Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 					return "tide influence in the oceans"
 				},
 			},
 		},
-		Events: []Event{
-			Event{
+		Events: []moleculer.Event{
+			{
 				Name: "earth.rotates",
-				Handler: func(ctx Context, params Payload) {
+				Handler: func(ctx moleculer.Context, params moleculer.Payload) {
 					fmt.Println("update tide in relation to the moon")
 				},
 			},
-			Event{
+			{
 				Name: "moon.isClose",
-				Handler: func(ctx Context, params Payload) {
+				Handler: func(ctx moleculer.Context, params moleculer.Payload) {
 					fmt.Println("rise the tide !")
 				},
 			},
 		},
 	}
 
-	serviceSchema := Service{
+	serviceSchema := moleculer.ServiceSchema{
 		Name:    "earth",
 		Version: "0.2",
 		Settings: map[string]interface{}{
@@ -61,53 +77,53 @@ var _ = test.Describe("MergeActions", func() {
 			"star-system": "sun",
 		},
 		Mixins: []moleculer.Mixin{moonMixIn},
-		Actions: []Action{
-			Action{
+		Actions: []moleculer.Action{
+			{
 				Name: "rotate",
-				Handler: func(ctx Context, params Payload) interface{} {
+				Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 					return "Hellow Leleu ;) I'm rotating ..."
 				},
 			},
 		},
-		Events: []Event{
-			Event{
+		Events: []moleculer.Event{
+			{
 				Name: "earth.rotates",
-				Handler: func(ctx Context, params Payload) {
+				Handler: func(ctx moleculer.Context, params moleculer.Payload) {
 					fmt.Println("spining spining spining")
 				},
 			},
 		},
 	}
 
-	test.It("Should merge and overwrite existing actions", func() {
+	It("Should merge and overwrite existing actions", func() {
 
 		svcCreatedCalled := false
-		serviceSchema.Created = func(svc moleculer.Service, log *log.Entry) {
+		serviceSchema.Created = func(svc moleculer.ServiceSchema, log *log.Entry) {
 			svcCreatedCalled = true
 		}
 		svcStartedCalled := false
-		serviceSchema.Started = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+		serviceSchema.Started = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
 			svcStartedCalled = true
 		}
 		svcStoppedCalled := false
-		serviceSchema.Stopped = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+		serviceSchema.Stopped = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
 			svcStoppedCalled = true
 		}
 
 		mixCreatedCalled := false
-		serviceSchema.Mixins[0].Created = func(svc moleculer.Service, log *log.Entry) {
+		serviceSchema.Mixins[0].Created = func(svc moleculer.ServiceSchema, log *log.Entry) {
 			mixCreatedCalled = true
 		}
 		mixStartedCalled := false
-		serviceSchema.Mixins[0].Started = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+		serviceSchema.Mixins[0].Started = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
 			mixStartedCalled = true
 		}
 		mixStoppedCalled := false
-		serviceSchema.Mixins[0].Stopped = func(ctx moleculer.BrokerContext, svc moleculer.Service) {
+		serviceSchema.Mixins[0].Stopped = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
 			mixStoppedCalled = true
 		}
 
-		svc := service.FromSchema(serviceSchema, logger)
+		svc := service.FromSchema(serviceSchema, test.DelegatesWithId("test"))
 		name := svc.Name()
 		Expect(name).Should(Equal(serviceSchema.Name))
 		Expect(name).Should(Not(Equal(moonMixIn.Name)))
@@ -134,6 +150,13 @@ var _ = test.Describe("MergeActions", func() {
 		Expect(mixCreatedCalled).Should(BeTrue())
 		Expect(mixStartedCalled).Should(BeTrue())
 		Expect(mixStoppedCalled).Should(BeTrue())
+	})
+
+	It("Should publish a service that is an object (not an schema)", func() {
+		math := MathService{}
+		svc, err := service.FromObject(math, test.DelegatesWithId("test"))
+		Expect(err).Should(BeNil())
+		Expect(svc.Name()).Should(Equal(math.Name()))
 	})
 
 })

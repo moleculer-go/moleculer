@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"errors"
+	"fmt"
 	"runtime/debug"
 	"sync"
 
@@ -32,13 +34,21 @@ func CreateActionCatalog(logger *log.Entry) *ActionCatalog {
 
 var actionCallRecovery = true //TODO extract this to a Config - useful to turn for Debug in tests.
 
+// catchActionError is called defered after invoking a local action
+// if there is an error (recover () != nil) this functions log the error and stack track and encapsulate
+// the error inside a moleculer.Payload
 func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext, result chan moleculer.Payload) {
 	if !actionCallRecovery {
 		return
 	}
 	if err := recover(); err != nil {
-		actionEntry.logger.Error("local action failed :( action: ", context.ActionName(), " error: ", err, "\nstack: ", string(debug.Stack()))
-		result <- payload.New(err)
+		actionEntry.logger.Error("Action failed: ", context.ActionName(), "\n[Error]: ", err, "\n[Stack Trace]: ", string(debug.Stack()))
+		errT, isError := err.(error)
+		if isError {
+			result <- payload.New(errT)
+		} else {
+			result <- payload.New(errors.New(fmt.Sprint(err)))
+		}
 	}
 }
 
@@ -168,15 +178,11 @@ func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strateg
 	}
 	actions := list.([]ActionEntry)
 	nodes := make([]strategy.Selector, len(actions))
-	var localAction *ActionEntry
 	for index, action := range actions {
 		nodes[index] = action
 		if action.IsLocal() {
-			localAction = &action
+			return &action
 		}
-	}
-	if localAction != nil {
-		return localAction
 	}
 	if selected := stg.Select(nodes); selected != nil {
 		entry := (*selected).(ActionEntry)

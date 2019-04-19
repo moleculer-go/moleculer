@@ -177,14 +177,14 @@ var _ = g.Describe("Context", func() {
 		Expect(called).Should(BeTrue())
 	})
 
-	g.It("Should call AddService and delegate it to broker", func() {
+	g.It("Should call Publish and delegate it to broker", func() {
 		delegates := test.DelegatesWithIdAndConfig("x", moleculer.Config{})
 		called := false
-		delegates.AddService = func(svcs ...moleculer.Service) {
+		delegates.Publish = func(svcs ...interface{}) {
 			called = true
 		}
 		rawContext := BrokerContext(delegates)
-		rawContext.AddService(moleculer.Service{})
+		rawContext.Publish(moleculer.ServiceSchema{})
 		Expect(called).Should(BeTrue())
 	})
 
