@@ -786,7 +786,6 @@ func objToSchema(obj interface{}) (moleculer.ServiceSchema, error) {
 	schema.Created = extractCreated(obj)
 	schema.Started = extractStarted(obj)
 	schema.Stopped = extractStopped(obj)
-	fmt.Println("schema.Events ", schema.Events)
 	return schema, nil
 }
 

@@ -1,54 +1,97 @@
-# moleculer
+# Moleculer Go
 
-🚀 Progressive microservices framework for Go - based and compatible with https://github.com/moleculerjs/moleculer
+<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher.jpg" alt="Moleculer Go" height="50"/>
+🚀 Progressive microservices framework for Go <img src="https://golang.org/doc/gopher/frontpage.png" alt="Gopher" height="50"/>
 
-Lightning fast, lightweight, simple and fun to develop with. Also easy, very easy to test ;)
+Inspired and compatible with [Moleculer JS](https://github.com/moleculerjs/moleculer)
+
+Simple, fast, light and fun to develop with. Also easy, very easy to test ;)
 
 [![Gitter](https://badges.gitter.im/moleculer-go/community.svg)](https://gitter.im/moleculer-go/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Travis Build Status](https://travis-ci.org/moleculer-go/moleculer.svg?branch=master)](https://travis-ci.org/moleculer-go/moleculer)
 [![Drone.io Build Status](https://cloud.drone.io/api/badges/moleculer-go/moleculer/status.svg)](https://cloud.drone.io/moleculer-go/moleculer)
 [![Go Report Card](https://goreportcard.com/badge/github.com/moleculer-go/moleculer)](https://goreportcard.com/report/github.com/moleculer-go/moleculer)
 [![Coverage -> Coveralls](https://coveralls.io/repos/github/moleculer-go/moleculer/badge.svg?branch=master)](https://coveralls.io/github/moleculer-go/moleculer?branch=master)
 [![Coverage -> Codecov](https://codecov.io/gh/moleculer-go/moleculer/branch/develop/graph/badge.svg)](https://codecov.io/gh/moleculer-go/moleculer)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield)
 
-<!--
-![](https://img.shields.io/badge/performance-%2B50%25-brightgreen.svg)
-![](https://img.shields.io/badge/performance-%2B5%25-green.svg)
-![](https://img.shields.io/badge/performance---10%25-yellow.svg)
-![](https://img.shields.io/badge/performance---42%25-red.svg)
--->
+Travis:
+
+[![Travis Build Status](https://travis-ci.org/moleculer-go/moleculer.svg?branch=develop)](https://travis-ci.org/moleculer-go/moleculer)
 
 **Website**: [gomicro.services](http://gomicro.services)
 
 **Documentation**: [Docs](http://gomicro.services/docs/)
 
-Status: In development !
+## Timeline
 
-# What's included (most under construction)
+# Get Started
 
-ALL the goodness moleculer has:
+- [Database examples](https://moleculer-go-site.herokuapp.com/docs/0.1/moleculer-db.html)
+- [WhatsApp App](https://github.com/moleculer-go/example-whatsapp)
+- [Documentation](http://gomicro.services/docs/)
+- [Benchmark](https://github.com/moleculer-go/benchmark)
 
-- request-reply concept
-- support streams
-- support event driven architecture with balancing
-- built-in service registry & dynamic service discovery
-- load balanced requests & events (round-robin, random, cpu-usage, latency)
-- many fault tolerance features (Circuit Breaker, Bulkhead, Retry, Timeout, Fallback)
-- supports middlewares
-- supports versioned services
-- service mixins
-- built-in caching solution (memory, Redis)
-- pluggable transporters (TCP, NATS, MQTT, Redis, NATS Streaming, Kafka)
-- pluggable serializers (JSON, Avro, MsgPack, Protocol Buffer, Thrift)
-- pluggable validator
-- multiple services on a node/server
-- all nodes are equal, no master/leader node
+## Example
 
-Now available in Golang.
+![Example](https://moleculer-go-site.herokuapp.com/images/main-example.png)
+
+# Roadmap
+
+## v0.1.0 (MVP)
+
+- Service Broker
+- Transit and Transport
+- Actions (request-reply)
+- Events
+- Mixins
+- Load balancing for actions and events (random round-robin)
+- Service registry & dynamic service discovery
+- Versioned services
+- Middlewares
+- NATS Streaming Transporter
+- JSON Serializer
+- Examples :)
+
+## v0.2.0 (Beta RC1)
+
+- Action validators
+- Support for streams
+- More Load balancing implementations (cpu-usage, latency)
+- Fault tolerance features (Circuit Breaker, Bulkhead, Retry, Timeout, Fallback)
+- Built-in caching solution (memory, Redis)
+- More transporters (gRPC, TCP, Redis, Kafka)
+- More serializers (Avro, MsgPack, Protocol Buffer, Thrift)
+
+## v0.3.0 (Beta)
+
+- Performance and Optimization
+- More DB Adaptors (SQLLite, Firebase, MySQL)
+- CLI for Project Seed Generation
+
+## v0.4.0 (Alpha)
+
+- Event Sourcing Mixins
+
+## v0.5.0 (Release)
 
 # Installation
 
-```
+```bash
 $ go get github.com/moleculer-go/moleculer
+```
+
+# Running examples
+
+```bash
+
+# simple moleculer db example with memory adaptor
+$ go run github.com/moleculer-go/moleculer-db/examples/users
+
+# simple moleculer db example with Mongo adaptor
+$ go run github.com/moleculer-go/moleculer-db/examples/usersMongo
+
+# complex moleculer db example with population of fields by other services
+$ go run github.com/moleculer-go/moleculer-db/examples/populates
+
+
 ```
