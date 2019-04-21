@@ -1,7 +1,8 @@
 # Moleculer Go
 
-<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher-no-bg.png" alt="Moleculer Go" height="50"/>
-🚀 Progressive microservices framework for Go <img src="https://golang.org/doc/gopher/frontpage.png" alt="Gopher" height="50"/>
+🚀 Progressive microservices framework for Go
+<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher-no-bg.png" alt="Moleculer Gopher" height="65"/>
+<img src="https://golang.org/doc/gopher/frontpage.png" alt="Gopher" height="65"/>
 
 Inspired and compatible with [Moleculer JS](https://github.com/moleculerjs/moleculer)
 
