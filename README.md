@@ -1,6 +1,6 @@
 # Moleculer Go
 
-<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher.jpg" alt="Moleculer Go" height="50"/>
+<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher-no-bg.png" alt="Moleculer Go" height="50"/>
 🚀 Progressive microservices framework for Go <img src="https://golang.org/doc/gopher/frontpage.png" alt="Gopher" height="50"/>
 
 Inspired and compatible with [Moleculer JS](https://github.com/moleculerjs/moleculer)
@@ -12,17 +12,11 @@ Simple, fast, light and fun to develop with. Also easy, very easy to test ;)
 [![Go Report Card](https://goreportcard.com/badge/github.com/moleculer-go/moleculer)](https://goreportcard.com/report/github.com/moleculer-go/moleculer)
 [![Coverage -> Coveralls](https://coveralls.io/repos/github/moleculer-go/moleculer/badge.svg?branch=master)](https://coveralls.io/github/moleculer-go/moleculer?branch=master)
 [![Coverage -> Codecov](https://codecov.io/gh/moleculer-go/moleculer/branch/develop/graph/badge.svg)](https://codecov.io/gh/moleculer-go/moleculer)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield)
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield"/></a>
 
-Travis:
+**Website**: [http://gomicro.services](http://gomicro.services)
 
-[![Travis Build Status](https://travis-ci.org/moleculer-go/moleculer.svg?branch=develop)](https://travis-ci.org/moleculer-go/moleculer)
-
-**Website**: [gomicro.services](http://gomicro.services)
-
-**Documentation**: [Docs](http://gomicro.services/docs/)
-
-## Timeline
+**Docs**: [Documentation](http://gomicro.services/docs/)
 
 # Get Started
 
@@ -37,7 +31,13 @@ Travis:
 
 # Roadmap
 
+![Timeline](https://moleculer-go-site.herokuapp.com/images/timeline.png)
+
 ## v0.1.0 (MVP)
+
+Development is `complete` - Documentation is `in-progress` and benchmark is also `in-progress`.
+
+**Contents:**
 
 - Service Broker
 - Transit and Transport
