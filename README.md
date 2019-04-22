@@ -15,15 +15,11 @@ Simple, fast, light and fun to develop with. Also easy, very easy to test ;)
 [![Coverage -> Codecov](https://codecov.io/gh/moleculer-go/moleculer/branch/develop/graph/badge.svg)](https://codecov.io/gh/moleculer-go/moleculer)
 <a href="https://app.fossa.com/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield"/></a>
 
-**Website**: [http://gomicro.services](http://gomicro.services)
-
-**Docs**: [Documentation](http://gomicro.services/docs/)
-
 # Get Started
 
+- [http://gomicro.services (Official site and Documentation)](http://gomicro.services)
 - [Database examples](https://moleculer-go-site.herokuapp.com/docs/0.1/moleculer-db.html)
 - [WhatsApp App](https://github.com/moleculer-go/example-whatsapp)
-- [Documentation](http://gomicro.services/docs/)
 - [Benchmark](https://github.com/moleculer-go/benchmark)
 
 ## Example
