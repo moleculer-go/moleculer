@@ -1,10 +1,10 @@
 language: go
 
 go:
-  # 1.11.x first, so coverave is sent as soon as first build finishes.
+  # 1.12.x first, so coverage is sent as soon as first build finishes.
+  - 1.12.x
   - 1.11.x
   - 1.10.x
-  - 1.12.x
   - master
 
 os:
@@ -18,13 +18,6 @@ matrix:
 
 before_install:
   - export STAN_HOST="localhost"
-  - go get -v golang.org/x/lint/golint
-  - go get -v golang.org/x/tools/cmd/cover
-  - go get -v github.com/mattn/goveralls
-  - go get -v github.com/modocache/gover
-  - go get -v github.com/nats-io/gnatsd
-  - go get -v github.com/onsi/ginkgo/ginkgo
-  - go get -v github.com/onsi/gomega
   - echo $TRAVIS_OS_NAME | grep osx && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-darwin-amd64.zip -o nats.zip || echo "Skipping OSX"
   - echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-linux-amd64.zip -o nats.zip || echo "Skipping Linux"
   - echo $TRAVIS_OS_NAME | grep windows && curl -fSsL https://github.com/nats-io/nats-streaming-server/releases/download/v0.11.2/nats-streaming-server-v0.11.2-windows-amd64.zip -o nats.zip || echo "Skipping Windows"
@@ -32,14 +25,15 @@ before_install:
 
 script:
   - echo $TRAVIS_OS_NAME | grep windows && nats-streaming-server-v0.11.2-windows-amd64/nats-streaming-server || nohup nats-*/nats-streaming-server -mc 0 -l /dev/null &
+  - go build
   - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
 
 after_script:
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash || echo "Skipping Fossa Binary Download"
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa analyze || echo "Skipping Fossa Analysis"
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa test || echo "Skipping Fossa Tests"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && curl -fSsL https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh?$(date +%s) | sudo bash || echo "Skipping Fossa Binary Download"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa analyze || echo "Skipping Fossa Analysis"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && fossa init && fossa test || echo "Skipping Fossa Tests"
 
 after_success:
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/gover || echo "Skipping gover"
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/goveralls -service=travis-ci || echo "Skipping Goveralls"
-  - go version | grep 1.11 && echo $TRAVIS_OS_NAME | grep linux && bash <(curl -s https://codecov.io/bash) -t e1ecc5e9-6a8a-47cf-b3bb-c046d2fd9f1c || echo "Skipping CodeCov"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/gover || echo "Skipping gover"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && $GOPATH/bin/goveralls -service=travis-ci || echo "Skipping Goveralls"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && bash <(curl -s https://codecov.io/bash) -t e1ecc5e9-6a8a-47cf-b3bb-c046d2fd9f1c || echo "Skipping CodeCov"
