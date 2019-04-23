@@ -32,7 +32,7 @@ before_install:
 
 script:
   - echo $TRAVIS_OS_NAME | grep windows && nats-streaming-server-v0.11.2-windows-amd64/nats-streaming-server || nohup nats-*/nats-streaming-server -mc 0 -l /dev/null &
-  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && go test ./... -race -coverprofile=coverage.txt -covermode=atomic || echo "Skipping CodeCov coverage file creation"
+  - go version | grep 1.12 && echo $TRAVIS_OS_NAME | grep linux && go test ./... -race -coverprofile=coverage.txt -covermode=atomic 2>&1 > /dev/null || echo "Skipping CodeCov coverage file creation"
   - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
 
 after_script:
