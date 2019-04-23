@@ -4,6 +4,7 @@ go:
   # 1.11.x first, so coverave is sent as soon as first build finishes.
   - 1.11.x
   - 1.10.x
+  - 1.12.x
   - master
 
 os:
