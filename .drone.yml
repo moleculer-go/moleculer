@@ -14,7 +14,7 @@ services:
 
 steps:
   - name: tests
-    image: golang
+    image: golang:1.12
     environment:
       CODECOV_TOKEN:
         from_secret: CODECOV_TOKEN
@@ -30,11 +30,7 @@ steps:
       - go get -v github.com/onsi/ginkgo/ginkgo
       - go get -v github.com/onsi/gomega
       - go get -v github.com/moleculer-go/cupaloy
-      - mkdir /usr/local/go/src/github.com/
-      - mkdir /usr/local/go/src/github.com/moleculer-go
-      - ln -s /drone/src/ /usr/local/go/src/github.com/moleculer-go/moleculer
-      - cd /usr/local/go/src/github.com/moleculer-go/moleculer
-      - go get -d ./...
+      - go build
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash
