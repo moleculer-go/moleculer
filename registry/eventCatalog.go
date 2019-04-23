@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
@@ -34,17 +35,17 @@ func (eventEntry *EventEntry) String() string {
 
 func catchEventError(context moleculer.BrokerContext, logger *log.Entry) {
 	if err := recover(); err != nil {
-		logger.Error("local event failed :( event: ", context.EventName(), " error: ", err)
+		logger.Error("Event handler failed :( event: ", context.EventName(), " error: ", err, "\n[Stack Trace]: ", string(debug.Stack()))
 	}
 }
 
 func (eventEntry *EventEntry) emitLocalEvent(context moleculer.BrokerContext) {
 	logger := context.Logger().WithField("eventCatalog", "emitLocalEvent")
-	logger.Debug("Before invoking local event: ", context.EventName())
+	logger.Debug("Invoking local event: ", context.EventName())
 	defer catchEventError(context, logger)
 	handler := eventEntry.event.Handler()
 	handler(context.(moleculer.Context), context.Payload())
-	logger.Debug("After invoking local event: ", context.EventName())
+	logger.Trace("After invoking local event: ", context.EventName())
 }
 
 type EventCatalog struct {
