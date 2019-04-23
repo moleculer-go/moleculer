@@ -14,7 +14,7 @@ services:
 
 steps:
   - name: tests
-    image: golang
+    image: golang:1.12
     environment:
       CODECOV_TOKEN:
         from_secret: CODECOV_TOKEN
