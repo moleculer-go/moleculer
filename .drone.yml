@@ -22,7 +22,14 @@ steps:
         from_secret: COVERALLS_TOKEN
     commands:
       - export STAN_HOST="nats-streaming"
-      - pwd
+      - go get -v golang.org/x/lint/golint
+      - go get -v golang.org/x/tools/cmd/cover
+      - go get -v github.com/mattn/goveralls
+      - go get -v github.com/modocache/gover
+      - go get -v github.com/nats-io/gnatsd
+      - go get -v github.com/onsi/ginkgo/ginkgo
+      - go get -v github.com/onsi/gomega
+      - go get -v github.com/moleculer-go/cupaloy
       - go build
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - gover ./ coverage.txt
