@@ -1,7 +1,8 @@
 # Moleculer Go
 
-<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher-no-bg.png" alt="Moleculer Go" height="50"/>
-🚀 Progressive microservices framework for Go <img src="https://golang.org/doc/gopher/frontpage.png" alt="Gopher" height="50"/>
+🚀 Progressive microservices framework for Go
+<img src="https://moleculer-go-site.herokuapp.com/images/moleculer-gopher-no-bg.png" alt="Moleculer Gopher" height="65"/>
+<img src="https://golang.org/doc/gopher/frontpage.png" alt="Gopher" height="65"/>
 
 Inspired and compatible with [Moleculer JS](https://github.com/moleculerjs/moleculer)
 
@@ -14,20 +15,53 @@ Simple, fast, light and fun to develop with. Also easy, very easy to test ;)
 [![Coverage -> Codecov](https://codecov.io/gh/moleculer-go/moleculer/branch/develop/graph/badge.svg)](https://codecov.io/gh/moleculer-go/moleculer)
 <a href="https://app.fossa.com/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmoleculer-go%2Fmoleculer.svg?type=shield"/></a>
 
-**Website**: [http://gomicro.services](http://gomicro.services)
-
-**Docs**: [Documentation](http://gomicro.services/docs/)
-
 # Get Started
 
+- [http://gomicro.services (Official site and Documentation)](http://gomicro.services)
 - [Database examples](https://moleculer-go-site.herokuapp.com/docs/0.1/moleculer-db.html)
 - [WhatsApp App](https://github.com/moleculer-go/example-whatsapp)
-- [Documentation](http://gomicro.services/docs/)
 - [Benchmark](https://github.com/moleculer-go/benchmark)
 
 ## Example
 
-![Example](https://moleculer-go-site.herokuapp.com/images/main-example.png)
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/broker"
+)
+
+type MathService struct {
+}
+
+func (s MathService) Name() string {
+	return "math"
+}
+
+func (s *MathService) Add(params moleculer.Payload) int {
+	return params.Get("a").Int() + params.Get("b").Int()
+}
+
+func (s *MathService) Sub(a int, b int) int {
+	return a - b
+}
+
+func main() {
+	var bkr = broker.New(&moleculer.Config{LogLevel: "error"})
+	bkr.Publish(&MathService{})
+	bkr.Start()
+	result := <-bkr.Call("math.add", map[string]int{
+		"a": 10,
+		"b": 130,
+	})
+	fmt.Println("result: ", result.Int())
+	//$ result: 140
+	bkr.Stop()
+}
+```
 
 # Roadmap
 

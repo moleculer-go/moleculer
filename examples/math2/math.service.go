@@ -13,9 +13,11 @@ type MathService struct {
 func (s MathService) Name() string {
 	return "math"
 }
+
 func (s *MathService) Add(params moleculer.Payload) int {
 	return params.Get("a").Int() + params.Get("b").Int()
 }
+
 func (s *MathService) Sub(a int, b int) int {
 	return a - b
 }
