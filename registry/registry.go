@@ -168,6 +168,7 @@ func (registry *ServiceRegistry) HandleRemoteEvent(context moleculer.BrokerConte
 		registry.logger.Error("HandleRemoteEvent() - registry is stopping. Discarding event -> name: ", name, " groups: ", groups)
 		return
 	}
+
 	broadcast := context.IsBroadcast()
 	registry.logger.Debug("HandleRemoteEvent() - name: ", name, " groups: ", groups)
 
@@ -328,7 +329,10 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 }
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
-	timeout := registry.offlineCheckFrequency * 10
+	// FIXME: rather get the offlineTimeout configuration? 200sec (at default) seems not that long enough
+	// For now, just hardcoded default offline timeout value of moleculer-js
+	timeout := time.Duration(10 * 60 * time.Second)
+	//timeout := registry.offlineCheckFrequency * 10
 	expiredNodes := registry.nodes.expiredNodes(timeout)
 	for _, node := range expiredNodes {
 		nodeID := node.GetID()
@@ -389,7 +393,95 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	nodeID := message.Get("sender").String()
 	services := message.Get("services").MapArray()
 	exists, reconnected := registry.nodes.Info(message.RawMap())
+
 	for _, serviceInfo := range services {
+
+		/*
+			FIXME:
+				Temporarily tune serviceInfo to be compatible with molecuer-js
+				Shall be compatible with standard service discovery protocol.
+		*/
+
+		// pad optional { version } property
+		if serviceInfo["version"] == nil {
+			serviceInfo["version"] = ""
+		}
+
+		// js won't embed { nodeID } in service schema
+		if serviceInfo["nodeID"] == nil {
+			serviceInfo["nodeID"] = nodeID
+		}
+
+		/*
+			For actions and events.
+
+			JS give: {
+				name: "my.service",
+				actions: {
+					foo: {
+						name: "my.service.foo",
+						...,
+					},
+				},
+				events: {
+					"my.service.bar": {
+						name: "my.service.bar",
+						...,
+					}
+				}
+				...,
+			}
+			GO want: {
+				name: "my.service",
+				actions: [
+					{
+						name: "foo",
+						...,
+					},
+					...,
+				],
+				events: [
+					{
+						name: "my.service.bar",
+						...,
+					}
+				]
+			}
+		 */
+		if actionInfoMap, ok := serviceInfo["actions"].(map[string]interface{}); ok {
+			actionInfoList := make([]interface{}, 0)
+			for _, actionInfo := range actionInfoMap {
+				if actionInfoMap, ok := actionInfo.(map[string]interface{}); ok {
+					if actionFullName, ok := actionInfoMap["name"].(string); ok {
+						actionInfoMap["name"] = strings.Replace(actionFullName, serviceInfo["name"].(string) + ".", "", 1)
+					}
+				}
+				actionInfoList = append(actionInfoList, actionInfo)
+			}
+			serviceInfo["actions"] = actionInfoList
+		}
+
+		if eventInfoMap, ok := serviceInfo["events"].(map[string]interface{}); ok {
+			eventInfoList := make([]interface{}, 0)
+			for _, eventInfo := range eventInfoMap {
+				if eventInfoMap, ok := eventInfo.(map[string]interface{}); ok {
+					// js won't give { serviceName } in Event schema
+					if (eventInfoMap["serviceName"] == nil) {
+						eventInfoMap["serviceName"] = serviceInfo["name"]
+					}
+					// pad optional { group } property
+					if (eventInfoMap["group"] == nil) {
+						eventInfoMap["group"] = serviceInfo["name"]
+					}
+				}
+
+				eventInfoList = append(eventInfoList, eventInfo)
+			}
+			serviceInfo["events"] = eventInfoList
+		}
+
+		/** end of FIXME **/
+
 
 		svc, newService, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
