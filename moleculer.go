@@ -2,10 +2,11 @@ package moleculer
 
 import (
 	"fmt"
+	"math/rand"
+	"os"
 	"time"
 
 	bus "github.com/moleculer-go/goemitter"
-	"github.com/moleculer-go/moleculer/util"
 	"go.mongodb.org/mongo-driver/bson"
 
 	log "github.com/sirupsen/logrus"
@@ -141,8 +142,8 @@ var DefaultConfig = Config{
 	LogFormat:                  "TEXT",
 	DiscoverNodeID:             discoverNodeID,
 	Transporter:                "MEMORY",
-	HeartbeatFrequency:         15 * time.Second,
-	HeartbeatTimeout:           30 * time.Second,
+	HeartbeatFrequency:         5 * time.Second,
+	HeartbeatTimeout:           15 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
 	NeighboursCheckTimeout:     2 * time.Second,
 	WaitForDependenciesTimeout: 2 * time.Second,
@@ -162,10 +163,19 @@ var DefaultConfig = Config{
 	WaitForNeighboursInterval: 200 * time.Millisecond,
 }
 
-// discoverNodeID - should return the node id for this machine
+// discoverNodeID - should return the node id for this machine, never updated after called once
+var nodeID string
 func discoverNodeID() string {
-	// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
-	return fmt.Sprint("Node_", util.RandomString(5))
+	if nodeID == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Errorf("Cannot read hostname of machine: %s", err)
+			hostname = "unknown"
+		}
+		// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
+		nodeID = fmt.Sprintf("%s-%d", hostname, rand.Int() % 100000)
+	}
+	return nodeID
 }
 
 type RetryPolicy struct {
