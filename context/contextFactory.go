@@ -129,7 +129,9 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 		panic(errors.New("Can't create an action context, you need a action field!"))
 	}
 	level = values["level"].(int)
-	parentID = values["parentID"].(string)
+	if _parentID, ok := values["parentID"].(string); ok {
+		parentID = _parentID
+	}
 	params := payload.New(values["params"])
 
 	if values["timeout"] != nil {
@@ -161,14 +163,28 @@ func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface
 	var parentID string
 	var timeout int
 	var meta map[string]interface{}
-
+	
 	sourceNodeID := values["sender"].(string)
-	id := values["id"].(string)
+
+	// FIXME: context id can be null
+	var id string
+	if _id, ok := values["id"].(string); ok {
+		id = _id
+	}
+
 	eventName, isEvent := values["event"]
 	if !isEvent {
 		panic(errors.New("Can't create an event context, you need an event field!"))
 	}
+
+	/*
+		FIXME: event payload should be name as "data"
+		ref: https://github.com/moleculerjs/moleculer/blob/master/docs/PROTOCOL.md#event-1
+	 */
 	params := payload.New(values["params"])
+	if values["data"] != nil {
+		params = payload.New(values["data"])
+	}
 
 	newContext := Context{
 		broker:       broker,
