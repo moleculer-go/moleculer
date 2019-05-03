@@ -85,6 +85,9 @@ func (node *Node) Unavailable() {
 
 func (node *Node) Update(info map[string]interface{}) bool {
 	id := info["id"]
+	if id == nil {
+		id = info["sender"]
+	}
 	if id != node.id {
 		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
 	}
@@ -112,8 +115,19 @@ func (node *Node) Update(info map[string]interface{}) bool {
 	node.logger.Debug("node.Update() node.services: ", node.services)
 
 	node.sequence = int64(info["seq"].(float64))
-	node.cpu = int64(info["cpu"].(float64))
-	node.cpuSequence = int64(info["cpuSeq"].(float64))
+
+	/*
+		FIXME: moleculer-js won't send cpu, cpuSeq for discovery packet
+		ref: https://github.com/moleculerjs/moleculer/blob/master/docs/PROTOCOL.md#info
+	 */
+	if cpu, ok := info["cpu"].(float64); ok {
+		node.cpu = int64(cpu)
+	}
+
+	if cpuSequence, ok := info["cpuSeq"].(float64); ok {
+		node.cpuSequence = int64(cpuSequence)
+	}
+	/* end of FIXME */
 
 	return reconnected
 }
@@ -143,7 +157,11 @@ func (node *Node) removeInternalServices(services []map[string]interface{}) []ma
 func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap := make(map[string]interface{})
 	resultMap["id"] = node.id
-	resultMap["services"] = node.removeInternalServices(node.services)
+
+	// FIXME: node should return internal services as well
+	//resultMap["services"] = node.removeInternalServices(node.services)
+	resultMap["services"] = node.services
+
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname
 	resultMap["client"] = node.client
@@ -151,6 +169,7 @@ func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence
 	resultMap["available"] = node.IsAvailable()
+
 	return resultMap
 }
 
@@ -170,8 +189,12 @@ func (node *Node) HeartBeat(heartbeat map[string]interface{}) {
 		node.isAvailable = true
 		node.offlineSince = 0
 	}
-	node.cpu = int64(heartbeat["cpu"].(float64))
-	node.cpuSequence = int64(heartbeat["cpuSeq"].(float64))
+	if cpu, ok := heartbeat["cpu"].(float64); ok {
+		node.cpu = int64(cpu)
+	}
+	if cpuSeq, ok := heartbeat["cpuSeq"].(float64); ok {
+		node.cpuSequence = int64(cpuSeq)
+	}
 	node.lastHeartBeatTime = time.Now().Unix()
 }
 
