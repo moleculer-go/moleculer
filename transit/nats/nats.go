@@ -30,7 +30,7 @@ func CreateNATSTransporter(options NATSOptions) transit.Transport {
 	opts := nats.GetDefaultOptions()
 	opts.Name = options.ClientID
 	opts.Url = options.URL
-	opts.AllowReconnect = false
+	opts.AllowReconnect = true
 	opts.ReconnectWait = time.Second * 2
 	opts.MaxReconnect = -1
 
@@ -76,6 +76,7 @@ func (t *NATSTransporter) Disconnect() chan bool {
 	go func() {
 		if t.conn == nil {
 			endChan <- true
+			return
 		}
 
 		for _, sub := range t.subscriptions {
