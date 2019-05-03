@@ -333,26 +333,36 @@ func (service *Service) AsMap() map[string]interface{} {
 		panic("no service.nodeID")
 	}
 
-	actions := make([]map[string]interface{}, len(service.actions))
-	for index, serviceAction := range service.actions {
+	/*
+		FIXME:
+			Temporarily tune serviceInfo to be compatible with molecuer-js
+			Shall be compatible with standard service discovery protocol.
+	*/
+
+	actions := make(map[string]interface{})
+	for _, serviceAction := range service.actions {
 		actionInfo := make(map[string]interface{})
-		actionInfo["name"] = serviceAction.name
+		actionInfo["name"] = serviceAction.fullname
+		actionInfo["rawName"] = serviceAction.name
 		actionInfo["params"] = paramsAsMap(&serviceAction.params)
-		actions[index] = actionInfo
+		actions[serviceAction.name] = actionInfo
 	}
 	serviceInfo["actions"] = actions
 
-	events := make([]map[string]interface{}, 0)
+	events := make(map[string]interface{})
 	for _, serviceEvent := range service.events {
 		if !isInternalEvent(serviceEvent) {
 			eventInfo := make(map[string]interface{})
 			eventInfo["name"] = serviceEvent.name
 			eventInfo["serviceName"] = serviceEvent.serviceName
 			eventInfo["group"] = serviceEvent.group
-			events = append(events, eventInfo)
+			events[serviceEvent.name] = eventInfo
 		}
 	}
 	serviceInfo["events"] = events
+
+	/* end of FIXME */
+
 	return serviceInfo
 }
 
@@ -371,6 +381,11 @@ func paramsFromMap(schema interface{}) moleculer.ActionSchema {
 // moleculer.ParamsAsMap converts params schema into a map.
 func paramsAsMap(params *moleculer.ActionSchema) map[string]interface{} {
 	//TODO
+	if params != nil {
+		if paramsMap, ok := (*params).(map[string]interface{}); ok {
+			return paramsMap
+		}
+	}
 	schema := make(map[string]interface{})
 	return schema
 }
