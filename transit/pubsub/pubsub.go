@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -105,6 +106,10 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 	if pubsub.broker.Config.TransporterFactory != nil {
 		pubsub.logger.Info("createTransport() using a custom factory ...")
 		transport = pubsub.broker.Config.TransporterFactory().(transit.Transport)
+	} else if strings.HasPrefix(pubsub.broker.Config.Transporter, "nats://") {
+		pubsub.logger.Info("createTransport() creating NATS Transporter")
+		transport = pubsub.createNATSTransporter()
+
 	} else if pubsub.broker.Config.Transporter == "STAN" {
 		pubsub.logger.Info("createTransport() creating NATS Streaming Transporter")
 		transport = pubsub.createStanTransporter()
@@ -121,6 +126,19 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	logger := pubsub.logger.WithField("transport", "memory")
 	mem := memory.Create(logger, &memory.SharedMemory{})
 	return &mem
+}
+
+func (pubsub *PubSub) createNATSTransporter() transit.Transport {
+	pubsub.logger.Debug("createNATSTransporter() ... ")
+	logger := pubsub.logger.WithField("transport", "nats")
+
+	transporter := nats.CreateNATSTransporter(nats.NATSOptions{
+		URL: pubsub.broker.Config.Transporter,
+		ClientID: pubsub.broker.LocalNode().GetID(),
+		Logger: logger,
+		Serializer: pubsub.serializer,
+	})
+	return transporter
 }
 
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
@@ -415,7 +433,9 @@ func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload["neighbours"] = pubsub.neighbours()
 	payload["ver"] = version.MoleculerProtocol()
 
+
 	message, _ := pubsub.serializer.MapToPayload(&payload)
+	pubsub.logger.Debug("Send INFO ", targetNodeID)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
 }
 
