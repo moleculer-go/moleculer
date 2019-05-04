@@ -74,7 +74,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			profileBroker.Stop()
 		})
 
-		It("should make a remove call from broker a to broker b", func() {
+		It("should make a remote call from profile broker a to user broker", func() {
 			result := <-profileBroker.Call("user.update", longList)
 			Expect(result.IsError()).Should(BeFalse())
 			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
