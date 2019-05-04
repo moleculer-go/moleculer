@@ -41,7 +41,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 		longList = append(longList, randomString)
 	}
 
-	FDescribe("Remote Calls", func() {
+	Describe("Remote Calls", func() {
 		logLevel := "debug"
 		transporter := "nats://" + NatsTestHost + ":4222"
 		userBroker := broker.New(&moleculer.Config{
@@ -80,14 +80,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 		})
 
-		FIt("should failse after brokers are stoped", func() {
-			fmt.Println("step1")
+		It("should fail after brokers are stoped", func() {
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeFalse())
-			fmt.Println("step2")
 			userBroker.Stop()
-			fmt.Println("step3")
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
-			fmt.Println("step4")
+
 		})
 	})
 
