@@ -31,7 +31,6 @@ steps:
       - go get -v github.com/onsi/gomega
       - go get -v github.com/moleculer-go/cupaloy/v2
       - go build
-      - go test ./... -race -coverprofile=coverage.txt -covermode=atomic 2>&1 > /dev/null || echo "Skipping CodeCov coverage file creation"
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash
