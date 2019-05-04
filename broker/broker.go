@@ -59,6 +59,9 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.Middlewares != nil {
 				baseConfig.Middlewares = config.Middlewares
 			}
+			if config.RequestTimeout != 0 {
+				baseConfig.RequestTimeout = config.RequestTimeout
+			}
 		}
 	}
 	return baseConfig
@@ -255,6 +258,10 @@ func (broker *ServiceBroker) Start() {
 }
 
 func (broker *ServiceBroker) Stop() {
+	if !broker.started {
+		broker.logger.Info("Broker is not started!")
+		return
+	}
 	broker.logger.Info("Broker -> Stopping...")
 
 	broker.middlewares.CallHandlers("brokerStopping", broker.delegates)

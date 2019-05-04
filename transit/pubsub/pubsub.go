@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -72,18 +73,48 @@ func Create(broker *moleculer.BrokerDelegates) transit.Transit {
 	return &transitImpl
 }
 
+func (pubsub *PubSub) pendingRequestsByNode(nodeId string) []pendingRequest {
+	list := []pendingRequest{}
+	for _, p := range pubsub.pendingRequests {
+		if p.context.TargetNodeID() == nodeId {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (pubsub *PubSub) requestTimedOut(resultChan *chan moleculer.Payload, context moleculer.BrokerContext) func() {
+	pError := payload.New(errors.New("request timeout"))
+	return func() {
+		pubsub.logger.Debug("requestTimedOut() nodeID: ", context.TargetNodeID())
+		pubsub.pendingRequestsMutex.Lock()
+		defer pubsub.pendingRequestsMutex.Unlock()
+
+		p, exists := pubsub.pendingRequests[context.ID()]
+		if exists {
+			(*p.resultChan) <- pError
+			p.timer.Stop()
+			delete(pubsub.pendingRequests, p.context.ID())
+		}
+	}
+}
+
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	pubsub.pendingRequestsMutex.Lock()
-	defer pubsub.pendingRequestsMutex.Unlock()
 
 	var nodeID string = values[0].(string)
-	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
-
-	pending, exists := pubsub.pendingRequests[nodeID]
-	if exists {
-		(*pending.resultChan) <- payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
-		delete(pubsub.pendingRequests, nodeID)
+	pending := pubsub.pendingRequestsByNode(nodeID)
+	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID, " pending: ", len(pending))
+	if len(pending) > 0 {
+		pError := payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
+		for _, p := range pending {
+			(*p.resultChan) <- pError
+			p.timer.Stop()
+			delete(pubsub.pendingRequests, p.context.ID())
+		}
 	}
+	pubsub.pendingRequestsMutex.Unlock()
+
 	pubsub.neighboursMutex.Lock()
 	delete(pubsub.knownNeighbours, nodeID)
 	pubsub.neighboursMutex.Unlock()
@@ -98,6 +129,10 @@ func (pubsub *PubSub) onNodeConnected(values ...interface{}) {
 	pubsub.neighboursMutex.Unlock()
 }
 
+func isNats(v string) bool {
+	return strings.Index(v, "nats://") > -1
+}
+
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
 func (pubsub *PubSub) createTransport() transit.Transport {
@@ -108,6 +143,10 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 	} else if pubsub.broker.Config.Transporter == "STAN" {
 		pubsub.logger.Info("createTransport() creating NATS Streaming Transporter")
 		transport = pubsub.createStanTransporter()
+	} else if isNats(pubsub.broker.Config.Transporter) {
+		pubsub.logger.Info("createTransport() creating NATS Transporter")
+		transport = pubsub.createNatsTransporter()
+
 	} else {
 		pubsub.logger.Info("createTransport() creating default Memory Transporter")
 		transport = pubsub.createMemoryTransporter()
@@ -123,10 +162,23 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	return &mem
 }
 
+func (pubsub *PubSub) createNatsTransporter() transit.Transport {
+	pubsub.logger.Debug("createNatsTransporter()")
+
+	return nats.CreateNatsTransporter(nats.NATSOptions{
+		URL:            pubsub.broker.Config.Transporter,
+		Name:           pubsub.broker.LocalNode().GetID(),
+		Logger:         pubsub.logger.WithField("transport", "nats"),
+		Serializer:     pubsub.serializer,
+		AllowReconnect: true,
+		ReconnectWait:  time.Second * 2,
+		MaxReconnect:   -1,
+	})
+}
+
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	//TODO: move this to config and params
 	broker := pubsub.broker
-	prefix := "MOL"
 	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
 	clusterID := "test-cluster"
 
@@ -134,7 +186,6 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	logger := broker.Logger("transport", "stan")
 
 	options := nats.StanOptions{
-		prefix,
 		url,
 		clusterID,
 		localNodeID,
@@ -154,6 +205,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 type pendingRequest struct {
 	context    moleculer.BrokerContext
 	resultChan *chan moleculer.Payload
+	timer      *time.Timer
 }
 
 func (pubsub *PubSub) checkMaxQueueSize() {
@@ -254,11 +306,15 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
 
-	pubsub.logger.Debug("Request() pending request id: ", context.ID())
 	pubsub.pendingRequestsMutex.Lock()
+	pubsub.logger.Debug("Request() pending request id: ", context.ID(), " targetNodeId: ", context.TargetNodeID())
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
+
+		time.AfterFunc(
+			pubsub.broker.Config.RequestTimeout,
+			pubsub.requestTimedOut(&resultChan, context)),
 	}
 	pubsub.pendingRequestsMutex.Unlock()
 
@@ -316,6 +372,7 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 			return
 		}
 
+		request.timer.Stop()
 		defer delete(pubsub.pendingRequests, id)
 		var result moleculer.Payload
 		if message.Get("success").Bool() {
@@ -504,10 +561,10 @@ func (pubsub *PubSub) sendDisconnect() {
 }
 
 // Disconnect : disconnect the transit's  transporter.
-func (pubsub *PubSub) Disconnect() chan bool {
-	endChan := make(chan bool)
+func (pubsub *PubSub) Disconnect() chan error {
+	endChan := make(chan error)
 	if !pubsub.isConnected {
-		endChan <- true
+		endChan <- nil
 		return endChan
 	}
 	pubsub.logger.Info("PubSub - Disconnecting transport...")
@@ -517,21 +574,26 @@ func (pubsub *PubSub) Disconnect() chan bool {
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
-func (pubsub *PubSub) Connect() chan bool {
-	endChan := make(chan bool)
+func (pubsub *PubSub) Connect() chan error {
+	endChan := make(chan error)
 	if pubsub.isConnected {
-		endChan <- true
+		endChan <- nil
 		return endChan
 	}
 	pubsub.logger.Info("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport()
 	go func() {
-		pubsub.isConnected = <-pubsub.transport.Connect()
-		pubsub.logger.Debug("PubSub - Transport Connected!")
-		if pubsub.isConnected {
+		err := <-pubsub.transport.Connect()
+		if err == nil {
+			pubsub.isConnected = true
+			pubsub.logger.Debug("PubSub - Transport Connected!")
+
 			pubsub.subscribe()
+
+		} else {
+			pubsub.logger.Debug("PubSub - Error connecting transport - error: ", err)
 		}
-		endChan <- pubsub.isConnected
+		endChan <- err
 	}()
 	return endChan
 }

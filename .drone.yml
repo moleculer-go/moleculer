@@ -22,6 +22,7 @@ steps:
         from_secret: COVERALLS_TOKEN
     commands:
       - export STAN_HOST="nats-streaming"
+      - export NATS_HOST="nats-streaming"
       - go get -v golang.org/x/lint/golint
       - go get -v golang.org/x/tools/cmd/cover
       - go get -v github.com/mattn/goveralls
@@ -31,8 +32,7 @@ steps:
       - go get -v github.com/onsi/gomega
       - go get -v github.com/moleculer-go/cupaloy/v2
       - go build
-      - go test ./... -race -coverprofile=coverage.txt -covermode=atomic 2>&1 > /dev/null || echo "Skipping CodeCov coverage file creation"
       - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - gover ./ coverage.txt
-      - curl -s https://codecov.io/bash | bash
-      - goveralls -coverprofile=coverage.txt -service=drone.io
+      - curl -s https://codecov.io/bash | bash || echo "Error uploading codecov"
+      - goveralls -coverprofile=coverage.txt -service=drone.io || echo "Error uploading coveralls"
