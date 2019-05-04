@@ -178,6 +178,48 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 	})
 
+	It("Should fail to connect", func() {
+		logger := contextA.Logger()
+		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
+		options := nats.NATSOptions{
+			URL:        "some ivalid URL",
+			Name:       "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+		transporter := nats.CreateNatsTransporter(options)
+		transporter.SetPrefix("MOL")
+		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+	})
+
+	It("Should not fail on double disconnect", func() {
+		logger := contextA.Logger()
+		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
+		options := nats.NATSOptions{
+			URL:        url,
+			Name:       "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+		transporter := nats.CreateNatsTransporter(options)
+		transporter.SetPrefix("MOL")
+		Expect(<-transporter.Connect()).Should(Succeed())
+		Expect(<-transporter.Disconnect()).Should(Succeed())
+		Expect(<-transporter.Disconnect()).Should(Succeed())
+	})
+
+	It("Should fail Subscribe() and Publish() when is not connected", func() {
+		transporter := nats.CreateNatsTransporter(nats.NATSOptions{})
+		Expect(func() { transporter.Subscribe("", "", func(moleculer.Payload) {}) }).Should(Panic())
+		Expect(func() { transporter.Publish("", "", payload.Empty()) }).Should(Panic())
+	})
+
 	It("Should connect, subscribe, publish and disconnect", func() {
 		logger := contextA.Logger()
 		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)

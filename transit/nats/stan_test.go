@@ -159,4 +159,45 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 	})
 
+	It("Should fail to connect", func() {
+		logger := contextA.Logger()
+		options := nats.StanOptions{
+			URL:        "some ivalid URL",
+			ClientID:   "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+		transporter := nats.CreateStanTransporter(options)
+		transporter.SetPrefix("MOL")
+		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+	})
+
+	It("Should not fail on double disconnect", func() {
+		logger := contextA.Logger()
+		options := nats.StanOptions{
+			url,
+			"test-cluster",
+			"unit-test-client-id",
+			logger,
+			serializer,
+			func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+		transporter := nats.CreateStanTransporter(options)
+		transporter.SetPrefix("MOL")
+		Expect(<-transporter.Connect()).Should(Succeed())
+		Expect(<-transporter.Disconnect()).Should(Succeed())
+		Expect(<-transporter.Disconnect()).Should(Succeed())
+	})
+
+	It("Should fail Subscribe() and Publish() when is not connected", func() {
+		transporter := nats.CreateStanTransporter(nats.StanOptions{})
+		Expect(func() { transporter.Subscribe("", "", func(moleculer.Payload) {}) }).Should(Panic())
+		Expect(func() { transporter.Publish("", "", payload.Empty()) }).Should(Panic())
+	})
+
 })

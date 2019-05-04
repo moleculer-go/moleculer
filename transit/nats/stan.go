@@ -67,6 +67,10 @@ func (transporter *StanTransporter) Connect() chan error {
 func (transporter *StanTransporter) Disconnect() chan error {
 	endChan := make(chan error)
 	go func() {
+		if transporter.connection == nil {
+			endChan <- nil
+			return
+		}
 		transporter.logger.Debug("Disconnect() # of subscriptions: ", len(transporter.subscriptions))
 		for _, sub := range transporter.subscriptions {
 			error := sub.Unsubscribe()
