@@ -100,7 +100,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 	Describe("Start / Stop Cycles.", func() {
 		logLevel := "fatal"
-		numberOfLoops := 10
+		numberOfLoops := 5
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
 			transporter := "nats://" + NatsTestHost + ":4222"
