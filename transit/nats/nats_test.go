@@ -81,7 +81,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 		})
 
 		It("should fail after brokers are stoped", func() {
-			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeFalse())
+			p := (<-profileBroker.Call("user.update", longList))
+			if p.IsError() {
+				fmt.Println("Error: ", p)
+			}
+			Expect(p.IsError()).Should(BeFalse())
 			userBroker.Stop()
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
 		})
