@@ -44,43 +44,48 @@ var _ = Describe("NATS Streaming Transit", func() {
 	Describe("Remote Calls", func() {
 		logLevel := "fatal"
 		transporter := "nats://" + NatsTestHost + ":4222"
-		userBroker := broker.New(&moleculer.Config{
-			LogLevel:    logLevel,
-			Transporter: transporter,
-			DiscoverNodeID: func() string {
-				return "user_broker"
-			},
-			RequestTimeout: time.Second,
-		})
-		userBroker.Publish(userService())
 
-		profileBroker := broker.New(&moleculer.Config{
-			LogLevel:    logLevel,
-			Transporter: transporter,
-			DiscoverNodeID: func() string {
-				return "profile_broker"
-			},
-			RequestTimeout: time.Second,
-		})
-		profileBroker.Publish(profileService())
-
+		var userBroker, profileBroker *broker.ServiceBroker
 		BeforeEach(func() {
+
+			userBroker = broker.New(&moleculer.Config{
+				LogLevel:    logLevel,
+				Transporter: transporter,
+				DiscoverNodeID: func() string {
+					return "user_broker"
+				},
+				RequestTimeout: time.Second,
+			})
+			userBroker.Publish(userService())
+
+			profileBroker = broker.New(&moleculer.Config{
+				LogLevel:    logLevel,
+				Transporter: transporter,
+				DiscoverNodeID: func() string {
+					return "profile_broker"
+				},
+				RequestTimeout: time.Second,
+			})
+			profileBroker.Publish(profileService())
+
+		})
+
+		It("should make a remote call from profile broker a to user broker", func() {
 			userBroker.Start()
 			profileBroker.Start()
-		})
 
-		AfterEach(func() {
+			result := <-profileBroker.Call("user.update", longList)
+			Expect(result.IsError()).Should(BeFalse())
+			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
+
 			userBroker.Stop()
 			profileBroker.Stop()
 		})
 
-		It("should make a remote call from profile broker a to user broker", func() {
-			result := <-profileBroker.Call("user.update", longList)
-			Expect(result.IsError()).Should(BeFalse())
-			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
-		})
-
 		It("should fail after brokers are stoped", func() {
+			userBroker.Start()
+			profileBroker.Start()
+
 			p := (<-profileBroker.Call("user.update", longList))
 			if p.IsError() {
 				fmt.Println("Error: ", p)
@@ -88,6 +93,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 			Expect(p.IsError()).Should(BeFalse())
 			userBroker.Stop()
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
+
+			profileBroker.Stop()
 		})
 	})
 
