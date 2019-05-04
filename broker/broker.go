@@ -59,6 +59,9 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.Middlewares != nil {
 				baseConfig.Middlewares = config.Middlewares
 			}
+			if config.RequestTimeout != 0 {
+				baseConfig.RequestTimeout = config.RequestTimeout
+			}
 		}
 	}
 	return baseConfig

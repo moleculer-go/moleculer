@@ -3,6 +3,7 @@ package nats_test
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
@@ -49,6 +50,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			DiscoverNodeID: func() string {
 				return "user_broker"
 			},
+			RequestTimeout: time.Second,
 		})
 		userBroker.Publish(userService())
 
@@ -58,6 +60,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			DiscoverNodeID: func() string {
 				return "profile_broker"
 			},
+			RequestTimeout: time.Second,
 		})
 		profileBroker.Publish(profileService())
 
@@ -97,22 +100,25 @@ var _ = Describe("NATS Streaming Transit", func() {
 			var userBroker, contactBroker, profileBroker *broker.ServiceBroker
 			bench.Time("brokers creation", func() {
 				userBroker = broker.New(&moleculer.Config{
-					LogLevel:    logLevel,
-					Transporter: transporter,
+					LogLevel:       logLevel,
+					Transporter:    transporter,
+					RequestTimeout: time.Second,
 				})
 				userBroker.Publish(userService())
 				userBroker.Start()
 
 				contactBroker = broker.New(&moleculer.Config{
-					LogLevel:    logLevel,
-					Transporter: transporter,
+					LogLevel:       logLevel,
+					Transporter:    transporter,
+					RequestTimeout: time.Second,
 				})
 				contactBroker.Publish(contactService())
 				contactBroker.Start()
 
 				profileBroker = broker.New(&moleculer.Config{
-					LogLevel:    logLevel,
-					Transporter: transporter,
+					LogLevel:       logLevel,
+					Transporter:    transporter,
+					RequestTimeout: time.Second,
 				})
 				profileBroker.Publish(profileService())
 				profileBroker.Start()

@@ -157,7 +157,7 @@ var DefaultConfig = Config{
 	RetryPolicy: RetryPolicy{
 		Enabled: false,
 	},
-	RequestTimeout:            0,
+	RequestTimeout:            1 * time.Minute,
 	MCallTimeout:              5 * time.Second,
 	WaitForNeighboursInterval: 200 * time.Millisecond,
 }

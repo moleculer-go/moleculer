@@ -83,6 +83,22 @@ func (pubsub *PubSub) pendingRequestsByNode(nodeId string) []pendingRequest {
 	return list
 }
 
+func (pubsub *PubSub) requestTimedOut(resultChan *chan moleculer.Payload, context moleculer.BrokerContext) func() {
+	pError := payload.New(errors.New("request timeout"))
+	return func() {
+		pubsub.logger.Debug("requestTimedOut() nodeID: ", context.TargetNodeID())
+		pubsub.pendingRequestsMutex.Lock()
+		defer pubsub.pendingRequestsMutex.Unlock()
+
+		p, exists := pubsub.pendingRequests[context.ID()]
+		if exists {
+			(*p.resultChan) <- pError
+			p.timer.Stop()
+			delete(pubsub.pendingRequests, p.context.ID())
+		}
+	}
+}
+
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	pubsub.pendingRequestsMutex.Lock()
 
@@ -93,6 +109,7 @@ func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 		pError := payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
 		for _, p := range pending {
 			(*p.resultChan) <- pError
+			p.timer.Stop()
 			delete(pubsub.pendingRequests, p.context.ID())
 		}
 	}
@@ -188,6 +205,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 type pendingRequest struct {
 	context    moleculer.BrokerContext
 	resultChan *chan moleculer.Payload
+	timer      *time.Timer
 }
 
 func (pubsub *PubSub) checkMaxQueueSize() {
@@ -293,6 +311,10 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
+
+		time.AfterFunc(
+			pubsub.broker.Config.RequestTimeout,
+			pubsub.requestTimedOut(&resultChan, context)),
 	}
 	pubsub.pendingRequestsMutex.Unlock()
 
@@ -350,6 +372,7 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 			return
 		}
 
+		request.timer.Stop()
 		defer delete(pubsub.pendingRequests, id)
 		var result moleculer.Payload
 		if message.Get("success").Bool() {
