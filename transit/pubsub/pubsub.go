@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -98,6 +99,10 @@ func (pubsub *PubSub) onNodeConnected(values ...interface{}) {
 	pubsub.neighboursMutex.Unlock()
 }
 
+func isNats(v string) bool {
+	return strings.Index(v, "nats://") > -1
+}
+
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
 func (pubsub *PubSub) createTransport() transit.Transport {
@@ -108,6 +113,10 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 	} else if pubsub.broker.Config.Transporter == "STAN" {
 		pubsub.logger.Info("createTransport() creating NATS Streaming Transporter")
 		transport = pubsub.createStanTransporter()
+	} else if isNats(pubsub.broker.Config.Transporter) {
+		pubsub.logger.Info("createTransport() creating NATS Transporter")
+		transport = pubsub.createNatsTransporter()
+
 	} else {
 		pubsub.logger.Info("createTransport() creating default Memory Transporter")
 		transport = pubsub.createMemoryTransporter()
@@ -140,7 +149,6 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	//TODO: move this to config and params
 	broker := pubsub.broker
-	prefix := "MOL"
 	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
 	clusterID := "test-cluster"
 
@@ -148,7 +156,6 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	logger := broker.Logger("transport", "stan")
 
 	options := nats.StanOptions{
-		prefix,
 		url,
 		clusterID,
 		localNodeID,

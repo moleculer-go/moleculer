@@ -16,23 +16,21 @@ import (
 	"github.com/moleculer-go/moleculer/transit/nats"
 )
 
-var StanTestHost = os.Getenv("STAN_HOST")
+func natsTestHost() string {
+	env := os.Getenv("NATS_HOST")
+	if env == "" {
+		return "localhost"
+	}
+	return env
+}
+
+var NatsTestHost = natsTestHost()
+
 var _ = Describe("NATS Streaming Transit", func() {
+	//log.SetLevel(log.TraceLevel)
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
-	logger := contextA.Logger()
-	var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
-	url := "stan://" + StanTestHost + ":4222"
-	options := nats.StanOptions{
-		url,
-		"test-cluster",
-		"unit-test-client-id",
-		logger,
-		serializer,
-		func(msg moleculer.Payload) bool {
-			return true
-		},
-	}
+	url := "nats://" + NatsTestHost + ":4222"
 
 	stringSize := 50
 	arraySize := 100
@@ -42,31 +40,56 @@ var _ = Describe("NATS Streaming Transit", func() {
 		longList = append(longList, randomString)
 	}
 
+	Describe("Remote Calls", func() {
+		logLevel := "fatal"
+		transporter := "nats://" + NatsTestHost + ":4222"
+		userBroker := broker.New(&moleculer.Config{
+			LogLevel:    logLevel,
+			Transporter: transporter,
+		})
+		addUserService(userBroker)
+		userBroker.Start()
+
+		contactBroker := broker.New(&moleculer.Config{
+			LogLevel:    logLevel,
+			Transporter: transporter,
+		})
+		addContactService(contactBroker)
+		contactBroker.Start()
+
+		It("should make a remove call from broker a to broker b", func() {
+			result := <-userBroker.Call("contact.update", longList)
+			fmt.Println("result: ", result)
+			Expect(result.IsError()).Should(BeFalse())
+			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
+		})
+	})
+
 	Describe("Start / Stop Cycles.", func() {
 		logLevel := "FATAL"
 		numberOfLoops := 10
 		loopNumber := 0
-		Measure("Creation of multiple brokers with connect/disconnect cycles running on stan transporter.", func(bench Benchmarker) {
-
+		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
+			transporter := "nats://" + NatsTestHost + ":4222"
 			var userBroker, contactBroker, profileBroker *broker.ServiceBroker
 			bench.Time("brokers creation", func() {
 				userBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
-					Transporter: "STAN",
+					Transporter: transporter,
 				})
 				addUserService(userBroker)
 				userBroker.Start()
 
 				contactBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
-					Transporter: "STAN",
+					Transporter: transporter,
 				})
 				addContactService(contactBroker)
 				contactBroker.Start()
 
 				profileBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
-					Transporter: "STAN",
+					Transporter: transporter,
 				})
 				addProfileService(profileBroker)
 				profileBroker.Start()
@@ -82,6 +105,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 			bench.Time("5 remote calls", func() {
 				result := <-userBroker.Call("contact.update", longList)
+				fmt.Println("result: ", result)
 				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 				result = <-contactBroker.Call("user.update", longList)
@@ -120,6 +144,18 @@ var _ = Describe("NATS Streaming Transit", func() {
 	})
 
 	It("Should connect, subscribe, publish and disconnect", func() {
+		logger := contextA.Logger()
+		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
+		options := nats.NATSOptions{
+			URL:        url,
+			Name:       "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+
 		params := map[string]string{
 			"name":     "John",
 			"lastName": "Snow",
@@ -128,7 +164,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 		actionName := "some.service.action"
 		actionContext := contextA.ChildActionContext(actionName, payload.New(params))
 
-		transporter := nats.CreateStanTransporter(options)
+		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
 		Expect(<-transporter.Connect()).Should(Succeed())
 

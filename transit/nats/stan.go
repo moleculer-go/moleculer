@@ -25,7 +25,6 @@ type StanTransporter struct {
 }
 
 type StanOptions struct {
-	Prefix    string
 	URL       string
 	ClusterID string
 	ClientID  string
@@ -39,7 +38,6 @@ type StanOptions struct {
 func CreateStanTransporter(options StanOptions) StanTransporter {
 	transport := StanTransporter{}
 	transport.url = options.URL
-	transport.prefix = options.Prefix
 	transport.clusterID = options.ClusterID
 	transport.clientID = options.ClientID
 	transport.serializer = options.Serializer
@@ -111,16 +109,16 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Subscribe() command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
-	sub, error := transporter.connection.Subscribe(topic, func(msg *stan.Msg) {
+	sub, err := transporter.connection.Subscribe(topic, func(msg *stan.Msg) {
 		transporter.logger.Trace("stan.Subscribe() command: ", command, " nodeID: ", nodeID, " msg: \n", msg, "\n - end")
 		message := transporter.serializer.BytesToPayload(&msg.Data)
 		if transporter.validateMsg(message) {
 			handler(message)
 		}
 	})
-	if error != nil {
-		transporter.logger.Error("Subscribe() - Error: ", error)
-		panic(error)
+	if err != nil {
+		transporter.logger.Error("Subscribe() - Error: ", err)
+		panic(err)
 	}
 	transporter.subscriptions = append(transporter.subscriptions, sub)
 }
