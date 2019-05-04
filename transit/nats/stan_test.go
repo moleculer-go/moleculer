@@ -54,21 +54,21 @@ var _ = Describe("NATS Streaming Transit", func() {
 					LogLevel:    logLevel,
 					Transporter: "STAN",
 				})
-				addUserService(userBroker)
+				userBroker.Publish(userService())
 				userBroker.Start()
 
 				contactBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: "STAN",
 				})
-				addContactService(contactBroker)
+				contactBroker.Publish(contactService())
 				contactBroker.Start()
 
 				profileBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: "STAN",
 				})
-				addProfileService(profileBroker)
+				profileBroker.Publish(profileService())
 				profileBroker.Start()
 			})
 

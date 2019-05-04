@@ -40,33 +40,56 @@ var _ = Describe("NATS Streaming Transit", func() {
 		longList = append(longList, randomString)
 	}
 
-	Describe("Remote Calls", func() {
-		logLevel := "fatal"
+	FDescribe("Remote Calls", func() {
+		logLevel := "debug"
 		transporter := "nats://" + NatsTestHost + ":4222"
 		userBroker := broker.New(&moleculer.Config{
 			LogLevel:    logLevel,
 			Transporter: transporter,
+			DiscoverNodeID: func() string {
+				return "user_broker"
+			},
 		})
-		addUserService(userBroker)
-		userBroker.Start()
+		userBroker.Publish(userService())
 
-		contactBroker := broker.New(&moleculer.Config{
+		profileBroker := broker.New(&moleculer.Config{
 			LogLevel:    logLevel,
 			Transporter: transporter,
+			DiscoverNodeID: func() string {
+				return "profile_broker"
+			},
 		})
-		addContactService(contactBroker)
-		contactBroker.Start()
+		profileBroker.Publish(profileService())
+
+		BeforeEach(func() {
+			userBroker.Start()
+			profileBroker.Start()
+		})
+
+		AfterEach(func() {
+			userBroker.Stop()
+			profileBroker.Stop()
+		})
 
 		It("should make a remove call from broker a to broker b", func() {
-			result := <-userBroker.Call("contact.update", longList)
-			fmt.Println("result: ", result)
+			result := <-profileBroker.Call("user.update", longList)
 			Expect(result.IsError()).Should(BeFalse())
 			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
+		})
+
+		FIt("should failse after brokers are stoped", func() {
+			fmt.Println("step1")
+			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeFalse())
+			fmt.Println("step2")
+			userBroker.Stop()
+			fmt.Println("step3")
+			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
+			fmt.Println("step4")
 		})
 	})
 
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "FATAL"
+		logLevel := "debug"
 		numberOfLoops := 10
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
@@ -77,21 +100,21 @@ var _ = Describe("NATS Streaming Transit", func() {
 					LogLevel:    logLevel,
 					Transporter: transporter,
 				})
-				addUserService(userBroker)
+				userBroker.Publish(userService())
 				userBroker.Start()
 
 				contactBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: transporter,
 				})
-				addContactService(contactBroker)
+				contactBroker.Publish(contactService())
 				contactBroker.Start()
 
 				profileBroker = broker.New(&moleculer.Config{
 					LogLevel:    logLevel,
 					Transporter: transporter,
 				})
-				addProfileService(profileBroker)
+				profileBroker.Publish(profileService())
 				profileBroker.Start()
 			})
 
@@ -105,7 +128,6 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 			bench.Time("5 remote calls", func() {
 				result := <-userBroker.Call("contact.update", longList)
-				fmt.Println("result: ", result)
 				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 				result = <-contactBroker.Call("user.update", longList)

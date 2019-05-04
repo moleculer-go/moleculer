@@ -131,6 +131,9 @@ func (transporter *StanTransporter) Publish(command, nodeID string, message mole
 	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
-	bmsg := transporter.serializer.PayloadToBytes(message)
-	transporter.connection.Publish(topic, bmsg)
+	err := transporter.connection.Publish(topic, transporter.serializer.PayloadToBytes(message))
+	if err != nil {
+		transporter.logger.Error("Error on publish: error: ", err, " command: ", command, " topic: ", topic)
+		panic(err)
+	}
 }

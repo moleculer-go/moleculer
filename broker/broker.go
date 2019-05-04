@@ -255,6 +255,10 @@ func (broker *ServiceBroker) Start() {
 }
 
 func (broker *ServiceBroker) Stop() {
+	if !broker.started {
+		broker.logger.Info("Broker is not started!")
+		return
+	}
 	broker.logger.Info("Broker -> Stopping...")
 
 	broker.middlewares.CallHandlers("brokerStopping", broker.delegates)

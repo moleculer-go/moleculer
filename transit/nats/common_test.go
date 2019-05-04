@@ -30,8 +30,8 @@ func BrokerDelegates() *moleculer.BrokerDelegates {
 	return broker
 }
 
-func addUserService(bkr *broker.ServiceBroker) {
-	bkr.Publish(moleculer.ServiceSchema{
+func userService() moleculer.ServiceSchema {
+	return moleculer.ServiceSchema{
 		Name: "user",
 		Actions: []moleculer.Action{
 			{
@@ -43,11 +43,11 @@ func addUserService(bkr *broker.ServiceBroker) {
 				},
 			},
 		},
-	})
+	}
 }
 
-func addContactService(bkr *broker.ServiceBroker) {
-	bkr.Publish(moleculer.ServiceSchema{
+func contactService() moleculer.ServiceSchema {
+	return moleculer.ServiceSchema{
 		Name: "contact",
 		Actions: []moleculer.Action{
 			{
@@ -59,11 +59,11 @@ func addContactService(bkr *broker.ServiceBroker) {
 				},
 			},
 		},
-	})
+	}
 }
 
-func addProfileService(bkr *broker.ServiceBroker) {
-	bkr.Publish(moleculer.ServiceSchema{
+func profileService() moleculer.ServiceSchema {
+	return moleculer.ServiceSchema{
 		Name:         "profile",
 		Dependencies: []string{"user", "contact"},
 		Actions: []moleculer.Action{
@@ -84,7 +84,7 @@ func addProfileService(bkr *broker.ServiceBroker) {
 				},
 			},
 		},
-	})
+	}
 }
 
 func stopBrokers(brokers ...*broker.ServiceBroker) {

@@ -73,18 +73,31 @@ func Create(broker *moleculer.BrokerDelegates) transit.Transit {
 	return &transitImpl
 }
 
+func (pubsub *PubSub) pendingRequestsByNode(nodeId string) []pendingRequest {
+	list := []pendingRequest{}
+	for _, p := range pubsub.pendingRequests {
+		if p.context.TargetNodeID() == nodeId {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	pubsub.pendingRequestsMutex.Lock()
-	defer pubsub.pendingRequestsMutex.Unlock()
 
 	var nodeID string = values[0].(string)
-	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
-
-	pending, exists := pubsub.pendingRequests[nodeID]
-	if exists {
-		(*pending.resultChan) <- payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
-		delete(pubsub.pendingRequests, nodeID)
+	pending := pubsub.pendingRequestsByNode(nodeID)
+	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID, " pending: ", len(pending))
+	if len(pending) > 0 {
+		pError := payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
+		for _, p := range pending {
+			(*p.resultChan) <- pError
+			delete(pubsub.pendingRequests, p.context.ID())
+		}
 	}
+	pubsub.pendingRequestsMutex.Unlock()
+
 	pubsub.neighboursMutex.Lock()
 	delete(pubsub.knownNeighbours, nodeID)
 	pubsub.neighboursMutex.Unlock()
@@ -275,8 +288,8 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
 
-	pubsub.logger.Debug("Request() pending request id: ", context.ID())
 	pubsub.pendingRequestsMutex.Lock()
+	pubsub.logger.Debug("Request() pending request id: ", context.ID(), " targetNodeId: ", context.TargetNodeID())
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
