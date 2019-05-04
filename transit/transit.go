@@ -11,8 +11,8 @@ type ValidateMsgFunc func(moleculer.Payload) bool
 type Transit interface {
 	Emit(moleculer.BrokerContext)
 	Request(moleculer.BrokerContext) chan moleculer.Payload
-	Connect() chan bool
-	Disconnect() chan bool
+	Connect() chan error
+	Disconnect() chan error
 	DiscoverNode(nodeID string)
 
 	//DiscoverNodes checks if there are neighbours and return true if any are found ;).
@@ -21,8 +21,8 @@ type Transit interface {
 }
 
 type Transport interface {
-	Connect() chan bool
-	Disconnect() chan bool
+	Connect() chan error
+	Disconnect() chan error
 	Subscribe(command, nodeID string, handler TransportHandler)
 	Publish(command, nodeID string, message moleculer.Payload)
 

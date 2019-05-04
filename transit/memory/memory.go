@@ -45,25 +45,25 @@ func (transporter *MemoryTransporter) SetPrefix(prefix string) {
 	transporter.prefix = prefix
 }
 
-func (transporter *MemoryTransporter) Connect() chan bool {
+func (transporter *MemoryTransporter) Connect() chan error {
 	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Connecting() ...")
-	endChan := make(chan bool)
+	endChan := make(chan error)
 	go func() {
-		endChan <- true
+		endChan <- nil
 	}()
 	transporter.logger.Info("[Mem-Trans-", transporter.instanceID, "] -> Connected() !")
 	return endChan
 }
 
-func (transporter *MemoryTransporter) Disconnect() chan bool {
-	endChan := make(chan bool)
+func (transporter *MemoryTransporter) Disconnect() chan error {
+	endChan := make(chan error)
 	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Disconnecting() ...")
 	for _, subscription := range transporter.subscriptions {
 		subscription.active = false
 		subscription.handler = nil
 	}
 	go func() {
-		endChan <- true
+		endChan <- nil
 	}()
 	transporter.logger.Info("[Mem-Trans-", transporter.instanceID, "] -> Disconnected() !")
 	return endChan

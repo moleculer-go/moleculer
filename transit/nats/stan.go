@@ -48,25 +48,26 @@ func CreateStanTransporter(options StanOptions) StanTransporter {
 	return transport
 }
 
-func (transporter *StanTransporter) Connect() chan bool {
-	endChan := make(chan bool)
+func (transporter *StanTransporter) Connect() chan error {
+	endChan := make(chan error)
 	go func() {
-		transporter.logger.Debug("Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
-		connection, error := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
-		if error != nil {
-			transporter.logger.Error("\nConnect() - Error: ", error, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
-			panic("Error trying to connect to stan server. url: " + transporter.url + " clusterID: " + transporter.clusterID + " clientID: " + transporter.clientID + " -> Stan error: " + error.Error())
+		transporter.logger.Debug("STAN Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
+		connection, err := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
+		if err != nil {
+			transporter.logger.Error("STAN Connect() - Error: ", err, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
+			//panic("Error trying to connect to stan server. url: " + transporter.url + " clusterID: " + transporter.clusterID + " clientID: " + transporter.clientID + " -> Stan error: " + error.Error())
+			endChan <- err
+			return
 		}
-		transporter.logger.Info("Connect() - connection success!")
-
+		transporter.logger.Info("STAN Connect() - connection success!")
 		transporter.connection = connection
-		endChan <- true
+		endChan <- nil
 	}()
 	return endChan
 }
 
-func (transporter *StanTransporter) Disconnect() chan bool {
-	endChan := make(chan bool)
+func (transporter *StanTransporter) Disconnect() chan error {
+	endChan := make(chan error)
 	go func() {
 		transporter.logger.Debug("Disconnect() # of subscriptions: ", len(transporter.subscriptions))
 		for _, sub := range transporter.subscriptions {
@@ -76,15 +77,15 @@ func (transporter *StanTransporter) Disconnect() chan bool {
 			}
 		}
 		transporter.logger.Debug("Disconnect() subscriptions unsubscribed.")
-		error := transporter.connection.Close()
-		if error == nil {
+		err := transporter.connection.Close()
+		if err == nil {
 			transporter.logger.Debug("Disconnect() stan connection closed :)")
+			endChan <- nil
 		} else {
-			transporter.logger.Error("Disconnect() error when closing stan connection :( ", error)
+			transporter.logger.Error("Disconnect() error when closing stan connection :( ", err)
+			endChan <- err
 		}
-
 		transporter.connection = nil
-		endChan <- true
 	}()
 	return endChan
 }

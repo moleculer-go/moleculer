@@ -123,6 +123,20 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	return &mem
 }
 
+func (pubsub *PubSub) createNatsTransporter() transit.Transport {
+	pubsub.logger.Debug("createNatsTransporter()")
+
+	return nats.CreateNatsTransporter(nats.NATSOptions{
+		URL:            pubsub.broker.Config.Transporter,
+		Name:           pubsub.broker.LocalNode().GetID(),
+		Logger:         pubsub.logger.WithField("transport", "nats"),
+		Serializer:     pubsub.serializer,
+		AllowReconnect: true,
+		ReconnectWait:  time.Second * 2,
+		MaxReconnect:   -1,
+	})
+}
+
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	//TODO: move this to config and params
 	broker := pubsub.broker
@@ -504,10 +518,10 @@ func (pubsub *PubSub) sendDisconnect() {
 }
 
 // Disconnect : disconnect the transit's  transporter.
-func (pubsub *PubSub) Disconnect() chan bool {
-	endChan := make(chan bool)
+func (pubsub *PubSub) Disconnect() chan error {
+	endChan := make(chan error)
 	if !pubsub.isConnected {
-		endChan <- true
+		endChan <- nil
 		return endChan
 	}
 	pubsub.logger.Info("PubSub - Disconnecting transport...")
@@ -517,21 +531,26 @@ func (pubsub *PubSub) Disconnect() chan bool {
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
-func (pubsub *PubSub) Connect() chan bool {
-	endChan := make(chan bool)
+func (pubsub *PubSub) Connect() chan error {
+	endChan := make(chan error)
 	if pubsub.isConnected {
-		endChan <- true
+		endChan <- nil
 		return endChan
 	}
 	pubsub.logger.Info("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport()
 	go func() {
-		pubsub.isConnected = <-pubsub.transport.Connect()
-		pubsub.logger.Debug("PubSub - Transport Connected!")
-		if pubsub.isConnected {
+		err := <-pubsub.transport.Connect()
+		if err == nil {
+			pubsub.isConnected = true
+			pubsub.logger.Debug("PubSub - Transport Connected!")
+
 			pubsub.subscribe()
+
+		} else {
+			pubsub.logger.Debug("PubSub - Error connecting transport - error: ", err)
 		}
-		endChan <- pubsub.isConnected
+		endChan <- err
 	}()
 	return endChan
 }

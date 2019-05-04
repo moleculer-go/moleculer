@@ -120,9 +120,13 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 func (registry *ServiceRegistry) Stop() {
 	registry.logger.Debug("Registry Stopping...")
 	registry.stopping = true
-	<-registry.transit.Disconnect()
-	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
+	err := <-registry.transit.Disconnect()
+	if err != nil {
+		registry.logger.Debug("Error trying to disconnect transit - error: ", err)
+		return
+	}
 
+	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
 }
 
 func (registry *ServiceRegistry) LocalServices() []*service.Service {
@@ -133,9 +137,9 @@ func (registry *ServiceRegistry) LocalServices() []*service.Service {
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
 	registry.stopping = false
-	connected := <-registry.transit.Connect()
-	if !connected {
-		panic(errors.New("Could not connect to the transit. Check logs for more details."))
+	err := <-registry.transit.Connect()
+	if err != nil {
+		panic(errors.New(fmt.Sprint("Could not connect to the transit. err: ", err)))
 	}
 	<-registry.transit.DiscoverNodes()
 
