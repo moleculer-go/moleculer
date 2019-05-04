@@ -11,9 +11,10 @@ import (
 )
 
 type Subscription struct {
-	id      string
-	handler transit.TransportHandler
-	active  bool
+	id            string
+	transporterId string
+	handler       transit.TransportHandler
+	active        bool
 }
 
 type SharedMemory struct {
@@ -22,23 +23,21 @@ type SharedMemory struct {
 }
 
 type MemoryTransporter struct {
-	prefix        string
-	instanceID    string
-	logger        *log.Entry
-	memory        *SharedMemory
-	subscriptions []Subscription
+	prefix     string
+	instanceID string
+	logger     *log.Entry
+	memory     *SharedMemory
 }
 
 func Create(logger *log.Entry, memory *SharedMemory) MemoryTransporter {
 	instanceID := util.RandomString(5)
-	subscriptions := make([]Subscription, 0)
 	if memory.handlers == nil {
 		memory.handlers = make(map[string][]Subscription)
 	}
 	if memory.mutex == nil {
 		memory.mutex = &sync.Mutex{}
 	}
-	return MemoryTransporter{memory: memory, logger: logger, instanceID: instanceID, subscriptions: subscriptions}
+	return MemoryTransporter{memory: memory, logger: logger, instanceID: instanceID}
 }
 
 func (transporter *MemoryTransporter) SetPrefix(prefix string) {
@@ -58,10 +57,19 @@ func (transporter *MemoryTransporter) Connect() chan error {
 func (transporter *MemoryTransporter) Disconnect() chan error {
 	endChan := make(chan error)
 	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Disconnecting() ...")
-	for _, subscription := range transporter.subscriptions {
-		subscription.active = false
-		subscription.handler = nil
+
+	newHandlers := map[string][]Subscription{}
+	for key, subscriptions := range transporter.memory.handlers {
+		keep := []Subscription{}
+		for _, subscription := range subscriptions {
+			if subscription.transporterId != transporter.instanceID {
+				keep = append(keep, subscription)
+			}
+		}
+		newHandlers[key] = keep
 	}
+	transporter.memory.handlers = newHandlers
+
 	go func() {
 		endChan <- nil
 	}()
@@ -80,8 +88,7 @@ func (transporter *MemoryTransporter) Subscribe(command string, nodeID string, h
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("[Mem-Trans-", transporter.instanceID, "] Subscribe() listen for command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
-	subscription := Subscription{util.RandomString(5), handler, true}
-	transporter.subscriptions = append(transporter.subscriptions, subscription)
+	subscription := Subscription{util.RandomString(5) + "_" + command, transporter.instanceID, handler, true}
 
 	transporter.memory.mutex.Lock()
 	_, exists := transporter.memory.handlers[topic]

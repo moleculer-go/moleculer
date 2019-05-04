@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
@@ -135,7 +136,11 @@ func (actionCatalog *ActionCatalog) RemoveByNode(nodeID string) {
 				toKeep = append(toKeep, action)
 			}
 		}
-		actionCatalog.actions.Store(name, toKeep)
+		if len(toKeep) == 0 {
+			actionCatalog.actions.Delete(name)
+		} else {
+			actionCatalog.actions.Store(name, toKeep)
+		}
 		return true
 	})
 }
@@ -167,6 +172,19 @@ func (actionCatalog *ActionCatalog) NextFromNode(actionName string, nodeID strin
 		}
 	}
 	return nil
+}
+
+func (actionCatalog *ActionCatalog) printDebugActions() {
+	allActions := []string{}
+	actionCatalog.actions.Range(func(key, value interface{}) bool {
+		action := key.(string)
+		if strings.Index(action, "$node") == -1 {
+			allActions = append(allActions, action)
+		}
+		return true
+	})
+	fmt.Println("actions: ", strings.Join(allActions, ", "))
+	fmt.Println("")
 }
 
 // Next find all actions registered in this node and use the strategy to select and return the best one to be called.
