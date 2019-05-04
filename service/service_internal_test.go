@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	snap "github.com/moleculer-go/cupaloy"
+	snap "github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/payload"
 
