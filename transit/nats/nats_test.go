@@ -42,7 +42,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	}
 
 	Describe("Remote Calls", func() {
-		logLevel := "debug"
+		logLevel := "fatal"
 		transporter := "nats://" + NatsTestHost + ":4222"
 		userBroker := broker.New(&moleculer.Config{
 			LogLevel:    logLevel,
@@ -84,12 +84,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeFalse())
 			userBroker.Stop()
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
-
 		})
 	})
 
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "debug"
+		logLevel := "fatal"
 		numberOfLoops := 10
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
