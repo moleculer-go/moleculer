@@ -64,7 +64,7 @@ func (t *NatsTransporter) Connect() chan error {
 		conn, err := t.opts.Connect()
 		if err != nil {
 			t.logger.Error("NATS Connect() - Error: ", err, " url: ", t.opts.Url, " Name: ", t.opts.Name)
-			endChan <- err
+			endChan <- errors.New(fmt.Sprint("Error connection to NATS. error: ", err, " url: ", t.opts.Url))
 			return
 		}
 
