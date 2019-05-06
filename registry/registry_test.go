@@ -467,6 +467,7 @@ var _ = Describe("Registry", func() {
 			//time.Sleep(100 * time.Millisecond)
 
 			<-addedChan
+			sort.Strings(serviceRemoved)
 			Expect(snap.SnapshotMulti("remote-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
 			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 

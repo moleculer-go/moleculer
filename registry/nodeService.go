@@ -2,6 +2,7 @@ package registry
 
 import (
 	"strings"
+	"time"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/service"
@@ -9,6 +10,7 @@ import (
 
 // createNodeService create the local node service -> $node.
 func createNodeService(registry *ServiceRegistry) *service.Service {
+	var startedTime time.Time
 	isAvailable := func(nodeID string) bool {
 		node, exists := registry.nodes.findNode(nodeID)
 		return exists && node.IsAvailable()
@@ -24,6 +26,9 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 	}
 	return service.FromSchema(moleculer.ServiceSchema{
 		Name: "$node",
+		Started: func(moleculer.BrokerContext, moleculer.ServiceSchema) {
+			startedTime = time.Now()
+		},
 		Actions: []moleculer.Action{
 			{
 				Name: "events",
@@ -159,7 +164,6 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					withEvents := params.Get("withEvents").Exists() && params.Get("withEvents").Bool()
 					withEndpoints := params.Get("withEndpoints").Exists() && params.Get("withEndpoints").Bool()
 
-					//ISSUE: is returning duplicate services. -> printer which exists in 2 brokers.. local and remote.
 					result := make([]map[string]interface{}, 0)
 					for name, entries := range registry.services.listByName() {
 						has := func(check func(nodeID string) bool) bool {
@@ -232,6 +236,138 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					}
 
 					return result
+				},
+			},
+			//
+			/* FIXME: currently returns incomplete payload */
+			{
+				Name:        "health",
+				Description: "Return health status of local node including transit, os, cpu, memory, process, network, client information.",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					/* TODO: map as JSON which follows standard structure
+					{ cpu:
+						 { load1: 1.802734375,
+						 load5: 1.8603515625,
+						 load15: 1.82666015625,
+						 cores: 16,
+						 utilization: 11 },
+						mem:
+						 { free: 886513664,
+						 total: 68719476736,
+						 percent: 1.2900471687316895 },
+						os:
+						 { uptime: 1507874,
+						 type: 'Darwin',
+						 release: '18.5.0',
+						 hostname: 'imac.local',
+						 arch: 'x64',
+						 platform: 'darwin',
+						 user:
+							{ uid: 501,
+							gid: 20,
+							username: 'dehypnosis',
+							homedir: '/Users/dehypnosis',
+							shell: '/bin/zsh' } },
+						process:
+						 { pid: 67218,
+						 memory:
+							{ rss: 60497920,
+							heapTotal: 32743424,
+							heapUsed: 27003144,
+							external: 104085 },
+						 uptime: 80.434,
+						 argv:
+							[ '/usr/local/bin/node',
+							'/usr/local/bin/moleculer',
+							'connect',
+							'nats://dev.nats.svc.cluster.local:4222' ] },
+						client: { type: 'nodejs', version: '0.13.8', langVersion: 'v8.16.0' },
+						net: { ip: [ '222.107.184.34', '172.30.1.7' ] },
+						transit:
+						 { stat:
+							{ packets:
+							 { sent: { count: 28, bytes: 13409 },
+								 received: { count: 158, bytes: 199426 } } } },
+						time:
+						 { now: 1556737026387,
+						 iso: '2019-05-01T18:57:06.387Z',
+						 utc: 'Wed, 01 May 2019 18:57:06 GMT' } }
+					*/
+					nodeInfo := registry.localNode.ExportAsMap()
+					return map[string]interface{}{
+						"cpu": map[string]interface{}{},
+						"mem": map[string]interface{}{},
+						"os":  map[string]interface{}{},
+						"process": map[string]interface{}{
+							"uptime": time.Since(startedTime),
+						},
+						"client": nodeInfo["client"],
+						"net": map[string]interface{}{
+							"ip": nodeInfo["ipList"],
+						},
+						"transit": map[string]interface{}{
+							// TODO
+						},
+						"time": map[string]interface{}{
+							// TODO
+						},
+					}
+				},
+			},
+			/* TODO: support $node.options */
+			{
+				Name:        "options",
+				Description: "Return broker configuration of local node.",
+				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					/* TODO: map as JSON which follows standard structure
+					{ logger: true,
+						transporter: 'nats://dev.nats.svc.cluster.local:4222',
+						nodeID: 'cli-imac.local-67218',
+						namespace: '',
+						logLevel: null,
+						logFormatter: 'default',
+						logObjectPrinter: null,
+						requestTimeout: 0,
+						retryPolicy:
+						 { enabled: false,
+						 retries: 5,
+						 delay: 100,
+						 maxDelay: 1000,
+						 factor: 2,
+						 check: [Function: check] },
+						maxCallLevel: 0,
+						heartbeatInterval: 5,
+						heartbeatTimeout: 15,
+						tracking: { enabled: false, shutdownTimeout: 5000 },
+						disableBalancer: false,
+						registry: { strategy: 'RoundRobin', preferLocal: true },
+						circuitBreaker:
+						 { enabled: false,
+						 threshold: 0.5,
+						 windowTime: 60,
+						 minRequestCount: 20,
+						 halfOpenTime: 10000,
+						 check: [Function: check] },
+						bulkhead: { enabled: false, concurrency: 10, maxQueueSize: 100 },
+						transit:
+						 { maxQueueSize: 50000,
+						 packetLogFilter: [],
+						 disableReconnect: false,
+						 disableVersionCheck: false },
+						cacher: null,
+						serializer: null,
+						validation: true,
+						validator: null,
+						metrics: false,
+						metricsRate: 1,
+						internalServices: true,
+						internalMiddlewares: true,
+						hotReload: false,
+						middlewares: null,
+						replCommands: null }
+					*/
+					// from registry.broker.Config ?
+					return map[string]interface{}{}
 				},
 			},
 		},

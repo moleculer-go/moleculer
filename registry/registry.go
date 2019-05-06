@@ -38,6 +38,7 @@ type ServiceRegistry struct {
 	heartbeatFrequency    time.Duration
 	heartbeatTimeout      time.Duration
 	offlineCheckFrequency time.Duration
+	offlineTimeout        time.Duration
 	nodeReceivedMutex     *sync.Mutex
 }
 
@@ -73,6 +74,7 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 		heartbeatFrequency:    config.HeartbeatFrequency,
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
+		offlineTimeout:        config.OfflineTimeout,
 		stopping:              false,
 		nodeReceivedMutex:     &sync.Mutex{},
 	}
@@ -332,12 +334,11 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 }
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
-	timeout := registry.offlineCheckFrequency * 10
-	expiredNodes := registry.nodes.expiredNodes(timeout)
+	expiredNodes := registry.nodes.expiredNodes(registry.offlineTimeout)
 	for _, node := range expiredNodes {
 		nodeID := node.GetID()
 		registry.nodes.removeNode(nodeID)
-		registry.logger.Warnf("Removed offline Node: %s  from the registry because it hasn't submitted heartbeat in %d seconds.", nodeID, timeout)
+		registry.logger.Warnf("Removed offline Node: %s  from the registry because it hasn't submitted heartbeat in %d seconds.", nodeID, registry.offlineTimeout)
 	}
 }
 

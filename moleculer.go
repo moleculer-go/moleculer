@@ -117,6 +117,7 @@ type Config struct {
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
 	OfflineCheckFrequency      time.Duration
+	OfflineTimeout             time.Duration
 	NeighboursCheckTimeout     time.Duration
 	WaitForDependenciesTimeout time.Duration
 	Middlewares                []Middlewares

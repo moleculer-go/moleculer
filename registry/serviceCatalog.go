@@ -26,7 +26,7 @@ func CreateServiceCatalog(logger *log.Entry) *ServiceCatalog {
 }
 
 // createKey creates the catalogy key used in the map
-func createKey(name string, version string, nodeID string) string {
+func createKey(name string, version interface{}, nodeID string) string {
 	return fmt.Sprintf("%s:%s:%s", nodeID, name, version)
 }
 
@@ -229,7 +229,8 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 
 // updateRemote : update remote service info and return what actions are new, updated and deleted
 func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) (*service.Service, bool, []map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
-	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
+
+	key := createKey(serviceInfo["name"].(string), serviceInfo["version"], nodeID)
 	item, serviceExists := serviceCatalog.services.Load(key)
 
 	if serviceExists {
@@ -242,6 +243,7 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 	}
 
 	newService := service.CreateServiceFromMap(serviceInfo)
+	newService.SetNodeID(nodeID)
 	serviceCatalog.Add(newService)
 
 	newActions := newService.Actions()

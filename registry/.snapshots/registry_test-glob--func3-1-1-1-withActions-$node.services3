@@ -21,7 +21,7 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=5) "$node",
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=4) {
+      (string) (len=7) "actions": ([]map[string]interface {}) (len=6) {
         (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=4) "list",
           (string) (len=6) "params": (map[string]interface {}) {
@@ -33,7 +33,17 @@
           }
         },
         (map[string]interface {}) (len=2) {
+          (string) (len=4) "name": (string) (len=6) "health",
+          (string) (len=6) "params": (map[string]interface {}) {
+          }
+        },
+        (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=7) "actions",
+          (string) (len=6) "params": (map[string]interface {}) {
+          }
+        },
+        (map[string]interface {}) (len=2) {
+          (string) (len=4) "name": (string) (len=7) "options",
           (string) (len=6) "params": (map[string]interface {}) {
           }
         },
