@@ -110,7 +110,6 @@ func (t *NatsTransporter) Subscribe(command, nodeID string, handler transit.Tran
 	}
 
 	topic := t.topicName(command, nodeID)
-	t.logger.Info("NATS Subscribe to ", topic)
 
 	sub, err := t.conn.Subscribe(topic, func(msg *nats.Msg) {
 		payload := t.serializer.BytesToPayload(&msg.Data)

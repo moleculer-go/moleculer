@@ -138,17 +138,17 @@ func isNats(v string) bool {
 func (pubsub *PubSub) createTransport() transit.Transport {
 	var transport transit.Transport
 	if pubsub.broker.Config.TransporterFactory != nil {
-		pubsub.logger.Info("createTransport() using a custom factory ...")
+		pubsub.logger.Info("Transporter: Custom factory")
 		transport = pubsub.broker.Config.TransporterFactory().(transit.Transport)
 	} else if pubsub.broker.Config.Transporter == "STAN" {
-		pubsub.logger.Info("createTransport() creating NATS Streaming Transporter")
+		pubsub.logger.Info("Transporter: NatsStreamingTransporter")
 		transport = pubsub.createStanTransporter()
 	} else if isNats(pubsub.broker.Config.Transporter) {
-		pubsub.logger.Info("createTransport() creating NATS Transporter")
+		pubsub.logger.Info("Transporter: NatsTransporter")
 		transport = pubsub.createNatsTransporter()
 
 	} else {
-		pubsub.logger.Info("createTransport() creating default Memory Transporter")
+		pubsub.logger.Info("Transporter: Memory")
 		transport = pubsub.createMemoryTransporter()
 	}
 	transport.SetPrefix("MOL")
@@ -580,7 +580,7 @@ func (pubsub *PubSub) Connect() chan error {
 		endChan <- nil
 		return endChan
 	}
-	pubsub.logger.Info("PubSub - Connecting transport...")
+	pubsub.logger.Debug("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport()
 	go func() {
 		err := <-pubsub.transport.Connect()

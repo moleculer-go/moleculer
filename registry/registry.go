@@ -79,7 +79,7 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 		nodeReceivedMutex:     &sync.Mutex{},
 	}
 
-	registry.logger.Info("Service Registry created for broker: ", nodeID)
+	registry.logger.Debug("Service Registry created for broker: ", nodeID)
 
 	broker.Bus().On("$broker.started", func(args ...interface{}) {
 		registry.logger.Debug("Registry -> $broker.started event")
@@ -445,6 +445,8 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 		}
 
 		if newService {
+			registry.logger.Infof("Registry - remote %s service is registered.", svc.FullName())
+
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.added",
 				[]interface{}{svc.Summary()})

@@ -228,7 +228,8 @@ func (broker *ServiceBroker) Start() {
 		broker.logger.Warn("broker.Start() called on a broker that already started!")
 		return
 	}
-	broker.logger.Info("Broker -> Starting...")
+	broker.logger.Info("Moleculer is starting...")
+	broker.logger.Info("Node ID: ", broker.localNode.GetID())
 
 	broker.middlewares.CallHandlers("brokerStarting", broker.delegates)
 
@@ -254,7 +255,7 @@ func (broker *ServiceBroker) Start() {
 	defer broker.middlewares.CallHandlers("brokerStarted", broker.delegates)
 
 	broker.started = true
-	broker.logger.Info("Broker -> Started !!!")
+	broker.logger.Info("Service Broker with ", len(broker.services), " service(s) started successfully..")
 }
 
 func (broker *ServiceBroker) Stop() {
@@ -262,7 +263,7 @@ func (broker *ServiceBroker) Stop() {
 		broker.logger.Info("Broker is not started!")
 		return
 	}
-	broker.logger.Info("Broker -> Stopping...")
+	broker.logger.Info("Service Broker is stopping...")
 
 	broker.middlewares.CallHandlers("brokerStopping", broker.delegates)
 
@@ -459,6 +460,5 @@ func New(userConfig ...*moleculer.Config) *ServiceBroker {
 	config := mergeConfigs(moleculer.DefaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
-	broker.logger.Info("Broker - New() ")
 	return &broker
 }
