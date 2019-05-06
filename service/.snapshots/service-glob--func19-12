@@ -1,0 +1,88 @@
+(moleculer.ServiceSchema) {
+  Name: (string) (len=5) "earth",
+  Version: (string) (len=3) "0.2",
+  Dependencies: ([]string) {
+  },
+  Settings: (map[string]interface {}) (len=2) {
+    (string) (len=10) "dinosauros": (bool) true,
+    (string) (len=7) "craters": (bool) true
+  },
+  Metadata: (map[string]interface {}) (len=2) {
+    (string) (len=10) "resolution": (string) (len=4) "high",
+    (string) (len=11) "star-system": (string) (len=3) "sun"
+  },
+  Hooks: (map[string]interface {}) (len=2) {
+    (string) (len=12) "solar-system": (string) (len=4) "true",
+    (string) (len=5) "earth": (string) (len=4) "true"
+  },
+  Mixins: ([]moleculer.Mixin) (len=1) {
+    (moleculer.Mixin) {
+      Name: (string) (len=4) "moon",
+      Dependencies: ([]string) <nil>,
+      Settings: (map[string]interface {}) (len=1) {
+        (string) (len=7) "craters": (bool) true
+      },
+      Metadata: (map[string]interface {}) (len=1) {
+        (string) (len=10) "resolution": (string) (len=4) "high"
+      },
+      Hooks: (map[string]interface {}) (len=1) {
+        (string) (len=5) "earth": (string) (len=4) "true"
+      },
+      Actions: ([]moleculer.Action) (len=1) {
+        (moleculer.Action) {
+          Name: (string) (len=4) "tide",
+          Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+          Schema: (moleculer.ActionSchema) <nil>,
+          Settings: (map[string]interface {}) <nil>,
+          Description: (string) ""
+        }
+      },
+      Events: ([]moleculer.Event) (len=2) {
+        (moleculer.Event) {
+          Name: (string) (len=12) "moon.isClose",
+          Group: (string) "",
+          Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+        },
+        (moleculer.Event) {
+          Name: (string) (len=13) "earth.rotates",
+          Group: (string) "",
+          Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+        }
+      },
+      Created: (moleculer.CreatedFunc) <moleculer.CreatedFunc Value>,
+      Started: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+      Stopped: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>
+    }
+  },
+  Actions: ([]moleculer.Action) (len=2) {
+    (moleculer.Action) {
+      Name: (string) (len=4) "tide",
+      Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+      Schema: (moleculer.ActionSchema) <nil>,
+      Settings: (map[string]interface {}) <nil>,
+      Description: (string) ""
+    },
+    (moleculer.Action) {
+      Name: (string) (len=6) "rotate",
+      Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+      Schema: (moleculer.ActionSchema) <nil>,
+      Settings: (map[string]interface {}) <nil>,
+      Description: (string) ""
+    }
+  },
+  Events: ([]moleculer.Event) (len=2) {
+    (moleculer.Event) {
+      Name: (string) (len=12) "moon.isClose",
+      Group: (string) "",
+      Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+    },
+    (moleculer.Event) {
+      Name: (string) (len=13) "earth.rotates",
+      Group: (string) "",
+      Handler: (moleculer.EventHandler) <moleculer.EventHandler Value>
+    }
+  },
+  Created: (moleculer.CreatedFunc) <moleculer.CreatedFunc Value>,
+  Started: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>,
+  Stopped: (moleculer.LifecycleFunc) <moleculer.LifecycleFunc Value>
+}

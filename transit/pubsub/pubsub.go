@@ -222,7 +222,7 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 		expected := pubsub.expectedNeighbours()
 		neighbours := pubsub.neighbours()
 		if expected <= neighbours && (expected > 0 || neighbours > 0) {
-			pubsub.logger.Info("waitForNeighbours() - received info from all expected neighbours :) -> expected: ", expected)
+			pubsub.logger.Debug("waitForNeighbours() - received info from all expected neighbours :) -> expected: ", expected)
 			return true
 		}
 		if time.Since(start) > pubsub.neighboursTimeout {

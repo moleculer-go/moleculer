@@ -75,7 +75,7 @@ var _ = g.Describe("Context", func() {
 			"sender":    "test",
 			"id":        "id",
 			"event":     "event",
-			"params":    map[string]interface{}{},
+			"data":      map[string]interface{}{},
 			"groups":    []string{"a", "b"},
 			"broadcast": true,
 		})

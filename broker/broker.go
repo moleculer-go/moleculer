@@ -255,7 +255,7 @@ func (broker *ServiceBroker) Start() {
 	defer broker.middlewares.CallHandlers("brokerStarted", broker.delegates)
 
 	broker.started = true
-	broker.logger.Info("Service Broker with ", len(broker.services), " service(s) started successfully..")
+	broker.logger.Info("Service Broker with ", len(broker.services), " service(s) started successfully.")
 }
 
 func (broker *ServiceBroker) Stop() {
