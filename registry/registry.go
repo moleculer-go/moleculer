@@ -387,6 +387,14 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 	}
 }
 
+func compatibility(info map[string]interface{}) map[string]interface{} {
+	_, exists := info["version"]
+	if !exists {
+		info["version"] = ""
+	}
+	return info
+}
+
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
 func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
 	registry.nodeReceivedMutex.Lock()
@@ -395,7 +403,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	services := message.Get("services").MapArray()
 	exists, reconnected := registry.nodes.Info(message.RawMap())
 	for _, serviceInfo := range services {
-
+		serviceInfo = compatibility(serviceInfo)
 		svc, newService, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {

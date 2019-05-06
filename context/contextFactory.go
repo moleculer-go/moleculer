@@ -118,7 +118,6 @@ func checkMaxCalls(context *Context) {
 // ActionContext create an action context for remote call.
 func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	var level int
-	var parentID string
 	var timeout int
 	var meta map[string]interface{}
 
@@ -129,7 +128,11 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 		panic(errors.New("Can't create an action context, you need a action field!"))
 	}
 	level = values["level"].(int)
-	parentID = values["parentID"].(string)
+
+	parentID := ""
+	if p, ok := values["parentID"]; ok {
+		parentID = p.(string)
+	}
 	params := payload.New(values["params"])
 
 	if values["timeout"] != nil {
@@ -157,18 +160,15 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 
 // EventContext create an event context for a remote call.
 func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
-	var level int
-	var parentID string
-	var timeout int
-	var meta map[string]interface{}
-
 	sourceNodeID := values["sender"].(string)
-	id := values["id"].(string)
+	id := ""
+	if t, ok := values["id"]; ok {
+		id = t.(string)
+	}
 	eventName, isEvent := values["event"]
 	if !isEvent {
 		panic(errors.New("Can't create an event context, you need an event field!"))
 	}
-	params := payload.New(values["params"])
 
 	newContext := Context{
 		broker:       broker,
@@ -176,11 +176,7 @@ func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface
 		id:           id,
 		eventName:    eventName.(string),
 		broadcast:    values["broadcast"].(bool),
-		parentID:     parentID,
-		params:       params,
-		meta:         &meta,
-		timeout:      timeout,
-		level:        level,
+		params:       payload.New(values["data"]),
 	}
 	if values["groups"] != nil {
 		temp := values["groups"]
@@ -217,7 +213,6 @@ func (context *Context) AsMap() map[string]interface{} {
 	mapResult["id"] = context.id
 	mapResult["requestID"] = context.requestID
 
-	mapResult["params"] = context.params.Value()
 	mapResult["level"] = context.level
 	if context.actionName != "" {
 		mapResult["action"] = context.actionName
@@ -225,11 +220,13 @@ func (context *Context) AsMap() map[string]interface{} {
 		mapResult["parentID"] = context.parentID
 		mapResult["meta"] = (*context.meta)
 		mapResult["timeout"] = context.timeout
+		mapResult["params"] = context.params.Value()
 	}
 	if context.eventName != "" {
 		mapResult["event"] = context.eventName
 		mapResult["groups"] = context.groups
 		mapResult["broadcast"] = context.broadcast
+		mapResult["data"] = context.params.Value()
 	}
 
 	//TODO : check how to support streaming params in go
