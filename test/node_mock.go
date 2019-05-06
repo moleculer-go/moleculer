@@ -10,10 +10,10 @@ type NodeMock struct {
 	ExportAsMapResult     map[string]interface{}
 	IsAvailableResult     bool
 	IsExpiredResult       bool
-	PublishCalls       int
+	PublishCalls          int
 }
 
-func (node *NodeMock) Update(info map[string]interface{}) bool {
+func (node *NodeMock) Update(id string, info map[string]interface{}) bool {
 	return node.UpdateResult
 }
 

@@ -2,10 +2,14 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=5) {
       (string) (len=4) "name": (string) (len=10) "$node.list",
-      (string) (len=5) "count": (int) 1,
+      (string) (len=5) "count": (int) 2,
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=1) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_scannerBroker",
           (string) (len=9) "available": (bool) true
@@ -16,10 +20,14 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=5) {
       (string) (len=4) "name": (string) (len=12) "$node.events",
-      (string) (len=5) "count": (int) 1,
+      (string) (len=5) "count": (int) 2,
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=1) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_scannerBroker",
           (string) (len=9) "available": (bool) true
@@ -44,10 +52,14 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=5) {
       (string) (len=4) "name": (string) (len=13) "$node.actions",
-      (string) (len=5) "count": (int) 1,
+      (string) (len=5) "count": (int) 2,
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=1) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_scannerBroker",
           (string) (len=9) "available": (bool) true
@@ -72,10 +84,14 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=5) {
       (string) (len=4) "name": (string) (len=14) "$node.services",
-      (string) (len=5) "count": (int) 1,
+      (string) (len=5) "count": (int) 2,
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=1) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_scannerBroker",
           (string) (len=9) "available": (bool) true

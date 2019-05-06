@@ -25,7 +25,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 	return service.FromSchema(moleculer.ServiceSchema{
 		Name: "$node",
 		Actions: []moleculer.Action{
-			moleculer.Action{
+			{
 				Name: "events",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
 					onlyLocal := params.Get("onlyLocal").Exists() && params.Get("onlyLocal").Bool()
@@ -79,7 +79,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					return result
 				},
 			},
-			moleculer.Action{
+			{
 				Name:        "actions",
 				Description: "Find and return a list of actions in the registry of this service broker.",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
@@ -134,7 +134,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					return result
 				},
 			},
-			moleculer.Action{
+			{
 				Name:        "services",
 				Description: "Find and return a list of services in the registry of this service broker.",
 				Schema: moleculer.ObjectSchema{
@@ -207,7 +207,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 					return result
 				},
 			},
-			moleculer.Action{
+			{
 				Name:        "list",
 				Description: "Find and return a list of nodes in the registry of this service broker.",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {

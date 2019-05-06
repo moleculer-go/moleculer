@@ -207,7 +207,7 @@ type Node interface {
 	IsAvailable() bool
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
-	Update(info map[string]interface{}) bool
+	Update(id string, info map[string]interface{}) bool
 
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
