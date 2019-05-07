@@ -23,16 +23,9 @@ steps:
     commands:
       - export STAN_HOST="nats-streaming"
       - export NATS_HOST="nats-streaming"
-      - go get -v golang.org/x/lint/golint
-      - go get -v golang.org/x/tools/cmd/cover
-      - go get -v github.com/mattn/goveralls
-      - go get -v github.com/modocache/gover
-      - go get -v github.com/nats-io/gnatsd
-      - go get -v github.com/onsi/ginkgo/ginkgo
-      - go get -v github.com/onsi/gomega
-      - go get -v github.com/moleculer-go/cupaloy/v2
       - go build
-      - ginkgo -r --randomizeAllSpecs --failFast --cover --trace
-      - gover ./ coverage.txt
+      - go run github.com/onsi/ginkgo/ginkgo -r --randomizeAllSpecs --failFast --cover --trace
+      - go test github.com/moleculer-go/compatibility/moleculerjs
+      - go run github.com/modocache/gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash || echo "Error uploading codecov"
-      - goveralls -coverprofile=coverage.txt -service=drone.io || echo "Error uploading coveralls"
+      - go run github.com/mattn/goveralls -coverprofile=coverage.txt -service=drone.io || echo "Error uploading coveralls"
