@@ -24,7 +24,10 @@ steps:
       - export STAN_HOST="nats-streaming"
       - export NATS_HOST="nats-streaming"
       - go build
-      - go run github.com/onsi/ginkgo/ginkgo -r --randomizeAllSpecs --failFast --cover --trace
+      - go run github.com/onsi/ginkgo/ginkgo -r --randomizeAllSpecs --failFast --cover --trace || echo "Failed tests"
+      - curl -sL https://deb.nodesource.com/setup_12.x | bash -
+      - apt-get update
+      - apt-get install -y nodejs
       - go test github.com/moleculer-go/compatibility/moleculerjs
       - go run github.com/modocache/gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash || echo "Error uploading codecov"
