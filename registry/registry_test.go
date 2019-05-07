@@ -210,7 +210,7 @@ var _ = Describe("Registry", func() {
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -218,7 +218,7 @@ var _ = Describe("Registry", func() {
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -465,7 +465,7 @@ var _ = Describe("Registry", func() {
 				Dependencies: []string{"internal-consumer", "service-added"},
 			})
 			bkr2.Start()
-			//time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 
 			<-addedChan
 			sort.Strings(serviceRemoved)
@@ -474,7 +474,7 @@ var _ = Describe("Registry", func() {
 
 			//stop broker 2 .. should remove services on broker 1
 			bkr2.Stop()
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			sort.Strings(serviceRemoved)
 			Expect(snap.SnapshotMulti("remote-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
@@ -510,7 +510,7 @@ var _ = Describe("Registry", func() {
 			Expect(scanResult.IsError()).Should(BeTrue())
 
 			scannerBroker.Start()
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 300)
 
 			scanResult = <-scannerBroker.Call("scanner.scan", scanText)
 			Expect(scanResult.IsError()).ShouldNot(Equal(true))
@@ -521,7 +521,7 @@ var _ = Describe("Registry", func() {
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			cpuBroker.Start()
-			time.Sleep(time.Second) //sleep until services are registered
+			time.Sleep(time.Millisecond * 300) //sleep until services are registered
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-cpuBroker.Call("cpu.compute", contentToCompute)
@@ -530,7 +530,7 @@ var _ = Describe("Registry", func() {
 
 			//stopping broker B
 			scannerBroker.Stop() // TODO -> not  implemented yet
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 300)
 
 			Expect(func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
