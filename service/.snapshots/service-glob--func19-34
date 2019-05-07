@@ -1,0 +1,72 @@
+([]moleculer.Action) (len=10) {
+  (moleculer.Action) {
+    Name: (string) (len=10) "justParams",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=11) "justContext",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=14) "completeAction",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=14) "noArgsNoReturn",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=18) "justParamsNoReturn",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=19) "justContextNoReturn",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=22) "completeActionNoReturn",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=24) "nonPointerCompleteAction",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=3) "add",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=6) "noArgs",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  }
+}

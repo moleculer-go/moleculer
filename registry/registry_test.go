@@ -144,7 +144,8 @@ func cleanupNode(in map[string]interface{}) map[string]interface{} {
 		return make(map[string]interface{})
 	}
 	in["ipList"] = []string{"100.100.0.100"}
-	in["hostname"] = ""
+	in["hostname"] = "removed"
+	in["seq"] = "removed"
 	return in
 }
 
