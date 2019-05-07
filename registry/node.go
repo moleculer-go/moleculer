@@ -73,14 +73,10 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 		services: services,
 		logger:   logger,
 		isLocal:  local,
+		sequence: 1,
 	}
 	var result moleculer.Node = &node
 	return result
-}
-
-//Unavailable mark the node as unavailable
-func (node *Node) Unavailable() {
-	node.isAvailable = false
 }
 
 func (node *Node) Update(id string, info map[string]interface{}) bool {
@@ -188,6 +184,16 @@ func (node *Node) Publish(service map[string]interface{}) {
 
 func (node *Node) IsAvailable() bool {
 	return node.isLocal || node.isAvailable
+}
+
+//Unavailable mark the node as unavailable
+func (node *Node) Unavailable() {
+	node.isAvailable = false
+}
+
+//Unavailable mark the node as available
+func (node *Node) Available() {
+	node.isAvailable = true
 }
 
 func (node *Node) IsLocal() bool {

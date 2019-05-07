@@ -207,6 +207,7 @@ type Node interface {
 	GetID() string
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
+	Available()
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
 	Update(id string, info map[string]interface{}) bool

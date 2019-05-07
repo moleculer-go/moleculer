@@ -36,10 +36,12 @@ type PubSub struct {
 	knownNeighbours   map[string]int64
 	neighboursTimeout time.Duration
 	neighboursMutex   *sync.Mutex
+	brokerStarted     bool
 }
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
-	if pubsub.isConnected {
+	if pubsub.isConnected && pubsub.brokerStarted {
+		pubsub.broker.LocalNode().IncreaseSequence()
 		pubsub.broadcastNodeInfo("")
 	}
 }
@@ -47,6 +49,7 @@ func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
 	if pubsub.isConnected {
 		pubsub.broadcastNodeInfo("")
+		pubsub.brokerStarted = true
 	}
 }
 
@@ -378,14 +381,31 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 		if message.Get("success").Bool() {
 			result = message.Get("data")
 		} else {
-			result = payload.New(errors.New(message.Get("error").String()))
+			result = pubsub.parseError(message)
 		}
 
 		pubsub.logger.Trace("reponseHandler() id: ", id, " result: ", result)
-		go func() {
-			(*request.resultChan) <- result
-		}()
+		(*request.resultChan) <- result
 	}
+}
+
+func (pubsub *PubSub) parseError(message moleculer.Payload) moleculer.Payload {
+	if pubsub.isMoleculerJSError(message) {
+		return payload.New(pubsub.moleculerJSError(message))
+	}
+	return payload.New(errors.New(message.Get("error").String()))
+}
+
+func (pubsub *PubSub) isMoleculerJSError(message moleculer.Payload) bool {
+	return message.Get("error").Get("message").Exists()
+}
+
+func (pubsub *PubSub) moleculerJSError(message moleculer.Payload) error {
+	msg := message.Get("error").Get("message").String()
+	if message.Get("error").Get("stack").Exists() {
+		pubsub.logger.Error(message.Get("error").Get("stack").Value())
+	}
+	return errors.New(msg)
 }
 
 func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response moleculer.Payload) {
@@ -404,8 +424,22 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	values["meta"] = context.Meta()
 
 	if response.IsError() {
-		values["error"] = response.String()
+		var errMap map[string]string
+		actionError, isActionError := response.Value().(ActionError)
+		if isActionError {
+			errMap = map[string]string{
+				"message": actionError.Error(),
+				"stack":   actionError.Stack(),
+				"name":    "Error",
+			}
+		} else {
+			errMap = map[string]string{
+				"message": response.String(),
+				"name":    "Error",
+			}
+		}
 		values["success"] = false
+		values["error"] = errMap
 	} else {
 		values["success"] = true
 		values["data"] = response.Value()
@@ -420,6 +454,11 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	pubsub.logger.Trace("sendResponse() targetNodeID: ", targetNodeID, " values: ", values, " message: ", message)
 
 	pubsub.transport.Publish("RES", targetNodeID, message)
+}
+
+type ActionError interface {
+	Error() string
+	Stack() string
 }
 
 // requestHandler : handles when a request arrives on this node.
@@ -479,7 +518,13 @@ func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 func (pubsub *PubSub) discoverHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		sender := message.Get("sender").String()
-		pubsub.broadcastNodeInfo(sender)
+		if pubsub.brokerStarted {
+			pubsub.broadcastNodeInfo(sender)
+		} else {
+			pubsub.broker.Bus().Once("$broker.started", func(...interface{}) {
+				pubsub.broadcastNodeInfo(sender)
+			})
+		}
 	}
 }
 

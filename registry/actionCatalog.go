@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -34,6 +33,24 @@ func CreateActionCatalog(logger *log.Entry) *ActionCatalog {
 
 var actionCallRecovery = true //TODO extract this to a Config - useful to turn for Debug in tests.
 
+type ActionError struct {
+	message string
+	stack   string
+	action  string
+}
+
+func (e *ActionError) Error() string {
+	return e.message
+}
+
+func (e *ActionError) Stack() string {
+	return e.stack
+}
+
+func (e *ActionError) Action() string {
+	return e.action
+}
+
 // catchActionError is called defered after invoking a local action
 // if there is an error (recover () != nil) this functions log the error and stack track and encapsulate
 // the error inside a moleculer.Payload
@@ -42,13 +59,16 @@ func (actionEntry *ActionEntry) catchActionError(context moleculer.BrokerContext
 		return
 	}
 	if err := recover(); err != nil {
-		actionEntry.logger.Error("Action failed: ", context.ActionName(), "\n[Error]: ", err, "\n[Stack Trace]: ", string(debug.Stack()))
+		stackTrace := string(debug.Stack())
+		actionEntry.logger.Error("Action failed: ", context.ActionName(), "\n[Error]: ", err, "\n[Stack Trace]: ", stackTrace)
 		errT, isError := err.(error)
+		msg := ""
 		if isError {
-			result <- payload.New(errT)
+			msg = errT.Error()
 		} else {
-			result <- payload.New(errors.New(fmt.Sprint(err)))
+			msg = fmt.Sprint(err)
 		}
+		result <- payload.New(&ActionError{msg, stackTrace, actionEntry.action.Name()})
 	}
 }
 

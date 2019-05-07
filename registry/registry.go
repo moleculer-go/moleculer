@@ -61,6 +61,7 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 	logger := broker.Logger("registry", "Moleculer Registry")
 	nodeID := config.DiscoverNodeID()
 	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
+	localNode.Unavailable()
 	registry := &ServiceRegistry{
 		broker:                broker,
 		transit:               transit,
@@ -83,9 +84,7 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 
 	broker.Bus().On("$broker.started", func(args ...interface{}) {
 		registry.logger.Debug("Registry -> $broker.started event")
-		if registry.localNode != nil {
-			//TODO: broadcast info ? I think we do that elsewhere already..
-		}
+		registry.localNode.Available()
 	})
 
 	registry.setupMessageHandlers()
@@ -123,11 +122,11 @@ func (registry *ServiceRegistry) Stop() {
 	registry.logger.Debug("Registry Stopping...")
 	registry.stopping = true
 	err := <-registry.transit.Disconnect()
+	registry.localNode.Unavailable()
 	if err != nil {
 		registry.logger.Debug("Error trying to disconnect transit - error: ", err)
 		return
 	}
-
 	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
 }
 
@@ -518,7 +517,7 @@ func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
 			"$registry.service.added",
 			[]interface{}{svc})
 	} else {
-		registry.broker.Bus().Once("$broker.started", func(data ...interface{}) {
+		registry.broker.Bus().Once("$broker.started", func(...interface{}) {
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.added",
 				[]interface{}{svc})

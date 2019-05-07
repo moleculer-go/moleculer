@@ -20,6 +20,9 @@ func (node *NodeMock) Update(id string, info map[string]interface{}) bool {
 func (node *NodeMock) Unavailable() {
 	node.IsAvailableResult = false
 }
+func (node *NodeMock) Available() {
+	node.IsAvailableResult = true
+}
 
 func (node *NodeMock) GetID() string {
 	return node.ID

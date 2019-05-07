@@ -131,7 +131,9 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 
 	parentID := ""
 	if p, ok := values["parentID"]; ok {
-		parentID = p.(string)
+		if s, ok := p.(string); ok {
+			parentID = s
+		}
 	}
 	params := payload.New(values["params"])
 
