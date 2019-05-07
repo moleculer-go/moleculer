@@ -154,7 +154,7 @@ func cleanupAction(ins []map[string]interface{}) []map[string]interface{} {
 	for index, item := range ins {
 		result[index] = map[string]interface{}{
 			"name":      item["name"],
-			"count":     item["count"],
+			"count":     "removed",
 			"hasLocal":  item["hasLocal"],
 			"available": item["available"],
 			"endpoints": item["endpoints"],
