@@ -2,6 +2,7 @@ package moleculer
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	bus "github.com/moleculer-go/goemitter"
@@ -166,8 +167,11 @@ var DefaultConfig = Config{
 
 // discoverNodeID - should return the node id for this machine
 func discoverNodeID() string {
-	// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
-	return fmt.Sprint("Node_", util.RandomString(5))
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "node-" + util.RandomString(2)
+	}
+	return fmt.Sprint(hostname, "-", util.RandomString(5))
 }
 
 type RetryPolicy struct {

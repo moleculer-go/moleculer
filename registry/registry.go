@@ -54,12 +54,11 @@ func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	return strategy.RoundRobinStrategy{}
 }
 
-func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
+func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)
-	logger := broker.Logger("registry", "Moleculer Registry")
-	nodeID := config.DiscoverNodeID()
+	logger := broker.Logger("registry", nodeID)
 	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
 	localNode.Unavailable()
 	registry := &ServiceRegistry{

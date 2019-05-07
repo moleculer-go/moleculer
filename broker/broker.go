@@ -92,6 +92,8 @@ type ServiceBroker struct {
 
 	delegates *moleculer.BrokerDelegates
 
+	id string
+
 	localNode moleculer.Node
 }
 
@@ -179,9 +181,8 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 		log.SetLevel(log.InfoLevel)
 	}
 
-	nodeID := broker.config.DiscoverNodeID()
 	brokerLogger := log.WithFields(log.Fields{
-		"broker": nodeID,
+		"broker": broker.id,
 	})
 	//broker.logger.Debug("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
 	return brokerLogger
@@ -401,6 +402,7 @@ func (broker *ServiceBroker) registerInternalMiddlewares() {
 }
 
 func (broker *ServiceBroker) init() {
+	broker.id = broker.config.DiscoverNodeID()
 	broker.logger = broker.createBrokerLogger()
 	broker.setupLocalBus()
 
@@ -411,7 +413,7 @@ func (broker *ServiceBroker) init() {
 	broker.logger.Debug("Config middleware after: \n", broker.config)
 
 	broker.delegates = broker.createDelegates()
-	broker.registry = registry.CreateRegistry(broker.delegates)
+	broker.registry = registry.CreateRegistry(broker.id, broker.delegates)
 	broker.localNode = broker.registry.LocalNode()
 	broker.rootContext = context.BrokerContext(broker.delegates)
 
