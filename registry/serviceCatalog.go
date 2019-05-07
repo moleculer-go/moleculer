@@ -26,7 +26,7 @@ func CreateServiceCatalog(logger *log.Entry) *ServiceCatalog {
 }
 
 // createKey creates the catalogy key used in the map
-func createKey(name string, version string, nodeID string) string {
+func createKey(name, version, nodeID string) string {
 	return fmt.Sprintf("%s:%s:%s", nodeID, name, version)
 }
 
@@ -163,23 +163,13 @@ func serviceEventExists(name string, events []service.Event) bool {
 	return false
 }
 
-func itemMapExists(name string, items []interface{}) bool {
-	for _, item := range items {
-		mvalue := item.(map[string]interface{})
-		if mvalue["name"].(string) == name {
-			return true
-		}
-	}
-	return false
-}
-
 // updateEvents takes the remote service definition and the current service definition and calculates what events are new, updated or removed.
 // add new events to the service and return new, updated and deleted events.
 func (serviceCatalog *ServiceCatalog) updateEvents(serviceMap map[string]interface{}, current *service.Service) ([]map[string]interface{}, []service.Event, []service.Event) {
 	var updated []map[string]interface{}
 	var newEvents, deletedEvents []service.Event
 
-	events := serviceMap["events"].([]interface{})
+	events := serviceMap["events"].(map[string]interface{})
 	for _, item := range events {
 		event := item.(map[string]interface{})
 		name := event["name"].(string)
@@ -192,7 +182,8 @@ func (serviceCatalog *ServiceCatalog) updateEvents(serviceMap map[string]interfa
 	}
 	for _, event := range current.Events() {
 		name := event.Name()
-		if !itemMapExists(name, events) {
+		_, exists := events[name]
+		if !exists {
 			deletedEvents = append(deletedEvents, event)
 			current.RemoveEvent(name)
 		}
@@ -206,7 +197,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 	var updatedActions []map[string]interface{}
 	var newActions, deletedActions []service.Action
 
-	actions := serviceMap["actions"].([]interface{})
+	actions := serviceMap["actions"].(map[string]interface{})
 	for _, item := range actions {
 		action := item.(map[string]interface{})
 		name := action["name"].(string)
@@ -219,7 +210,8 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 	}
 	for _, action := range current.Actions() {
 		name := action.Name()
-		if !itemMapExists(name, actions) {
+		_, exists := actions[name]
+		if !exists {
 			deletedActions = append(deletedActions, action)
 			current.RemoveAction(name)
 		}
@@ -229,6 +221,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 
 // updateRemote : update remote service info and return what actions are new, updated and deleted
 func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) (*service.Service, bool, []map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
+
 	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
 	item, serviceExists := serviceCatalog.services.Load(key)
 
@@ -242,6 +235,7 @@ func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo ma
 	}
 
 	newService := service.CreateServiceFromMap(serviceInfo)
+	newService.SetNodeID(nodeID)
 	serviceCatalog.Add(newService)
 
 	newActions := newService.Actions()

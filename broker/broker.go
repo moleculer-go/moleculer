@@ -11,7 +11,6 @@ import (
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/metrics"
 	"github.com/moleculer-go/moleculer/middleware"
-	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/registry"
 	"github.com/moleculer-go/moleculer/serializer"
@@ -91,6 +90,8 @@ type ServiceBroker struct {
 	config moleculer.Config
 
 	delegates *moleculer.BrokerDelegates
+
+	id string
 
 	localNode moleculer.Node
 }
@@ -179,9 +180,8 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 		log.SetLevel(log.InfoLevel)
 	}
 
-	nodeID := broker.config.DiscoverNodeID()
 	brokerLogger := log.WithFields(log.Fields{
-		"broker": nodeID,
+		"broker": broker.id,
 	})
 	//broker.logger.Debug("Broker Log Setup -> Level", log.GetLevel(), " nodeID: ", nodeID)
 	return brokerLogger
@@ -228,7 +228,8 @@ func (broker *ServiceBroker) Start() {
 		broker.logger.Warn("broker.Start() called on a broker that already started!")
 		return
 	}
-	broker.logger.Info("Broker -> Starting...")
+	broker.logger.Info("Moleculer is starting...")
+	broker.logger.Info("Node ID: ", broker.localNode.GetID())
 
 	broker.middlewares.CallHandlers("brokerStarting", broker.delegates)
 
@@ -254,7 +255,7 @@ func (broker *ServiceBroker) Start() {
 	defer broker.middlewares.CallHandlers("brokerStarted", broker.delegates)
 
 	broker.started = true
-	broker.logger.Info("Broker -> Started !!!")
+	broker.logger.Info("Service Broker with ", len(broker.services), " service(s) started successfully.")
 }
 
 func (broker *ServiceBroker) Stop() {
@@ -262,7 +263,7 @@ func (broker *ServiceBroker) Stop() {
 		broker.logger.Info("Broker is not started!")
 		return
 	}
-	broker.logger.Info("Broker -> Stopping...")
+	broker.logger.Info("Service Broker is stopping...")
 
 	broker.middlewares.CallHandlers("brokerStopping", broker.delegates)
 
@@ -334,13 +335,13 @@ func (broker *ServiceBroker) MCall(callMaps map[string]map[string]interface{}) c
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
-func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.Options) chan moleculer.Payload {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before making calls :("))
 	}
-	actionContext := broker.rootContext.ChildActionContext(actionName, payload.New(params), options.Wrap(opts))
-	return broker.registry.LoadBalanceCall(actionContext, options.Wrap(opts))
+	actionContext := broker.rootContext.ChildActionContext(actionName, payload.New(params), opts...)
+	return broker.registry.LoadBalanceCall(actionContext, opts...)
 }
 
 func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...string) {
@@ -400,6 +401,7 @@ func (broker *ServiceBroker) registerInternalMiddlewares() {
 }
 
 func (broker *ServiceBroker) init() {
+	broker.id = broker.config.DiscoverNodeID()
 	broker.logger = broker.createBrokerLogger()
 	broker.setupLocalBus()
 
@@ -410,7 +412,7 @@ func (broker *ServiceBroker) init() {
 	broker.logger.Debug("Config middleware after: \n", broker.config)
 
 	broker.delegates = broker.createDelegates()
-	broker.registry = registry.CreateRegistry(broker.delegates)
+	broker.registry = registry.CreateRegistry(broker.id, broker.delegates)
 	broker.localNode = broker.registry.LocalNode()
 	broker.rootContext = context.BrokerContext(broker.delegates)
 
@@ -423,8 +425,8 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		Bus:       broker.LocalBus,
 		IsStarted: broker.IsStarted,
 		Config:    broker.config,
-		ActionDelegate: func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-			return broker.registry.LoadBalanceCall(context, options.Wrap(opts))
+		ActionDelegate: func(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
+			return broker.registry.LoadBalanceCall(context, opts...)
 		},
 		EmitEvent: func(context moleculer.BrokerContext) {
 			broker.registry.LoadBalanceEvent(context)
@@ -459,6 +461,5 @@ func New(userConfig ...*moleculer.Config) *ServiceBroker {
 	config := mergeConfigs(moleculer.DefaultConfig, userConfig)
 	broker := ServiceBroker{config: config}
 	broker.init()
-	broker.logger.Info("Broker - New() ")
 	return &broker
 }

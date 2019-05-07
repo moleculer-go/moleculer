@@ -37,7 +37,8 @@ var _ = Describe("PubSub Internals", func() {
 					return &localNode
 				},
 			},
-			transport: mockT,
+			transport:     mockT,
+			brokerStarted: true,
 		}
 		pubsub.onServiceAdded()
 		Expect(mockT.PublishCalled).Should(BeTrue())
