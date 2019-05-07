@@ -2,18 +2,18 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=9) {
       (string) (len=4) "name": (string) (len=7) "printer",
-      (string) (len=6) "events": ([]map[string]interface {}) (len=1) {
-        (map[string]interface {}) (len=3) {
-          (string) (len=11) "serviceName": (string) (len=7) "printer",
+      (string) (len=6) "events": (map[string]map[string]interface {}) (len=1) {
+        (string) (len=7) "printed": (map[string]interface {}) (len=2) {
           (string) (len=4) "name": (string) (len=7) "printed",
           (string) (len=5) "group": (string) (len=7) "printer"
         }
       },
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=5) "print",
+      (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
+        (string) (len=5) "print": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=13) "printer.print",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=5) "print"
         }
       },
       (string) (len=7) "version": (string) "",

@@ -6,7 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 
-	snap "github.com/moleculer-go/cupaloy"
+	snap "github.com/moleculer-go/cupaloy/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 

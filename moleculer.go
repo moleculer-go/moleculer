@@ -2,6 +2,7 @@ package moleculer
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	bus "github.com/moleculer-go/goemitter"
@@ -117,6 +118,7 @@ type Config struct {
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
 	OfflineCheckFrequency      time.Duration
+	OfflineTimeout             time.Duration
 	NeighboursCheckTimeout     time.Duration
 	WaitForDependenciesTimeout time.Duration
 	Middlewares                []Middlewares
@@ -141,9 +143,10 @@ var DefaultConfig = Config{
 	LogFormat:                  "TEXT",
 	DiscoverNodeID:             discoverNodeID,
 	Transporter:                "MEMORY",
-	HeartbeatFrequency:         15 * time.Second,
-	HeartbeatTimeout:           30 * time.Second,
+	HeartbeatFrequency:         5 * time.Second,
+	HeartbeatTimeout:           15 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
+	OfflineTimeout:             10 * time.Minute,
 	NeighboursCheckTimeout:     2 * time.Second,
 	WaitForDependenciesTimeout: 2 * time.Second,
 	Metrics:                    false,
@@ -157,15 +160,18 @@ var DefaultConfig = Config{
 	RetryPolicy: RetryPolicy{
 		Enabled: false,
 	},
-	RequestTimeout:            0,
+	RequestTimeout:            1 * time.Minute,
 	MCallTimeout:              5 * time.Second,
 	WaitForNeighboursInterval: 200 * time.Millisecond,
 }
 
 // discoverNodeID - should return the node id for this machine
 func discoverNodeID() string {
-	// return fmt.Sprint(strings.Replace(hostname, ".", "_", -1), "-", util.RandomString(12))
-	return fmt.Sprint("Node_", util.RandomString(5))
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "node-" + util.RandomString(2)
+	}
+	return fmt.Sprint(hostname, "-", util.RandomString(5))
 }
 
 type RetryPolicy struct {
@@ -186,13 +192,12 @@ type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
-type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
+type ActionDelegateFunc func(context BrokerContext, opts ...Options) chan Payload
 type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) *ServiceSchema
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
-type OptionsFunc func(key string) interface{}
 type PublishFunc func(...interface{})
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
 
@@ -205,25 +210,38 @@ type Node interface {
 	GetID() string
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
+	Available()
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
-	Update(info map[string]interface{}) bool
+	Update(id string, info map[string]interface{}) bool
 
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
 	Publish(service map[string]interface{})
 }
+
+type Options struct {
+	Meta   Payload
+	NodeID string
+}
+
 type Context interface {
 	//context methods used by services
 	MCall(map[string]map[string]interface{}) chan map[string]Payload
-	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
+	Call(actionName string, params interface{}, opts ...Options) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
 	Logger() *log.Entry
+
+	Payload() Payload
+	Meta() Payload
 }
 
 type BrokerContext interface {
-	ChildActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
+	Call(actionName string, params interface{}, opts ...Options) chan Payload
+	Emit(eventName string, params interface{}, groups ...string)
+
+	ChildActionContext(actionName string, params Payload, opts ...Options) BrokerContext
 	ChildEventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext
 
 	ActionName() string
@@ -240,8 +258,8 @@ type BrokerContext interface {
 
 	ID() string
 	RequestID() string
-	Meta() *map[string]interface{}
-
+	Meta() Payload
+	UpdateMeta(Payload)
 	Logger() *log.Entry
 
 	Publish(...interface{})

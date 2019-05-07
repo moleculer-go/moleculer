@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,10 +36,12 @@ type PubSub struct {
 	knownNeighbours   map[string]int64
 	neighboursTimeout time.Duration
 	neighboursMutex   *sync.Mutex
+	brokerStarted     bool
 }
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
-	if pubsub.isConnected {
+	if pubsub.isConnected && pubsub.brokerStarted {
+		pubsub.broker.LocalNode().IncreaseSequence()
 		pubsub.broadcastNodeInfo("")
 	}
 }
@@ -46,6 +49,7 @@ func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 func (pubsub *PubSub) onBrokerStarted(values ...interface{}) {
 	if pubsub.isConnected {
 		pubsub.broadcastNodeInfo("")
+		pubsub.brokerStarted = true
 	}
 }
 
@@ -72,18 +76,48 @@ func Create(broker *moleculer.BrokerDelegates) transit.Transit {
 	return &transitImpl
 }
 
+func (pubsub *PubSub) pendingRequestsByNode(nodeId string) []pendingRequest {
+	list := []pendingRequest{}
+	for _, p := range pubsub.pendingRequests {
+		if p.context.TargetNodeID() == nodeId {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (pubsub *PubSub) requestTimedOut(resultChan *chan moleculer.Payload, context moleculer.BrokerContext) func() {
+	pError := payload.New(errors.New("request timeout"))
+	return func() {
+		pubsub.logger.Debug("requestTimedOut() nodeID: ", context.TargetNodeID())
+		pubsub.pendingRequestsMutex.Lock()
+		defer pubsub.pendingRequestsMutex.Unlock()
+
+		p, exists := pubsub.pendingRequests[context.ID()]
+		if exists {
+			(*p.resultChan) <- pError
+			p.timer.Stop()
+			delete(pubsub.pendingRequests, p.context.ID())
+		}
+	}
+}
+
 func (pubsub *PubSub) onNodeDisconnected(values ...interface{}) {
 	pubsub.pendingRequestsMutex.Lock()
-	defer pubsub.pendingRequestsMutex.Unlock()
 
 	var nodeID string = values[0].(string)
-	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID)
-
-	pending, exists := pubsub.pendingRequests[nodeID]
-	if exists {
-		(*pending.resultChan) <- payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
-		delete(pubsub.pendingRequests, nodeID)
+	pending := pubsub.pendingRequestsByNode(nodeID)
+	pubsub.logger.Debug("onNodeDisconnected() nodeID: ", nodeID, " pending: ", len(pending))
+	if len(pending) > 0 {
+		pError := payload.New(fmt.Errorf("Node %s disconnected. The request was canceled.", nodeID))
+		for _, p := range pending {
+			(*p.resultChan) <- pError
+			p.timer.Stop()
+			delete(pubsub.pendingRequests, p.context.ID())
+		}
 	}
+	pubsub.pendingRequestsMutex.Unlock()
+
 	pubsub.neighboursMutex.Lock()
 	delete(pubsub.knownNeighbours, nodeID)
 	pubsub.neighboursMutex.Unlock()
@@ -98,18 +132,26 @@ func (pubsub *PubSub) onNodeConnected(values ...interface{}) {
 	pubsub.neighboursMutex.Unlock()
 }
 
+func isNats(v string) bool {
+	return strings.Index(v, "nats://") > -1
+}
+
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
 func (pubsub *PubSub) createTransport() transit.Transport {
 	var transport transit.Transport
 	if pubsub.broker.Config.TransporterFactory != nil {
-		pubsub.logger.Info("createTransport() using a custom factory ...")
+		pubsub.logger.Info("Transporter: Custom factory")
 		transport = pubsub.broker.Config.TransporterFactory().(transit.Transport)
 	} else if pubsub.broker.Config.Transporter == "STAN" {
-		pubsub.logger.Info("createTransport() creating NATS Streaming Transporter")
+		pubsub.logger.Info("Transporter: NatsStreamingTransporter")
 		transport = pubsub.createStanTransporter()
+	} else if isNats(pubsub.broker.Config.Transporter) {
+		pubsub.logger.Info("Transporter: NatsTransporter")
+		transport = pubsub.createNatsTransporter()
+
 	} else {
-		pubsub.logger.Info("createTransport() creating default Memory Transporter")
+		pubsub.logger.Info("Transporter: Memory")
 		transport = pubsub.createMemoryTransporter()
 	}
 	transport.SetPrefix("MOL")
@@ -123,10 +165,23 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	return &mem
 }
 
+func (pubsub *PubSub) createNatsTransporter() transit.Transport {
+	pubsub.logger.Debug("createNatsTransporter()")
+
+	return nats.CreateNatsTransporter(nats.NATSOptions{
+		URL:            pubsub.broker.Config.Transporter,
+		Name:           pubsub.broker.LocalNode().GetID(),
+		Logger:         pubsub.logger.WithField("transport", "nats"),
+		Serializer:     pubsub.serializer,
+		AllowReconnect: true,
+		ReconnectWait:  time.Second * 2,
+		MaxReconnect:   -1,
+	})
+}
+
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	//TODO: move this to config and params
 	broker := pubsub.broker
-	prefix := "MOL"
 	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
 	clusterID := "test-cluster"
 
@@ -134,7 +189,6 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 	logger := broker.Logger("transport", "stan")
 
 	options := nats.StanOptions{
-		prefix,
 		url,
 		clusterID,
 		localNodeID,
@@ -154,6 +208,7 @@ func (pubsub *PubSub) createStanTransporter() transit.Transport {
 type pendingRequest struct {
 	context    moleculer.BrokerContext
 	resultChan *chan moleculer.Payload
+	timer      *time.Timer
 }
 
 func (pubsub *PubSub) checkMaxQueueSize() {
@@ -170,7 +225,7 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 		expected := pubsub.expectedNeighbours()
 		neighbours := pubsub.neighbours()
 		if expected <= neighbours && (expected > 0 || neighbours > 0) {
-			pubsub.logger.Info("waitForNeighbours() - received info from all expected neighbours :) -> expected: ", expected)
+			pubsub.logger.Debug("waitForNeighbours() - received info from all expected neighbours :) -> expected: ", expected)
 			return true
 		}
 		if time.Since(start) > pubsub.neighboursTimeout {
@@ -254,11 +309,15 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 		panic(fmt.Errorf("Error trying to serialize the payload. Likely issues with the action params. Error: %s", err))
 	}
 
-	pubsub.logger.Debug("Request() pending request id: ", context.ID())
 	pubsub.pendingRequestsMutex.Lock()
+	pubsub.logger.Debug("Request() pending request id: ", context.ID(), " targetNodeId: ", context.TargetNodeID())
 	pubsub.pendingRequests[context.ID()] = pendingRequest{
 		context,
 		&resultChan,
+
+		time.AfterFunc(
+			pubsub.broker.Config.RequestTimeout,
+			pubsub.requestTimedOut(&resultChan, context)),
 	}
 	pubsub.pendingRequestsMutex.Unlock()
 
@@ -316,19 +375,37 @@ func (pubsub *PubSub) reponseHandler() transit.TransportHandler {
 			return
 		}
 
+		request.timer.Stop()
 		defer delete(pubsub.pendingRequests, id)
 		var result moleculer.Payload
 		if message.Get("success").Bool() {
 			result = message.Get("data")
 		} else {
-			result = payload.New(errors.New(message.Get("error").String()))
+			result = pubsub.parseError(message)
 		}
 
 		pubsub.logger.Trace("reponseHandler() id: ", id, " result: ", result)
-		go func() {
-			(*request.resultChan) <- result
-		}()
+		(*request.resultChan) <- result
 	}
+}
+
+func (pubsub *PubSub) parseError(message moleculer.Payload) moleculer.Payload {
+	if pubsub.isMoleculerJSError(message) {
+		return payload.New(pubsub.moleculerJSError(message))
+	}
+	return payload.New(errors.New(message.Get("error").String()))
+}
+
+func (pubsub *PubSub) isMoleculerJSError(message moleculer.Payload) bool {
+	return message.Get("error").Get("message").Exists()
+}
+
+func (pubsub *PubSub) moleculerJSError(message moleculer.Payload) error {
+	msg := message.Get("error").Get("message").String()
+	if message.Get("error").Get("stack").Exists() {
+		pubsub.logger.Error(message.Get("error").Get("stack").Value())
+	}
+	return errors.New(msg)
 }
 
 func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response moleculer.Payload) {
@@ -347,8 +424,22 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	values["meta"] = context.Meta()
 
 	if response.IsError() {
-		values["error"] = response.String()
+		var errMap map[string]string
+		actionError, isActionError := response.Value().(ActionError)
+		if isActionError {
+			errMap = map[string]string{
+				"message": actionError.Error(),
+				"stack":   actionError.Stack(),
+				"name":    "Error",
+			}
+		} else {
+			errMap = map[string]string{
+				"message": response.String(),
+				"name":    "Error",
+			}
+		}
 		values["success"] = false
+		values["error"] = errMap
 	} else {
 		values["success"] = true
 		values["data"] = response.Value()
@@ -363,6 +454,11 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	pubsub.logger.Trace("sendResponse() targetNodeID: ", targetNodeID, " values: ", values, " message: ", message)
 
 	pubsub.transport.Publish("RES", targetNodeID, message)
+}
+
+type ActionError interface {
+	Error() string
+	Stack() string
 }
 
 // requestHandler : handles when a request arrives on this node.
@@ -422,7 +518,13 @@ func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 func (pubsub *PubSub) discoverHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		sender := message.Get("sender").String()
-		pubsub.broadcastNodeInfo(sender)
+		if pubsub.brokerStarted {
+			pubsub.broadcastNodeInfo(sender)
+		} else {
+			pubsub.broker.Bus().Once("$broker.started", func(...interface{}) {
+				pubsub.broadcastNodeInfo(sender)
+			})
+		}
 	}
 }
 
@@ -504,10 +606,10 @@ func (pubsub *PubSub) sendDisconnect() {
 }
 
 // Disconnect : disconnect the transit's  transporter.
-func (pubsub *PubSub) Disconnect() chan bool {
-	endChan := make(chan bool)
+func (pubsub *PubSub) Disconnect() chan error {
+	endChan := make(chan error)
 	if !pubsub.isConnected {
-		endChan <- true
+		endChan <- nil
 		return endChan
 	}
 	pubsub.logger.Info("PubSub - Disconnecting transport...")
@@ -517,21 +619,26 @@ func (pubsub *PubSub) Disconnect() chan bool {
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
-func (pubsub *PubSub) Connect() chan bool {
-	endChan := make(chan bool)
+func (pubsub *PubSub) Connect() chan error {
+	endChan := make(chan error)
 	if pubsub.isConnected {
-		endChan <- true
+		endChan <- nil
 		return endChan
 	}
-	pubsub.logger.Info("PubSub - Connecting transport...")
+	pubsub.logger.Debug("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport()
 	go func() {
-		pubsub.isConnected = <-pubsub.transport.Connect()
-		pubsub.logger.Debug("PubSub - Transport Connected!")
-		if pubsub.isConnected {
+		err := <-pubsub.transport.Connect()
+		if err == nil {
+			pubsub.isConnected = true
+			pubsub.logger.Debug("PubSub - Transport Connected!")
+
 			pubsub.subscribe()
+
+		} else {
+			pubsub.logger.Debug("PubSub - Error connecting transport - error: ", err)
 		}
-		endChan <- pubsub.isConnected
+		endChan <- err
 	}()
 	return endChan
 }

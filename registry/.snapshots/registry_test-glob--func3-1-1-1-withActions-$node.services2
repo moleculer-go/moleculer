@@ -2,26 +2,42 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=5) "$node",
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=4) {
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=4) "list",
+      (string) (len=7) "actions": (map[string]map[string]interface {}) (len=6) {
+        (string) (len=4) "list": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=10) "$node.list",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=4) "list"
         },
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=6) "events",
+        (string) (len=6) "events": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=12) "$node.events",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=6) "events"
         },
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=7) "actions",
+        (string) (len=6) "health": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=12) "$node.health",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=6) "health"
         },
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=8) "services",
+        (string) (len=7) "actions": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=13) "$node.actions",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=7) "actions"
+        },
+        (string) (len=7) "options": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=13) "$node.options",
+          (string) (len=6) "params": (map[string]interface {}) {
+          },
+          (string) (len=7) "rawName": (string) (len=7) "options"
+        },
+        (string) (len=8) "services": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=14) "$node.services",
+          (string) (len=6) "params": (map[string]interface {}) {
+          },
+          (string) (len=7) "rawName": (string) (len=8) "services"
         }
       },
       (string) (len=7) "version": (string) "",
@@ -36,11 +52,12 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=7) "printer",
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=5) "print",
+      (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
+        (string) (len=5) "print": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=13) "printer.print",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=5) "print"
         }
       },
       (string) (len=7) "version": (string) "",
@@ -55,11 +72,12 @@
   ([]map[string]interface {}) (len=1) {
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=7) "scanner",
-      (string) (len=7) "actions": ([]map[string]interface {}) (len=1) {
-        (map[string]interface {}) (len=2) {
-          (string) (len=4) "name": (string) (len=4) "scan",
+      (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
+        (string) (len=4) "scan": (map[string]interface {}) (len=3) {
+          (string) (len=4) "name": (string) (len=12) "scanner.scan",
           (string) (len=6) "params": (map[string]interface {}) {
-          }
+          },
+          (string) (len=7) "rawName": (string) (len=4) "scan"
         }
       },
       (string) (len=7) "version": (string) "",

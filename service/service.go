@@ -333,23 +333,23 @@ func (service *Service) AsMap() map[string]interface{} {
 		panic("no service.nodeID")
 	}
 
-	actions := make([]map[string]interface{}, len(service.actions))
-	for index, serviceAction := range service.actions {
+	actions := map[string]map[string]interface{}{}
+	for _, serviceAction := range service.actions {
 		actionInfo := make(map[string]interface{})
-		actionInfo["name"] = serviceAction.name
+		actionInfo["name"] = serviceAction.fullname
+		actionInfo["rawName"] = serviceAction.name
 		actionInfo["params"] = paramsAsMap(&serviceAction.params)
-		actions[index] = actionInfo
+		actions[serviceAction.name] = actionInfo
 	}
 	serviceInfo["actions"] = actions
 
-	events := make([]map[string]interface{}, 0)
+	events := map[string]map[string]interface{}{}
 	for _, serviceEvent := range service.events {
 		if !isInternalEvent(serviceEvent) {
 			eventInfo := make(map[string]interface{})
 			eventInfo["name"] = serviceEvent.name
-			eventInfo["serviceName"] = serviceEvent.serviceName
 			eventInfo["group"] = serviceEvent.group
-			events = append(events, eventInfo)
+			events[serviceEvent.name] = eventInfo
 		}
 	}
 	serviceInfo["events"] = events
@@ -378,7 +378,7 @@ func paramsAsMap(params *moleculer.ActionSchema) map[string]interface{} {
 func (service *Service) AddActionMap(actionInfo map[string]interface{}) *Action {
 	action := CreateServiceAction(
 		service.fullname,
-		actionInfo["name"].(string),
+		actionInfo["rawName"].(string),
 		nil,
 		paramsFromMap(actionInfo["schema"]),
 	)
@@ -407,10 +407,14 @@ func (service *Service) RemoveAction(fullname string) {
 }
 
 func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
+	group, exists := eventInfo["group"]
+	if !exists {
+		group = service.name
+	}
 	serviceEvent := Event{
 		name:        eventInfo["name"].(string),
-		serviceName: eventInfo["serviceName"].(string),
-		group:       eventInfo["group"].(string),
+		serviceName: service.name,
+		group:       group.(string),
 	}
 	service.events = append(service.events, serviceEvent)
 	return &serviceEvent
@@ -434,13 +438,13 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
-	actions := serviceInfo["actions"].([]interface{})
+	actions := serviceInfo["actions"].(map[string]interface{})
 	for _, item := range actions {
 		actionInfo := item.(map[string]interface{})
 		service.AddActionMap(actionInfo)
 	}
 
-	events := serviceInfo["events"].([]interface{})
+	events := serviceInfo["events"].(map[string]interface{})
 	for _, item := range events {
 		eventInfo := item.(map[string]interface{})
 		service.AddEventMap(eventInfo)
@@ -834,9 +838,6 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
 	}
-	if service.nodeID == "" {
-		panic(errors.New("Service nodeID can't be empty!"))
-	}
 	return service
 }
 
@@ -863,6 +864,18 @@ var actionHandlerTemplates = []aHandlerTemplate{
 		},
 		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
 			return obj.(func(moleculer.Context, moleculer.Payload) interface{})
+		},
+	},
+	{
+		match: func(obj interface{}) bool {
+			_, valid := obj.(func(moleculer.Context, moleculer.Payload) moleculer.Payload)
+			return valid
+		},
+		wrap: func(m reflect.Value, obj interface{}) moleculer.ActionHandler {
+			ah := obj.(func(moleculer.Context, moleculer.Payload) moleculer.Payload)
+			return func(ctx moleculer.Context, p moleculer.Payload) interface{} {
+				return ah(ctx, p)
+			}
 		},
 	},
 	//Context, params NO return

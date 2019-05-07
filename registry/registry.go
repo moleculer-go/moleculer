@@ -13,7 +13,6 @@ import (
 	"github.com/moleculer-go/moleculer/payload"
 
 	"github.com/moleculer-go/moleculer"
-	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/service"
 	"github.com/moleculer-go/moleculer/strategy"
 
@@ -38,6 +37,7 @@ type ServiceRegistry struct {
 	heartbeatFrequency    time.Duration
 	heartbeatTimeout      time.Duration
 	offlineCheckFrequency time.Duration
+	offlineTimeout        time.Duration
 	nodeReceivedMutex     *sync.Mutex
 }
 
@@ -53,13 +53,13 @@ func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	return strategy.RoundRobinStrategy{}
 }
 
-func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
+func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRegistry {
 	config := broker.Config
 	transit := createTransit(broker)
 	strategy := createStrategy(broker)
-	logger := broker.Logger("registry", "Moleculer Registry")
-	nodeID := config.DiscoverNodeID()
+	logger := broker.Logger("registry", nodeID)
 	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
+	localNode.Unavailable()
 	registry := &ServiceRegistry{
 		broker:                broker,
 		transit:               transit,
@@ -73,17 +73,16 @@ func CreateRegistry(broker *moleculer.BrokerDelegates) *ServiceRegistry {
 		heartbeatFrequency:    config.HeartbeatFrequency,
 		heartbeatTimeout:      config.HeartbeatTimeout,
 		offlineCheckFrequency: config.OfflineCheckFrequency,
+		offlineTimeout:        config.OfflineTimeout,
 		stopping:              false,
 		nodeReceivedMutex:     &sync.Mutex{},
 	}
 
-	registry.logger.Info("Service Registry created for broker: ", nodeID)
+	registry.logger.Debug("Service Registry created for broker: ", nodeID)
 
 	broker.Bus().On("$broker.started", func(args ...interface{}) {
 		registry.logger.Debug("Registry -> $broker.started event")
-		if registry.localNode != nil {
-			//TODO: broadcast info ? I think we do that elsewhere already..
-		}
+		registry.localNode.Available()
 	})
 
 	registry.setupMessageHandlers()
@@ -120,9 +119,13 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 func (registry *ServiceRegistry) Stop() {
 	registry.logger.Debug("Registry Stopping...")
 	registry.stopping = true
-	<-registry.transit.Disconnect()
+	err := <-registry.transit.Disconnect()
+	registry.localNode.Unavailable()
+	if err != nil {
+		registry.logger.Debug("Error trying to disconnect transit - error: ", err)
+		return
+	}
 	registry.logger.Debug("Transit Disconnected -> Registry Full Stop!")
-
 }
 
 func (registry *ServiceRegistry) LocalServices() []*service.Service {
@@ -133,9 +136,9 @@ func (registry *ServiceRegistry) LocalServices() []*service.Service {
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
 	registry.stopping = false
-	connected := <-registry.transit.Connect()
-	if !connected {
-		panic(errors.New("Could not connect to the transit. Check logs for more details."))
+	err := <-registry.transit.Connect()
+	if err != nil {
+		panic(errors.New(fmt.Sprint("Could not connect to the transit. err: ", err)))
 	}
 	<-registry.transit.DiscoverNodes()
 
@@ -233,12 +236,12 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
 // This call might be local or remote.
-func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
 	actionName := context.ActionName()
 	params := context.Payload()
 	registry.logger.Trace("LoadBalanceCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
-	actionEntry := registry.nextAction(actionName, registry.strategy, options.Wrap(opts))
+	actionEntry := registry.nextAction(actionName, registry.strategy, opts...)
 	if actionEntry == nil {
 		msg := fmt.Sprint("Registry - endpoint not found for actionName: ", actionName)
 		registry.logger.Error(msg)
@@ -328,12 +331,11 @@ func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 }
 
 func (registry *ServiceRegistry) checkOfflineNodes() {
-	timeout := registry.offlineCheckFrequency * 10
-	expiredNodes := registry.nodes.expiredNodes(timeout)
+	expiredNodes := registry.nodes.expiredNodes(registry.offlineTimeout)
 	for _, node := range expiredNodes {
 		nodeID := node.GetID()
 		registry.nodes.removeNode(nodeID)
-		registry.logger.Warnf("Removed offline Node: %s  from the registry because it hasn't submitted heartbeat in %d seconds.", nodeID, timeout)
+		registry.logger.Warnf("Removed offline Node: %s  from the registry because it hasn't submitted heartbeat in %d seconds.", nodeID, registry.offlineTimeout)
 	}
 }
 
@@ -382,6 +384,14 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 	}
 }
 
+func compatibility(info map[string]interface{}) map[string]interface{} {
+	_, exists := info["version"]
+	if !exists {
+		info["version"] = ""
+	}
+	return info
+}
+
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
 func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
 	registry.nodeReceivedMutex.Lock()
@@ -390,7 +400,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 	services := message.Get("services").MapArray()
 	exists, reconnected := registry.nodes.Info(message.RawMap())
 	for _, serviceInfo := range services {
-
+		serviceInfo = compatibility(serviceInfo)
 		svc, newService, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
 
 		for _, newAction := range newActions {
@@ -432,6 +442,8 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 		}
 
 		if newService {
+			registry.logger.Infof("Registry - remote %s service is registered.", svc.FullName())
+
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.added",
 				[]interface{}{svc.Summary()})
@@ -503,7 +515,7 @@ func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
 			"$registry.service.added",
 			[]interface{}{svc})
 	} else {
-		registry.broker.Bus().Once("$broker.started", func(data ...interface{}) {
+		registry.broker.Bus().Once("$broker.started", func(...interface{}) {
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.added",
 				[]interface{}{svc})
@@ -513,10 +525,9 @@ func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
 
 // nextAction it will find and return the next action to be invoked.
 // If multiple nodes that contain this action are found it will use the strategy to decide which one to use.
-func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy.Strategy, opts ...moleculer.OptionsFunc) *ActionEntry {
-	nodeID := options.String("nodeID", opts)
-	if nodeID != "" {
-		return registry.actions.NextFromNode(actionName, nodeID)
+func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy.Strategy, opts ...moleculer.Options) *ActionEntry {
+	if len(opts) > 0 && opts[0].NodeID != "" {
+		return registry.actions.NextFromNode(actionName, opts[0].NodeID)
 	}
 	return registry.actions.Next(actionName, strategy)
 }

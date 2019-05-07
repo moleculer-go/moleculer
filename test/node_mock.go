@@ -10,15 +10,18 @@ type NodeMock struct {
 	ExportAsMapResult     map[string]interface{}
 	IsAvailableResult     bool
 	IsExpiredResult       bool
-	PublishCalls       int
+	PublishCalls          int
 }
 
-func (node *NodeMock) Update(info map[string]interface{}) bool {
+func (node *NodeMock) Update(id string, info map[string]interface{}) bool {
 	return node.UpdateResult
 }
 
 func (node *NodeMock) Unavailable() {
 	node.IsAvailableResult = false
+}
+func (node *NodeMock) Available() {
+	node.IsAvailableResult = true
 }
 
 func (node *NodeMock) GetID() string {

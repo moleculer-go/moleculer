@@ -25,7 +25,6 @@ type StanTransporter struct {
 }
 
 type StanOptions struct {
-	Prefix    string
 	URL       string
 	ClusterID string
 	ClientID  string
@@ -39,7 +38,6 @@ type StanOptions struct {
 func CreateStanTransporter(options StanOptions) StanTransporter {
 	transport := StanTransporter{}
 	transport.url = options.URL
-	transport.prefix = options.Prefix
 	transport.clusterID = options.ClusterID
 	transport.clientID = options.ClientID
 	transport.serializer = options.Serializer
@@ -48,26 +46,31 @@ func CreateStanTransporter(options StanOptions) StanTransporter {
 	return transport
 }
 
-func (transporter *StanTransporter) Connect() chan bool {
-	endChan := make(chan bool)
+func (transporter *StanTransporter) Connect() chan error {
+	endChan := make(chan error)
 	go func() {
-		transporter.logger.Debug("Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
-		connection, error := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
-		if error != nil {
-			transporter.logger.Error("\nConnect() - Error: ", error, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
-			panic("Error trying to connect to stan server. url: " + transporter.url + " clusterID: " + transporter.clusterID + " clientID: " + transporter.clientID + " -> Stan error: " + error.Error())
+		transporter.logger.Debug("STAN Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
+		connection, err := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
+		if err != nil {
+			transporter.logger.Error("STAN Connect() - Error: ", err, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
+			//panic("Error trying to connect to stan server. url: " + transporter.url + " clusterID: " + transporter.clusterID + " clientID: " + transporter.clientID + " -> Stan error: " + error.Error())
+			endChan <- err
+			return
 		}
-		transporter.logger.Info("Connect() - connection success!")
-
+		transporter.logger.Info("STAN Connect() - connection success!")
 		transporter.connection = connection
-		endChan <- true
+		endChan <- nil
 	}()
 	return endChan
 }
 
-func (transporter *StanTransporter) Disconnect() chan bool {
-	endChan := make(chan bool)
+func (transporter *StanTransporter) Disconnect() chan error {
+	endChan := make(chan error)
 	go func() {
+		if transporter.connection == nil {
+			endChan <- nil
+			return
+		}
 		transporter.logger.Debug("Disconnect() # of subscriptions: ", len(transporter.subscriptions))
 		for _, sub := range transporter.subscriptions {
 			error := sub.Unsubscribe()
@@ -76,15 +79,15 @@ func (transporter *StanTransporter) Disconnect() chan bool {
 			}
 		}
 		transporter.logger.Debug("Disconnect() subscriptions unsubscribed.")
-		error := transporter.connection.Close()
-		if error == nil {
+		err := transporter.connection.Close()
+		if err == nil {
 			transporter.logger.Debug("Disconnect() stan connection closed :)")
+			endChan <- nil
 		} else {
-			transporter.logger.Error("Disconnect() error when closing stan connection :( ", error)
+			transporter.logger.Error("Disconnect() error when closing stan connection :( ", err)
+			endChan <- err
 		}
-
 		transporter.connection = nil
-		endChan <- true
 	}()
 	return endChan
 }
@@ -110,16 +113,16 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Subscribe() command: ", command, " nodeID: ", nodeID, " topic: ", topic)
 
-	sub, error := transporter.connection.Subscribe(topic, func(msg *stan.Msg) {
+	sub, err := transporter.connection.Subscribe(topic, func(msg *stan.Msg) {
 		transporter.logger.Trace("stan.Subscribe() command: ", command, " nodeID: ", nodeID, " msg: \n", msg, "\n - end")
 		message := transporter.serializer.BytesToPayload(&msg.Data)
 		if transporter.validateMsg(message) {
 			handler(message)
 		}
 	})
-	if error != nil {
-		transporter.logger.Error("Subscribe() - Error: ", error)
-		panic(error)
+	if err != nil {
+		transporter.logger.Error("Subscribe() - Error: ", err)
+		panic(err)
 	}
 	transporter.subscriptions = append(transporter.subscriptions, sub)
 }
@@ -132,6 +135,9 @@ func (transporter *StanTransporter) Publish(command, nodeID string, message mole
 	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")
-	bmsg := transporter.serializer.PayloadToBytes(message)
-	transporter.connection.Publish(topic, bmsg)
+	err := transporter.connection.Publish(topic, transporter.serializer.PayloadToBytes(message))
+	if err != nil {
+		transporter.logger.Error("Error on publish: error: ", err, " command: ", command, " topic: ", topic)
+		panic(err)
+	}
 }

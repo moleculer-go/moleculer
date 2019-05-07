@@ -3,6 +3,7 @@ package nats_test
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
@@ -16,23 +17,21 @@ import (
 	"github.com/moleculer-go/moleculer/transit/nats"
 )
 
-var StanTestHost = os.Getenv("STAN_HOST")
+func natsTestHost() string {
+	env := os.Getenv("NATS_HOST")
+	if env == "" {
+		return "localhost"
+	}
+	return env
+}
+
+var NatsTestHost = natsTestHost()
+
 var _ = Describe("NATS Streaming Transit", func() {
+	//log.SetLevel(log.TraceLevel)
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
-	logger := contextA.Logger()
-	var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
-	url := "stan://" + StanTestHost + ":4222"
-	options := nats.StanOptions{
-		url,
-		"test-cluster",
-		"unit-test-client-id",
-		logger,
-		serializer,
-		func(msg moleculer.Payload) bool {
-			return true
-		},
-	}
+	url := "nats://" + NatsTestHost + ":4222"
 
 	stringSize := 50
 	arraySize := 100
@@ -42,31 +41,91 @@ var _ = Describe("NATS Streaming Transit", func() {
 		longList = append(longList, randomString)
 	}
 
+	Describe("Remote Calls", func() {
+		logLevel := "fatal"
+		transporter := "nats://" + NatsTestHost + ":4222"
+
+		var userBroker, profileBroker *broker.ServiceBroker
+		BeforeEach(func() {
+
+			userBroker = broker.New(&moleculer.Config{
+				LogLevel:    logLevel,
+				Transporter: transporter,
+				DiscoverNodeID: func() string {
+					return "user_broker"
+				},
+				RequestTimeout: time.Second,
+			})
+			userBroker.Publish(userService())
+
+			profileBroker = broker.New(&moleculer.Config{
+				LogLevel:    logLevel,
+				Transporter: transporter,
+				DiscoverNodeID: func() string {
+					return "profile_broker"
+				},
+				RequestTimeout: time.Second,
+			})
+			profileBroker.Publish(profileService())
+
+		})
+
+		It("should make a remote call from profile broker a to user broker", func() {
+			userBroker.Start()
+			profileBroker.Start()
+
+			result := <-profileBroker.Call("user.update", longList)
+			Expect(result.IsError()).Should(BeFalse())
+			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
+
+			userBroker.Stop()
+			profileBroker.Stop()
+		})
+
+		It("should fail after brokers are stoped", func() {
+			userBroker.Start()
+			profileBroker.Start()
+
+			p := (<-profileBroker.Call("user.update", longList))
+			if p.IsError() {
+				fmt.Println("Error: ", p)
+			}
+			Expect(p.IsError()).Should(BeFalse())
+			userBroker.Stop()
+			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
+
+			profileBroker.Stop()
+		})
+	})
+
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "FATAL"
+		logLevel := "fatal"
 		numberOfLoops := 5
 		loopNumber := 0
-		Measure("Creation of multiple brokers with connect/disconnect cycles running on stan transporter.", func(bench Benchmarker) {
-
+		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
+			transporter := "nats://" + NatsTestHost + ":4222"
 			var userBroker, contactBroker, profileBroker *broker.ServiceBroker
 			bench.Time("brokers creation", func() {
 				userBroker = broker.New(&moleculer.Config{
-					LogLevel:    logLevel,
-					Transporter: "STAN",
+					LogLevel:       logLevel,
+					Transporter:    transporter,
+					RequestTimeout: time.Second,
 				})
 				userBroker.Publish(userService())
 				userBroker.Start()
 
 				contactBroker = broker.New(&moleculer.Config{
-					LogLevel:    logLevel,
-					Transporter: "STAN",
+					LogLevel:       logLevel,
+					Transporter:    transporter,
+					RequestTimeout: time.Second,
 				})
 				contactBroker.Publish(contactService())
 				contactBroker.Start()
 
 				profileBroker = broker.New(&moleculer.Config{
-					LogLevel:    logLevel,
-					Transporter: "STAN",
+					LogLevel:       logLevel,
+					Transporter:    transporter,
+					RequestTimeout: time.Second,
 				})
 				profileBroker.Publish(profileService())
 				profileBroker.Start()
@@ -119,7 +178,61 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 	})
 
+	It("Should fail to connect", func() {
+		logger := contextA.Logger()
+		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
+		options := nats.NATSOptions{
+			URL:        "some ivalid URL",
+			Name:       "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+		transporter := nats.CreateNatsTransporter(options)
+		transporter.SetPrefix("MOL")
+		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+	})
+
+	It("Should not fail on double disconnect", func() {
+		logger := contextA.Logger()
+		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
+		options := nats.NATSOptions{
+			URL:        url,
+			Name:       "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+		transporter := nats.CreateNatsTransporter(options)
+		transporter.SetPrefix("MOL")
+		Expect(<-transporter.Connect()).Should(Succeed())
+		Expect(<-transporter.Disconnect()).Should(Succeed())
+		Expect(<-transporter.Disconnect()).Should(Succeed())
+	})
+
+	It("Should fail Subscribe() and Publish() when is not connected", func() {
+		transporter := nats.CreateNatsTransporter(nats.NATSOptions{})
+		Expect(func() { transporter.Subscribe("", "", func(moleculer.Payload) {}) }).Should(Panic())
+		Expect(func() { transporter.Publish("", "", payload.Empty()) }).Should(Panic())
+	})
+
 	It("Should connect, subscribe, publish and disconnect", func() {
+		logger := contextA.Logger()
+		var serializer serializer.Serializer = serializer.CreateJSONSerializer(logger)
+		options := nats.NATSOptions{
+			URL:        url,
+			Name:       "test-cluster",
+			Logger:     logger,
+			Serializer: serializer,
+			ValidateMsg: func(msg moleculer.Payload) bool {
+				return true
+			},
+		}
+
 		params := map[string]string{
 			"name":     "John",
 			"lastName": "Snow",
@@ -128,7 +241,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 		actionName := "some.service.action"
 		actionContext := contextA.ChildActionContext(actionName, payload.New(params))
 
-		transporter := nats.CreateStanTransporter(options)
+		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
 		Expect(<-transporter.Connect()).Should(Succeed())
 
@@ -157,47 +270,6 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 
-	})
-
-	It("Should fail to connect", func() {
-		logger := contextA.Logger()
-		options := nats.StanOptions{
-			URL:        "some ivalid URL",
-			ClientID:   "test-cluster",
-			Logger:     logger,
-			Serializer: serializer,
-			ValidateMsg: func(msg moleculer.Payload) bool {
-				return true
-			},
-		}
-		transporter := nats.CreateStanTransporter(options)
-		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).ShouldNot(Succeed())
-	})
-
-	It("Should not fail on double disconnect", func() {
-		logger := contextA.Logger()
-		options := nats.StanOptions{
-			url,
-			"test-cluster",
-			"unit-test-client-id",
-			logger,
-			serializer,
-			func(msg moleculer.Payload) bool {
-				return true
-			},
-		}
-		transporter := nats.CreateStanTransporter(options)
-		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
-		Expect(<-transporter.Disconnect()).Should(Succeed())
-		Expect(<-transporter.Disconnect()).Should(Succeed())
-	})
-
-	It("Should fail Subscribe() and Publish() when is not connected", func() {
-		transporter := nats.CreateStanTransporter(nats.StanOptions{})
-		Expect(func() { transporter.Subscribe("", "", func(moleculer.Payload) {}) }).Should(Panic())
-		Expect(func() { transporter.Publish("", "", payload.Empty()) }).Should(Panic())
 	})
 
 })
