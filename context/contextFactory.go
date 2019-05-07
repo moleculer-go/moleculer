@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
-	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
 
@@ -24,7 +23,7 @@ type Context struct {
 	groups       []string
 	broadcast    bool
 	params       moleculer.Payload
-	meta         *map[string]interface{}
+	meta         moleculer.Payload
 	timeout      int
 	level        int
 }
@@ -37,6 +36,7 @@ func BrokerContext(broker *moleculer.BrokerDelegates) moleculer.BrokerContext {
 		broker:   broker,
 		level:    1,
 		parentID: "ImGroot;)",
+		meta:     payload.Empty(),
 	}
 	return &context
 }
@@ -45,12 +45,8 @@ func BrokerContext(broker *moleculer.BrokerDelegates) moleculer.BrokerContext {
 func (context *Context) ChildEventContext(eventName string, params moleculer.Payload, groups []string, broadcast bool) moleculer.BrokerContext {
 	parentContext := context
 	meta := parentContext.meta
-	if meta == nil {
-		metaMap := make(map[string]interface{})
-		meta = &metaMap
-	}
 	if context.broker.Config.Metrics {
-		(*meta)["metrics"] = true
+		meta = meta.Add("metrics", true)
 	}
 	id := util.RandomString(12)
 	var requestID string
@@ -80,15 +76,14 @@ func (context *Context) BrokerDelegates() *moleculer.BrokerDelegates {
 }
 
 // ChildActionContext : create a chiold context for a specific action call.
-func (context *Context) ChildActionContext(actionName string, params moleculer.Payload, opts ...moleculer.OptionsFunc) moleculer.BrokerContext {
+func (context *Context) ChildActionContext(actionName string, params moleculer.Payload, opts ...moleculer.Options) moleculer.BrokerContext {
 	parentContext := context
 	meta := parentContext.meta
-	if meta == nil {
-		metaMap := make(map[string]interface{})
-		meta = &metaMap
-	}
 	if context.broker.Config.Metrics {
-		(*meta)["metrics"] = true
+		meta = meta.Add("metrics", true)
+	}
+	if len(opts) > 0 && opts[0].Meta != nil && opts[0].Meta.Len() > 0 {
+		meta = meta.AddMany(opts[0].Meta.RawMap())
 	}
 	id := util.RandomString(12)
 	var requestID string
@@ -119,7 +114,7 @@ func checkMaxCalls(context *Context) {
 func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
 	var level int
 	var timeout int
-	var meta map[string]interface{}
+	var meta moleculer.Payload
 
 	sourceNodeID := values["sender"].(string)
 	id := values["id"].(string)
@@ -141,7 +136,9 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 		timeout = values["timeout"].(int)
 	}
 	if values["meta"] != nil {
-		meta = values["meta"].(map[string]interface{})
+		meta = payload.New(values["meta"])
+	} else {
+		meta = payload.Empty()
 	}
 
 	newContext := Context{
@@ -152,7 +149,7 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 		actionName:   actionName.(string),
 		parentID:     parentID,
 		params:       params,
-		meta:         &meta,
+		meta:         meta,
 		timeout:      timeout,
 		level:        level,
 	}
@@ -162,6 +159,7 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 
 // EventContext create an event context for a remote call.
 func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface{}) moleculer.BrokerContext {
+	var meta moleculer.Payload
 	sourceNodeID := values["sender"].(string)
 	id := ""
 	if t, ok := values["id"]; ok {
@@ -171,7 +169,11 @@ func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface
 	if !isEvent {
 		panic(errors.New("Can't create an event context, you need an event field!"))
 	}
-
+	if values["meta"] != nil {
+		meta = payload.New(values["meta"])
+	} else {
+		meta = payload.Empty()
+	}
 	newContext := Context{
 		broker:       broker,
 		sourceNodeID: sourceNodeID,
@@ -179,6 +181,7 @@ func EventContext(broker *moleculer.BrokerDelegates, values map[string]interface
 		eventName:    eventName.(string),
 		broadcast:    values["broadcast"].(bool),
 		params:       payload.New(values["data"]),
+		meta:         meta,
 	}
 	if values["groups"] != nil {
 		temp := values["groups"]
@@ -207,9 +210,9 @@ func (context *Context) RequestID() string {
 func (context *Context) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
 
-	var metrics interface{}
-	if context.meta != nil {
-		metrics = (*context.meta)["metrics"]
+	var metrics bool
+	if context.meta.Get("metrics").Exists() {
+		metrics = context.meta.Get("metrics").Bool()
 	}
 
 	mapResult["id"] = context.id
@@ -220,7 +223,7 @@ func (context *Context) AsMap() map[string]interface{} {
 		mapResult["action"] = context.actionName
 		mapResult["metrics"] = metrics
 		mapResult["parentID"] = context.parentID
-		mapResult["meta"] = (*context.meta)
+		mapResult["meta"] = context.meta.RawMap()
 		mapResult["timeout"] = context.timeout
 		mapResult["params"] = context.params.Value()
 	}
@@ -229,6 +232,7 @@ func (context *Context) AsMap() map[string]interface{} {
 		mapResult["groups"] = context.groups
 		mapResult["broadcast"] = context.broadcast
 		mapResult["data"] = context.params.Value()
+		mapResult["meta"] = context.meta.RawMap()
 	}
 
 	//TODO : check how to support streaming params in go
@@ -243,9 +247,9 @@ func (context *Context) MCall(callMaps map[string]map[string]interface{}) chan m
 
 // Call : main entry point to call actions.
 // chained action invocation
-func (context *Context) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-	actionContext := context.ChildActionContext(actionName, payload.New(params), options.Wrap(opts))
-	return context.broker.ActionDelegate(actionContext, options.Wrap(opts))
+func (context *Context) Call(actionName string, params interface{}, opts ...moleculer.Options) chan moleculer.Payload {
+	actionContext := context.ChildActionContext(actionName, payload.New(params), opts...)
+	return context.broker.ActionDelegate(actionContext, opts...)
 }
 
 // Emit : Emit an event (grouped & balanced global event)
@@ -298,8 +302,12 @@ func (context *Context) ID() string {
 	return context.id
 }
 
-func (context *Context) Meta() *map[string]interface{} {
+func (context *Context) Meta() moleculer.Payload {
 	return context.meta
+}
+
+func (context *Context) UpdateMeta(meta moleculer.Payload) {
+	context.meta = meta
 }
 
 func (context *Context) Logger() *log.Entry {

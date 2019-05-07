@@ -13,7 +13,6 @@ import (
 	"github.com/moleculer-go/moleculer/payload"
 
 	"github.com/moleculer-go/moleculer"
-	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/service"
 	"github.com/moleculer-go/moleculer/strategy"
 
@@ -237,12 +236,12 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 
 // DelegateCall : invoke a service action and return a channel which will eventualy deliver the results ;).
 // This call might be local or remote.
-func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
 	actionName := context.ActionName()
 	params := context.Payload()
 	registry.logger.Trace("LoadBalanceCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
 
-	actionEntry := registry.nextAction(actionName, registry.strategy, options.Wrap(opts))
+	actionEntry := registry.nextAction(actionName, registry.strategy, opts...)
 	if actionEntry == nil {
 		msg := fmt.Sprint("Registry - endpoint not found for actionName: ", actionName)
 		registry.logger.Error(msg)
@@ -526,10 +525,9 @@ func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
 
 // nextAction it will find and return the next action to be invoked.
 // If multiple nodes that contain this action are found it will use the strategy to decide which one to use.
-func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy.Strategy, opts ...moleculer.OptionsFunc) *ActionEntry {
-	nodeID := options.String("nodeID", opts)
-	if nodeID != "" {
-		return registry.actions.NextFromNode(actionName, nodeID)
+func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy.Strategy, opts ...moleculer.Options) *ActionEntry {
+	if len(opts) > 0 && opts[0].NodeID != "" {
+		return registry.actions.NextFromNode(actionName, opts[0].NodeID)
 	}
 	return registry.actions.Next(actionName, strategy)
 }

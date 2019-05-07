@@ -11,7 +11,6 @@ import (
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/metrics"
 	"github.com/moleculer-go/moleculer/middleware"
-	"github.com/moleculer-go/moleculer/options"
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/registry"
 	"github.com/moleculer-go/moleculer/serializer"
@@ -336,13 +335,13 @@ func (broker *ServiceBroker) MCall(callMaps map[string]map[string]interface{}) c
 }
 
 // Call :  invoke a service action and return a channel which will eventualy deliver the results ;)
-func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ...moleculer.Options) chan moleculer.Payload {
 	broker.logger.Trace("Broker - Call() actionName: ", actionName, " params: ", params, " opts: ", opts)
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before making calls :("))
 	}
-	actionContext := broker.rootContext.ChildActionContext(actionName, payload.New(params), options.Wrap(opts))
-	return broker.registry.LoadBalanceCall(actionContext, options.Wrap(opts))
+	actionContext := broker.rootContext.ChildActionContext(actionName, payload.New(params), opts...)
+	return broker.registry.LoadBalanceCall(actionContext, opts...)
 }
 
 func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...string) {
@@ -426,8 +425,8 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		Bus:       broker.LocalBus,
 		IsStarted: broker.IsStarted,
 		Config:    broker.config,
-		ActionDelegate: func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
-			return broker.registry.LoadBalanceCall(context, options.Wrap(opts))
+		ActionDelegate: func(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
+			return broker.registry.LoadBalanceCall(context, opts...)
 		},
 		EmitEvent: func(context moleculer.BrokerContext) {
 			broker.registry.LoadBalanceEvent(context)

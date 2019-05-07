@@ -104,12 +104,12 @@ var _ = g.Describe("Context", func() {
 		brokerContext := BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))
 		actionContext := brokerContext.ChildActionContext("actionx", nil)
 		Expect(actionContext.Meta()).ShouldNot(BeNil())
-		Expect((*actionContext.Meta())["metrics"]).Should(BeTrue())
+		Expect(actionContext.Meta().Get("metrics").Bool()).Should(BeTrue())
 
 		eventContext := brokerContext.ChildEventContext("eventx", nil, nil, false)
 		Expect(eventContext.Meta()).ShouldNot(BeNil())
 		Expect(eventContext.RequestID()).ShouldNot(Equal(""))
-		Expect((*eventContext.Meta())["metrics"]).Should(BeTrue())
+		Expect(actionContext.Meta().Get("metrics").Bool()).Should(BeTrue())
 
 		config = moleculer.Config{
 			Metrics: false,
@@ -117,11 +117,11 @@ var _ = g.Describe("Context", func() {
 		brokerContext = BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))
 		actionContext = brokerContext.ChildActionContext("actionx", nil)
 		Expect(actionContext.Meta()).ShouldNot(BeNil())
-		Expect((*actionContext.Meta())["metrics"]).Should(BeNil())
+		Expect(actionContext.Meta().Get("metrics").Exists()).Should(BeFalse())
 
 		eventContext = brokerContext.ChildEventContext("eventx", nil, nil, false)
 		Expect(eventContext.Meta()).ShouldNot(BeNil())
-		Expect((*eventContext.Meta())["metrics"]).Should(BeNil())
+		Expect(actionContext.Meta().Get("metrics").Exists()).Should(BeFalse())
 
 	})
 
@@ -143,7 +143,7 @@ var _ = g.Describe("Context", func() {
 	g.It("Should call Call and delegate it to broker", func() {
 		delegates := test.DelegatesWithIdAndConfig("x", moleculer.Config{})
 		called := false
-		delegates.ActionDelegate = func(context moleculer.BrokerContext, opts ...moleculer.OptionsFunc) chan moleculer.Payload {
+		delegates.ActionDelegate = func(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
 			called = true
 			result := make(chan moleculer.Payload, 1)
 			result <- payload.New("value")

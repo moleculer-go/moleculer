@@ -10,12 +10,12 @@ import (
 )
 
 func metricEnd(brokerContext moleculer.BrokerContext, result moleculer.Payload) {
-	rawContext := brokerContext.(*context.Context)
-	if rawContext.Meta() == nil || (*rawContext.Meta())["startTime"] == nil {
+	ctx := brokerContext.(*context.Context)
+	if !ctx.Meta().Get("startTime").Exists() {
 		return
 	}
 
-	startTime := (*rawContext.Meta())["startTime"].(time.Time)
+	startTime := ctx.Meta().Get("startTime").Time()
 	payload := metricsPayload(brokerContext)
 
 	mlseconds := float64(time.Since(startTime).Nanoseconds()) / 1000000
@@ -26,21 +26,21 @@ func metricEnd(brokerContext moleculer.BrokerContext, result moleculer.Payload) 
 			"message": fmt.Sprintf("%s", result.Error()),
 		}
 	}
-	rawContext.Emit("metrics.trace.span.finish", payload)
+	ctx.Emit("metrics.trace.span.finish", payload)
 }
 
 func metricStart(context moleculer.BrokerContext) {
-	(*context.Meta())["startTime"] = time.Now()
-	(*context.Meta())["duration"] = 0
-	context.(moleculer.Context).Emit("metrics.trace.span.start", metricsPayload(context))
+	meta := context.Meta().Add("startTime", time.Now()).Add("duration", 0)
+	context.UpdateMeta(meta)
+	context.Emit("metrics.trace.span.start", metricsPayload(context))
 }
 
 // metricsPayload generate the payload for the metrics event
 func metricsPayload(brokerContext moleculer.BrokerContext) map[string]interface{} {
 	rawContext := brokerContext.(*context.Context)
 	contextMap := brokerContext.AsMap()
-	if rawContext.Meta() != nil && (*rawContext.Meta())["startTime"] != nil {
-		contextMap["startTime"] = (*rawContext.Meta())["startTime"].(time.Time).Format(time.RFC3339)
+	if rawContext.Meta().Get("startTime").Exists() {
+		contextMap["startTime"] = rawContext.Meta().Get("startTime").Time().Format(time.RFC3339)
 	}
 	nodeID := rawContext.BrokerDelegates().LocalNode().GetID()
 	contextMap["nodeID"] = nodeID
@@ -64,7 +64,7 @@ func metricsPayload(brokerContext moleculer.BrokerContext) map[string]interface{
 func createShouldMetric(Config moleculer.Config) func(context moleculer.BrokerContext) bool {
 	var callsCount float32 = 0
 	return func(context moleculer.BrokerContext) bool {
-		if context.Meta() != nil && (*context.Meta())["metrics"] != nil && (*context.Meta())["metrics"].(bool) {
+		if context.Meta().Get("metrics").Bool() {
 			callsCount++
 			if callsCount*Config.MetricsRate >= 1.0 {
 

@@ -192,13 +192,12 @@ type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
-type ActionDelegateFunc func(context BrokerContext, opts ...OptionsFunc) chan Payload
+type ActionDelegateFunc func(context BrokerContext, opts ...Options) chan Payload
 type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) *ServiceSchema
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
-type OptionsFunc func(key string) interface{}
 type PublishFunc func(...interface{})
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
 
@@ -220,17 +219,29 @@ type Node interface {
 	HeartBeat(heartbeat map[string]interface{})
 	Publish(service map[string]interface{})
 }
+
+type Options struct {
+	Meta   Payload
+	NodeID string
+}
+
 type Context interface {
 	//context methods used by services
 	MCall(map[string]map[string]interface{}) chan map[string]Payload
-	Call(actionName string, params interface{}, opts ...OptionsFunc) chan Payload
+	Call(actionName string, params interface{}, opts ...Options) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
 	Broadcast(eventName string, params interface{}, groups ...string)
 	Logger() *log.Entry
+
+	Payload() Payload
+	Meta() Payload
 }
 
 type BrokerContext interface {
-	ChildActionContext(actionName string, params Payload, opts ...OptionsFunc) BrokerContext
+	Call(actionName string, params interface{}, opts ...Options) chan Payload
+	Emit(eventName string, params interface{}, groups ...string)
+
+	ChildActionContext(actionName string, params Payload, opts ...Options) BrokerContext
 	ChildEventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext
 
 	ActionName() string
@@ -247,8 +258,8 @@ type BrokerContext interface {
 
 	ID() string
 	RequestID() string
-	Meta() *map[string]interface{}
-
+	Meta() Payload
+	UpdateMeta(Payload)
 	Logger() *log.Entry
 
 	Publish(...interface{})
