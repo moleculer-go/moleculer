@@ -81,7 +81,7 @@ var _ = g.Describe("Context", func() {
 		})
 		Expect(eventContext).ShouldNot(BeNil())
 		Expect(eventContext.IsBroadcast()).Should(BeTrue())
-		Expect(len(eventContext.AsMap())).Should(Equal(8))
+		Expect(len(eventContext.AsMap())).Should(Equal(9))
 		Expect(eventContext.EventName()).Should(Equal("event"))
 		Expect(eventContext.Groups()).Should(Equal([]string{"a", "b"}))
 		Expect(eventContext.Payload()).Should(Equal(payload.Empty()))
