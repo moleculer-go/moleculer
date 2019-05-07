@@ -24,7 +24,7 @@ steps:
       - export STAN_HOST="nats-streaming"
       - export NATS_HOST="nats-streaming"
       - go build
-      - go run github.com/onsi/ginkgo/ginkgo -r --randomizeAllSpecs --failFast --cover --trace || echo "Failed tests"
+      - go run github.com/onsi/ginkgo/ginkgo -r --randomizeAllSpecs --failFast --cover --trace
       - curl -sL https://deb.nodesource.com/setup_12.x | bash -
       - apt-get update
       - apt-get install -y nodejs
