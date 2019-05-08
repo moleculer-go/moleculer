@@ -236,10 +236,10 @@ func chainStarted(service moleculer.ServiceSchema, mixin *moleculer.Mixin) molec
 	if mixin.Started != nil {
 		svcHook := service.Started
 		service.Started = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
+			mixin.Started(ctx, svc)
 			if svcHook != nil {
 				svcHook(ctx, svc)
 			}
-			mixin.Started(ctx, svc)
 		}
 	}
 	return service

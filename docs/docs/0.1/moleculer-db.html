@@ -128,7 +128,7 @@
                 <a href="https://github.com/moleculer-go/site/edit/master/source/docs/0.1/moleculer-db.md" class="article-edit-link" title="Improve this doc"><i class="fa fa-pencil"></i></a>
               </header>
               <div class="article-content" itemprop="articleBody">
-                <p>Moleculer framework has an official set of <a href="https://github.com/moleculer-go/moleculer-db" target="_blank" rel="noopener">DB adapters</a>. Use them to persist your data in a database.</p>
+                <p>Moleculer framework has an official set of <a href="https://github.com/moleculer-go/stores" target="_blank" rel="noopener">DB adapters</a>. Use them to persist your data in a database.</p>
 <blockquote class="note info"><strong class="note-title">Database per service</strong><p>Moleculer follows the <em>one database per service</em> pattern. To learn more about this design pattern and its implications check this <a href="https://microservices.io/patterns/data/database-per-service.html" target="_blank" rel="noopener">article</a>.</p>
 </blockquote>
 <h2 id="Features" class="article-heading"><a href="#Features" class="headerlink" title="Features"></a>Features<a class="article-anchor" href="#Features" aria-hidden="true"></a></h2><ul>
@@ -148,7 +148,7 @@
 <h3 id="Install" class="article-heading"><a href="#Install" class="headerlink" title="Install"></a>Install<a class="article-anchor" href="#Install" aria-hidden="true"></a></h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ npm install moleculer-db --save</span><br></pre></td></tr></table></figure>
 <h3 id="Usage" class="article-heading"><a href="#Usage" class="headerlink" title="Usage"></a>Usage<a class="article-anchor" href="#Usage" aria-hidden="true"></a></h3><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="meta">"use strict"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> &#123; ServiceBroker &#125; = <span class="built_in">require</span>(<span class="string">"moleculer"</span>);</span><br><span class="line"><span class="keyword">const</span> DbService = <span class="built_in">require</span>(<span class="string">"moleculer-db"</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> broker = <span class="keyword">new</span> ServiceBroker();</span><br><span class="line"></span><br><span class="line"><span class="comment">// Create a DB service for `user` entities</span></span><br><span class="line">broker.createService(&#123;</span><br><span class="line">    name: <span class="string">"users"</span>,</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Mixin DB service into (current) 'users' service</span></span><br><span class="line">    mixins: [DbService],</span><br><span class="line"></span><br><span class="line">    settings: &#123;</span><br><span class="line">        fields: [<span class="string">"_id"</span>, <span class="string">"username"</span>, <span class="string">"name"</span>]</span><br><span class="line">    &#125;,</span><br><span class="line"></span><br><span class="line">    afterConnected() &#123;</span><br><span class="line">        <span class="comment">// Seed the DB with ˙this.create`</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line">broker.start()</span><br><span class="line"></span><br><span class="line"><span class="comment">// Create a new user</span></span><br><span class="line">.then(<span class="function"><span class="params">()</span> =&gt;</span> broker.call(<span class="string">"users.create"</span>, &#123;</span><br><span class="line">    username: <span class="string">"john"</span>,</span><br><span class="line">    name: <span class="string">"John Doe"</span>,</span><br><span class="line">    status: <span class="number">1</span></span><br><span class="line">&#125;))</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get all users</span></span><br><span class="line">.then(<span class="function"><span class="params">()</span> =&gt;</span> broker.call(<span class="string">"users.find"</span>).then(<span class="built_in">console</span>.log));</span><br><span class="line"></span><br><span class="line"><span class="comment">// List users with pagination</span></span><br><span class="line">.then(<span class="function"><span class="params">()</span> =&gt;</span> broker.call(<span class="string">"users.list"</span>, &#123; <span class="attr">page</span>: <span class="number">2</span>, <span class="attr">pageSize</span>: <span class="number">10</span> &#125;).then(<span class="built_in">console</span>.log));</span><br><span class="line"></span><br><span class="line"><span class="comment">// Get a user</span></span><br><span class="line">.then(<span class="function"><span class="params">()</span> =&gt;</span> broker.call(<span class="string">"users.get"</span>, &#123; <span class="attr">id</span>: <span class="number">2</span> &#125;).then(<span class="built_in">console</span>.log));</span><br><span class="line"></span><br><span class="line"><span class="comment">// Update a user</span></span><br><span class="line">.then(<span class="function"><span class="params">()</span> =&gt;</span> broker.call(<span class="string">"users.update"</span>, &#123; <span class="attr">id</span>: <span class="number">2</span>, <span class="attr">name</span>: <span class="string">"Jane Doe"</span> &#125;).then(<span class="built_in">console</span>.log));</span><br><span class="line"></span><br><span class="line"><span class="comment">// Delete a user</span></span><br><span class="line">.then(<span class="function"><span class="params">()</span> =&gt;</span> broker.call(<span class="string">"users.remove"</span>, &#123; <span class="attr">id</span>: <span class="number">2</span> &#125;).then(<span class="built_in">console</span>.log));</span><br></pre></td></tr></table></figure>
 <blockquote>
-<p>More examples can be found on <a href="https://github.com/moleculer-go/moleculer-db/tree/master/packages/moleculer-db/examples" target="_blank" rel="noopener">GitHub</a></p>
+<p>More examples can be found on <a href="https://github.com/moleculer-go/stores/tree/master/packages/moleculer-db/examples" target="_blank" rel="noopener">GitHub</a></p>
 </blockquote>
 <h2 id="Settings" class="article-heading"><a href="#Settings" class="headerlink" title="Settings"></a>Settings<a class="article-anchor" href="#Settings" aria-hidden="true"></a></h2><p>All DB adapters share a common set of settings:</p>
 <table>
@@ -208,7 +208,7 @@
 <blockquote class="note warn"><p><code>idField</code> does not work with Sequelize adapter as you can freely set your own ID while creating the model.</p>
 </blockquote>
 <h2 id="Actions" class="article-heading"><a href="#Actions" class="headerlink" title="Actions"></a>Actions<a class="article-anchor" href="#Actions" aria-hidden="true"></a></h2><p>DB adapters also implement CRUD operations. These actions are public methods and can be called by other services.</p>
-<h3 id="find" class="article-heading"><a href="#find" class="headerlink" title="find "></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L75" target="_blank" rel="noopener"><code>find</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#find" aria-hidden="true"></a></h3><p>Find entities by query.</p>
+<h3 id="find" class="article-heading"><a href="#find" class="headerlink" title="find "></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L75" target="_blank" rel="noopener"><code>find</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#find" aria-hidden="true"></a></h3><p>Find entities by query.</p>
 <h4 id="Parameters" class="article-heading"><a href="#Parameters" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -270,7 +270,7 @@
 </tbody>
 </table>
 <h4 id="Results" class="article-heading"><a href="#Results" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Array.&lt;Object&gt;</code> - List of found entities.</p>
-<h3 id="count" class="article-heading"><a href="#count" class="headerlink" title="count "></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L110" target="_blank" rel="noopener"><code>count</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#count" aria-hidden="true"></a></h3><p>Get count of entities by query.</p>
+<h3 id="count" class="article-heading"><a href="#count" class="headerlink" title="count "></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L110" target="_blank" rel="noopener"><code>count</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#count" aria-hidden="true"></a></h3><p>Get count of entities by query.</p>
 <h4 id="Parameters-1" class="article-heading"><a href="#Parameters-1" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-1" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -302,7 +302,7 @@
 </tbody>
 </table>
 <h4 id="Results-1" class="article-heading"><a href="#Results-1" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-1" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Number</code> - Count of found entities.</p>
-<h3 id="list" class="article-heading"><a href="#list" class="headerlink" title="list "></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L149" target="_blank" rel="noopener"><code>list</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#list" aria-hidden="true"></a></h3><p>List entities by filters and pagination results.</p>
+<h3 id="list" class="article-heading"><a href="#list" class="headerlink" title="list "></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L149" target="_blank" rel="noopener"><code>list</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#list" aria-hidden="true"></a></h3><p>List entities by filters and pagination results.</p>
 <h4 id="Parameters-2" class="article-heading"><a href="#Parameters-2" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-2" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -364,7 +364,7 @@
 </tbody>
 </table>
 <h4 id="Results-2" class="article-heading"><a href="#Results-2" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-2" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Object</code> - List of found entities and count.</p>
-<h3 id="create" class="article-heading"><a href="#create" class="headerlink" title="create"></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L207" target="_blank" rel="noopener"><code>create</code></a><a class="article-anchor" href="#create" aria-hidden="true"></a></h3><p>Create a new entity.</p>
+<h3 id="create" class="article-heading"><a href="#create" class="headerlink" title="create"></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L207" target="_blank" rel="noopener"><code>create</code></a><a class="article-anchor" href="#create" aria-hidden="true"></a></h3><p>Create a new entity.</p>
 <h4 id="Parameters-3" class="article-heading"><a href="#Parameters-3" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-3" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -385,7 +385,7 @@
 </table>
 <p><em>No input parameters.</em></p>
 <h4 id="Results-3" class="article-heading"><a href="#Results-3" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-3" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Object</code> - Saved entity.</p>
-<h3 id="insert" class="article-heading"><a href="#insert" class="headerlink" title="insert"></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L229" target="_blank" rel="noopener"><code>insert</code></a><a class="article-anchor" href="#insert" aria-hidden="true"></a></h3><p>Create many new entities.</p>
+<h3 id="insert" class="article-heading"><a href="#insert" class="headerlink" title="insert"></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L229" target="_blank" rel="noopener"><code>insert</code></a><a class="article-anchor" href="#insert" aria-hidden="true"></a></h3><p>Create many new entities.</p>
 <h4 id="Parameters-4" class="article-heading"><a href="#Parameters-4" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-4" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -411,7 +411,7 @@
 </tbody>
 </table>
 <h4 id="Results-4" class="article-heading"><a href="#Results-4" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-4" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Object</code>, <code>Array.&lt;Object&gt;</code> - Saved entity(ies).</p>
-<h3 id="get" class="article-heading"><a href="#get" class="headerlink" title="get "></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L268" target="_blank" rel="noopener"><code>get</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#get" aria-hidden="true"></a></h3><p>Get entity by ID.</p>
+<h3 id="get" class="article-heading"><a href="#get" class="headerlink" title="get "></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L268" target="_blank" rel="noopener"><code>get</code></a> <img src="https://img.shields.io/badge/cache-true-blue.svg" alt="Cached action"><a class="article-anchor" href="#get" aria-hidden="true"></a></h3><p>Get entity by ID.</p>
 <h5 id="Parameters-5" class="article-heading"><a href="#Parameters-5" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-5" aria-hidden="true"></a></h5><table>
 <thead>
 <tr>
@@ -449,7 +449,7 @@
 </tbody>
 </table>
 <h4 id="Results-5" class="article-heading"><a href="#Results-5" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-5" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Object</code>, <code>Array.&lt;Object&gt;</code> - Found entity(ies).</p>
-<h3 id="update" class="article-heading"><a href="#update" class="headerlink" title="update"></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L322" target="_blank" rel="noopener"><code>update</code></a><a class="article-anchor" href="#update" aria-hidden="true"></a></h3><p>Update an entity by ID.</p>
+<h3 id="update" class="article-heading"><a href="#update" class="headerlink" title="update"></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L322" target="_blank" rel="noopener"><code>update</code></a><a class="article-anchor" href="#update" aria-hidden="true"></a></h3><p>Update an entity by ID.</p>
 <blockquote>
 <p>After update, clear the cache &amp; call lifecycle events.</p>
 </blockquote>
@@ -473,7 +473,7 @@
 </table>
 <p><em>No input parameters.</em></p>
 <h4 id="Results-6" class="article-heading"><a href="#Results-6" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-6" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Object</code> - Updated entity.</p>
-<h3 id="remove" class="article-heading"><a href="#remove" class="headerlink" title="remove"></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L357" target="_blank" rel="noopener"><code>remove</code></a><a class="article-anchor" href="#remove" aria-hidden="true"></a></h3><p>Remove an entity by ID.</p>
+<h3 id="remove" class="article-heading"><a href="#remove" class="headerlink" title="remove"></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L357" target="_blank" rel="noopener"><code>remove</code></a><a class="article-anchor" href="#remove" aria-hidden="true"></a></h3><p>Remove an entity by ID.</p>
 <h4 id="Parameters-7" class="article-heading"><a href="#Parameters-7" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-7" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -494,7 +494,7 @@
 </table>
 <h4 id="Results-7" class="article-heading"><a href="#Results-7" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-7" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Number</code> - Count of removed entities.</p>
 <h2 id="Methods" class="article-heading"><a href="#Methods" class="headerlink" title="Methods"></a>Methods<a class="article-anchor" href="#Methods" aria-hidden="true"></a></h2><p>DB adapters also has a set of helper methods</p>
-<h3 id="getById" class="article-heading"><a href="#getById" class="headerlink" title="getById"></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L469" target="_blank" rel="noopener"><code>getById</code></a><a class="article-anchor" href="#getById" aria-hidden="true"></a></h3><p>Get entity(ies) by ID(s).</p>
+<h3 id="getById" class="article-heading"><a href="#getById" class="headerlink" title="getById"></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L469" target="_blank" rel="noopener"><code>getById</code></a><a class="article-anchor" href="#getById" aria-hidden="true"></a></h3><p>Get entity(ies) by ID(s).</p>
 <h4 id="Parameters-8" class="article-heading"><a href="#Parameters-8" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-8" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -520,7 +520,7 @@
 </tbody>
 </table>
 <h4 id="Results-8" class="article-heading"><a href="#Results-8" class="headerlink" title="Results"></a>Results<a class="article-anchor" href="#Results-8" aria-hidden="true"></a></h4><p><strong>Type:</strong> <code>Object</code>, <code>Array.&lt;Object&gt;</code> - Found entity(ies).</p>
-<h3 id="clearCache" class="article-heading"><a href="#clearCache" class="headerlink" title="clearCache"></a><a href="https://github.com/moleculer-go/moleculer-db/blob/master/packages/moleculer-db/src/index.js#L507" target="_blank" rel="noopener"><code>clearCache</code></a><a class="article-anchor" href="#clearCache" aria-hidden="true"></a></h3><p>Clear cached entities</p>
+<h3 id="clearCache" class="article-heading"><a href="#clearCache" class="headerlink" title="clearCache"></a><a href="https://github.com/moleculer-go/stores/blob/master/packages/moleculer-db/src/index.js#L507" target="_blank" rel="noopener"><code>clearCache</code></a><a class="article-anchor" href="#clearCache" aria-hidden="true"></a></h3><p>Clear cached entities</p>
 <h4 id="Parameters-9" class="article-heading"><a href="#Parameters-9" class="headerlink" title="Parameters"></a>Parameters<a class="article-anchor" href="#Parameters-9" aria-hidden="true"></a></h4><table>
 <thead>
 <tr>
@@ -601,7 +601,7 @@
 <h3 id="Options" class="article-heading"><a href="#Options" class="headerlink" title="Options"></a>Options<a class="article-anchor" href="#Options" aria-hidden="true"></a></h3><p><strong>Example with connection URI</strong><br><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> MongoDBAdapter(<span class="string">"mongodb://localhost/moleculer-db"</span>)</span><br></pre></td></tr></table></figure></p>
 <p><strong>Example with connection URI &amp; options</strong><br><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> MongoDBAdapter(<span class="string">"mongodb://db-server-hostname/my-db"</span>, &#123;</span><br><span class="line">    keepAlive: <span class="number">1</span></span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure></p>
 <blockquote>
-<p>More MongoDB examples can be found on <a href="https://github.com/moleculer-go/moleculer-db/tree/master/packages/moleculer-db-adapter-mongo/examples" target="_blank" rel="noopener">GitHub</a></p>
+<p>More MongoDB examples can be found on <a href="https://github.com/moleculer-go/stores/tree/master/packages/moleculer-db-adapter-mongo/examples" target="_blank" rel="noopener">GitHub</a></p>
 </blockquote>
 <h2 id="Mongoose-Adapter" class="article-heading"><a href="#Mongoose-Adapter" class="headerlink" title="Mongoose Adapter "></a>Mongoose Adapter <a href="https://www.npmjs.com/package/moleculer-db-adapter-mongoose" target="_blank" rel="noopener"><img src="https://img.shields.io/npm/v/moleculer-db-adapter-mongoose.svg" alt="NPM version"></a><a class="article-anchor" href="#Mongoose-Adapter" aria-hidden="true"></a></h2><p>This adapter is based on <a href="https://mongoosejs.com/docs/" target="_blank" rel="noopener">Mongoose</a>.</p>
 <h3 id="Install-2" class="article-heading"><a href="#Install-2" class="headerlink" title="Install"></a>Install<a class="article-anchor" href="#Install-2" aria-hidden="true"></a></h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ npm install moleculer-db moleculer-db-adapter-mongoose mongoose --save</span><br></pre></td></tr></table></figure>
@@ -611,7 +611,7 @@
 <h3 id="Options-1" class="article-heading"><a href="#Options-1" class="headerlink" title="Options"></a>Options<a class="article-anchor" href="#Options-1" aria-hidden="true"></a></h3><p><strong>Example with connection URI</strong><br><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> MongooseAdapter(<span class="string">"mongodb://localhost/moleculer-db"</span>)</span><br></pre></td></tr></table></figure></p>
 <p><strong>Example with URI and options</strong><br><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> MongooseAdapter(<span class="string">"mongodb://db-server-hostname/my-db"</span>, &#123;</span><br><span class="line">    user: process.env.MONGO_USERNAME,</span><br><span class="line">    pass: process.env.MONGO_PASSWORD</span><br><span class="line">    keepAlive: <span class="literal">true</span></span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure></p>
 <blockquote>
-<p>More Mongoose examples can be found on <a href="https://github.com/moleculer-go/moleculer-db/tree/master/packages/moleculer-db-adapter-mongoose/examples" target="_blank" rel="noopener">GitHub</a></p>
+<p>More Mongoose examples can be found on <a href="https://github.com/moleculer-go/stores/tree/master/packages/moleculer-db-adapter-mongoose/examples" target="_blank" rel="noopener">GitHub</a></p>
 </blockquote>
 <h2 id="Sequelize-Adapter" class="article-heading"><a href="#Sequelize-Adapter" class="headerlink" title="Sequelize Adapter "></a>Sequelize Adapter <a href="https://www.npmjs.com/package/moleculer-db-adapter-sequelize" target="_blank" rel="noopener"><img src="https://img.shields.io/npm/v/moleculer-db-adapter-sequelize.svg" alt="NPM version"></a><a class="article-anchor" href="#Sequelize-Adapter" aria-hidden="true"></a></h2><p>SQL adapter (Postgres, MySQL, SQLite &amp; MSSQL) for Moleculer DB service with <a href="https://github.com/sequelize/sequelize" target="_blank" rel="noopener">Sequelize</a>.</p>
 <h3 id="Install-3" class="article-heading"><a href="#Install-3" class="headerlink" title="Install"></a>Install<a class="article-anchor" href="#Install-3" aria-hidden="true"></a></h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ npm install moleculer-db-adapter-sequelize --save</span><br></pre></td></tr></table></figure>
@@ -621,7 +621,7 @@
 <p><strong>Example with connection URI</strong><br><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> SqlAdapter(<span class="string">"postgres://user:pass@example.com:5432/dbname"</span>);</span><br></pre></td></tr></table></figure></p>
 <p><strong>Example with connection options</strong><br><figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> SqlAdapter(<span class="string">'database'</span>, <span class="string">'username'</span>, <span class="string">'password'</span>, &#123;</span><br><span class="line">    host: <span class="string">'localhost'</span>,</span><br><span class="line">    dialect: <span class="string">'mysql'</span>|<span class="string">'sqlite'</span>|<span class="string">'postgres'</span>|<span class="string">'mssql'</span>,</span><br><span class="line"></span><br><span class="line">    pool: &#123;</span><br><span class="line">        max: <span class="number">5</span>,</span><br><span class="line">        min: <span class="number">0</span>,</span><br><span class="line">        idle: <span class="number">10000</span></span><br><span class="line">    &#125;,</span><br><span class="line"></span><br><span class="line">    <span class="comment">// SQLite only</span></span><br><span class="line">    storage: <span class="string">'path/to/database.sqlite'</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure></p>
 <blockquote>
-<p>More Sequelize examples can be found on <a href="https://github.com/moleculer-go/moleculer-db/tree/master/packages/moleculer-db-adapter-sequelize/examples" target="_blank" rel="noopener">GitHub</a></p>
+<p>More Sequelize examples can be found on <a href="https://github.com/moleculer-go/stores/tree/master/packages/moleculer-db-adapter-sequelize/examples" target="_blank" rel="noopener">GitHub</a></p>
 </blockquote>
 
               </div>
