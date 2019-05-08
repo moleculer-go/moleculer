@@ -56,8 +56,8 @@ github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQz
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/moleculer-go/cupaloy/v2 v2.5.0 h1:cYw3tJtfhDuPWJeKO0ZPyQjOkRT+f7lfPA8cPEJq4Bc=
 github.com/moleculer-go/cupaloy/v2 v2.5.0/go.mod h1:k0i4fQVnSuF/zaLvRIv5rwRCU9cQRnSKuE9/LbPAY9o=
-github.com/moleculer-go/goemitter v1.0.0 h1:Et6gbX1VffEmMDV41mdsuyT8OmmUph2ZWe28l2OPoiw=
-github.com/moleculer-go/goemitter v1.0.0/go.mod h1:GgjB2n0fZ/M3aay0EdVbTNHllYj0RoXLAGy7w6RsZOE=
+github.com/moleculer-go/goemitter v1.0.1 h1:+uRNt6XR4LalSVeusuj/XpwLLxlLJPXzP0n7FQBAuFM=
+github.com/moleculer-go/goemitter v1.0.1/go.mod h1:GgjB2n0fZ/M3aay0EdVbTNHllYj0RoXLAGy7w6RsZOE=
 github.com/moleculer-go/spew v1.2.0 h1:Ko5FrSdx9ssnYhjS6OMgMFtN6omV4ZfVccljU8Ccth0=
 github.com/moleculer-go/spew v1.2.0/go.mod h1:R1AWW56BWfDlXLJ6i5YB4uWzqhI1iiE6dU6MJ4w2iiE=
 github.com/nats-io/gnatsd v1.4.1 h1:RconcfDeWpKCD6QIIwiVFcvForlXpWeJP7i5/lDLy44=

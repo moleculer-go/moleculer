@@ -16,7 +16,7 @@ require (
 	github.com/moleculer-go/cupaloy/v2 v2.5.0
 	github.com/moleculer-go/goemitter v1.0.1
 	github.com/nats-io/gnatsd v1.4.1 // indirect
-	github.com/nats-io/go-nats v1.7.2 // indirect
+	github.com/nats-io/go-nats v1.7.2
 	github.com/nats-io/go-nats-streaming v0.4.2
 	github.com/nats-io/nats-streaming-server v0.14.1 // indirect
 	github.com/nats-io/nkeys v0.0.2 // indirect
