@@ -18,6 +18,7 @@ type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
 // I has convinience methods to read action parameters by name with the right type.
 type Payload interface {
 	First() Payload
+	Sort(field string) Payload
 	Remove(fields ...string) Payload
 	AddItem(value interface{}) Payload
 	Add(field string, value interface{}) Payload

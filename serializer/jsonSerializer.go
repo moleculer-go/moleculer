@@ -440,6 +440,15 @@ func (payload JSONPayload) Array() []moleculer.Payload {
 	return nil
 }
 
+func (p JSONPayload) Sort(field string) moleculer.Payload {
+	if !p.IsArray() {
+		return p
+	}
+	ps := &payload.Sortable{field, p.Array()}
+	sort.Sort(ps)
+	return ps.Payload()
+}
+
 func (payload JSONPayload) IsArray() bool {
 	return payload.result.IsArray()
 }
