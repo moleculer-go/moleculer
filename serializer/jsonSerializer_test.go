@@ -1,9 +1,10 @@
 package serializer_test
 
 import (
+	"os"
 	"time"
 
-	snap "github.com/moleculer-go/cupaloy/v2"
+	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 
 	"github.com/moleculer-go/moleculer/context"
@@ -14,6 +15,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
+
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == ""))
 
 var _ = Describe("JSON Serializer", func() {
 
@@ -193,7 +196,7 @@ var _ = Describe("JSON Serializer", func() {
 
 		json = []byte(`{"rootMap":{"text":"shit happened!", "textList":["item1", "item2"], "objList":[{"subMap":{"prop1":"value"}}, {"name":"john", "list":[1,2,3]}] }`)
 		message = serializer.BytesToPayload(&json)
-		Expect(message.IsError()).Should(BeFalse())
+		Expect(message.Error()).Should(BeNil())
 
 		Expect(snap.SnapshotMulti("RawMap()", message.RawMap())).ShouldNot(HaveOccurred())
 	})

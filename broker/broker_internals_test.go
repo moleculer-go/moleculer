@@ -2,10 +2,11 @@ package broker
 
 import (
 	"fmt"
+	"os"
 
 	"time"
 
-	snap "github.com/moleculer-go/cupaloy/v2"
+	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/test"
@@ -14,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 )
+
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == ""))
 
 var _ = Describe("Broker Internals", func() {
 

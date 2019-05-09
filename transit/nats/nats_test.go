@@ -75,7 +75,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			profileBroker.Start()
 
 			result := <-profileBroker.Call("user.update", longList)
-			Expect(result.IsError()).Should(BeFalse())
+			Expect(result.Error()).Should(BeNil())
 			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 			userBroker.Stop()
@@ -90,7 +90,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			if p.IsError() {
 				fmt.Println("Error: ", p)
 			}
-			Expect(p.IsError()).Should(BeFalse())
+			Expect(p.Error()).Should(BeNil())
 			userBroker.Stop()
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
 

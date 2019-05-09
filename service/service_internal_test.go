@@ -3,9 +3,10 @@ package service
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 
-	snap "github.com/moleculer-go/cupaloy/v2"
+	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/payload"
 
@@ -15,6 +16,7 @@ import (
 )
 
 var logger = log.WithField("Unit Test", true)
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == ""))
 
 var _ = Describe("Service", func() {
 

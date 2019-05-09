@@ -2,17 +2,20 @@ package payload_test
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 
-	snap "github.com/moleculer-go/cupaloy/v2"
+	"github.com/moleculer-go/cupaloy/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer/payload"
 )
+
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == ""))
 
 var _ = Describe("Payload", func() {
 

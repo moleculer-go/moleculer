@@ -844,14 +844,14 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 // Start called by the broker when the service is starting.
 func (service *Service) Start(context moleculer.BrokerContext) {
 	if service.started != nil {
-		go service.started(context, (*service.schema))
+		service.started(context, (*service.schema))
 	}
 }
 
 // Stop called by the broker when the service is stopping.
 func (service *Service) Stop(context moleculer.BrokerContext) {
 	if service.stopped != nil {
-		go service.stopped(context, (*service.schema))
+		service.stopped(context, (*service.schema))
 	}
 }
 

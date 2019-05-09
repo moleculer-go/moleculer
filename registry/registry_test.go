@@ -2,11 +2,12 @@ package registry_test
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
 
-	snap "github.com/moleculer-go/cupaloy/v2"
+	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/test"
@@ -17,6 +18,7 @@ import (
 )
 
 var logLevel = "ERROR"
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == ""))
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.New(&moleculer.Config{
@@ -501,7 +503,7 @@ var _ = Describe("Registry", func() {
 
 			printText := "TEXT TO PRINT"
 			printResult := <-printerBroker.Call("printer.print", printText)
-			Expect(printResult.IsError()).Should(BeFalse())
+			Expect(printResult.Error()).Should(BeNil())
 			Expect(printResult.Value()).Should(Equal(printText))
 
 			scanText := "TEXT TO SCAN"

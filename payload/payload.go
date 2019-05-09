@@ -307,28 +307,40 @@ func arrayToString(arr []moleculer.Payload, ident string) string {
 	return out
 }
 
+type Stringer interface {
+	String() string
+}
+
 func (raw *RawPayload) String() string {
-	return raw.StringIdented("")
+	s, isS := raw.source.(string)
+	if isS {
+		return s
+	}
+	sr, isSr := raw.source.(Stringer)
+	if isSr {
+		return sr.String()
+	}
+	return fmt.Sprint(raw.source)
 }
 
-func (raw *RawPayload) StringIdented(ident string) string {
-	if raw.IsMap() {
-		return mapToString(raw.Map(), ident+"  ")
-	}
-	if raw.IsArray() {
-		return arrayToString(raw.Array(), ident+"  ")
-	}
-	byteList, isBytes := raw.source.([]byte)
-	if isBytes {
-		return string(byteList)
-	}
-	rawString, ok := raw.source.(string)
-	if ok {
-		return rawString
-	}
-	return fmt.Sprintf("%v", raw.source)
+// func (raw *RawPayload) StringIdented(ident string) string {
+// 	if raw.IsMap() {
+// 		return mapToString(raw.Map(), ident+"  ")
+// 	}
+// 	if raw.IsArray() {
+// 		return arrayToString(raw.Array(), ident+"  ")
+// 	}
+// 	byteList, isBytes := raw.source.([]byte)
+// 	if isBytes {
+// 		return string(byteList)
+// 	}
+// 	rawString, ok := raw.source.(string)
+// 	if ok {
+// 		return rawString
+// 	}
+// 	return fmt.Sprintf("%v", raw.source)
 
-}
+// }
 
 func (rawPayload *RawPayload) Map() map[string]moleculer.Payload {
 	if transformer := MapTransformer(&rawPayload.source); transformer != nil {
