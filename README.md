@@ -18,7 +18,7 @@ Simple, fast, light and fun to develop with. Also easy, very easy to test ;)
 # Get Started
 
 - [http://gomicro.services (Official site and Documentation)](http://gomicro.services)
-- [Database examples](https://moleculer-go-site.herokuapp.com/docs/0.1/moleculer-db.html)
+- [Database examples](https://moleculer-go-site.herokuapp.com/docs/0.1/store.html)
 - [WhatsApp App](https://github.com/moleculer-go/example-whatsapp)
 - [Benchmark](https://github.com/moleculer-go/benchmark)
 
@@ -119,16 +119,16 @@ $ go get github.com/moleculer-go/moleculer
 ```bash
 
 # simple moleculer db example with memory adaptor
-$ go run github.com/moleculer-go/stores/examples/users
+$ go run github.com/moleculer-go/store/examples/users
 
 # simple moleculer db example with Mongo adaptor
-$ go run github.com/moleculer-go/stores/examples/usersMongo
+$ go run github.com/moleculer-go/store/examples/usersMongo
 
 # simple moleculer db example with SQLite adaptor
-$ go run github.com/moleculer-go/stores/examples/usersSQLite
+$ go run github.com/moleculer-go/store/examples/usersSQLite
 
 # complex moleculer db example with population of fields by other services
-$ go run github.com/moleculer-go/stores/examples/populates
+$ go run github.com/moleculer-go/store/examples/populates
 
 
 ```
