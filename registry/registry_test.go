@@ -148,7 +148,7 @@ var _ = Describe("Registry", func() {
 
 	Describe("Auto discovery", func() {
 
-		It("3 brokers should auto discovery and perform local and remote Calls", func() {
+		It("3 brokers should auto discovery and perform local and remote Calls", func(done Done) {
 
 			mem := &memory.SharedMemory{}
 
@@ -258,6 +258,8 @@ var _ = Describe("Registry", func() {
 			Expect(func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
 			}).Should(Panic()) //broker B is stopped ... so it should panic
-		})
+
+			close(done)
+		}, 3)
 	})
 })

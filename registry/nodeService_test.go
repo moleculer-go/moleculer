@@ -73,9 +73,9 @@ func findBy(field, value string, list []moleculer.Payload) []map[string]interfac
 
 var _ = Describe("nodeService", func() {
 	Describe("Local Service $node", func() {
-		harness := func(action string, scenario string, params map[string]interface{}, transformer func(interface{}) interface{}) func() {
+		harness := func(action string, scenario string, params map[string]interface{}, transformer func(interface{}) interface{}) func(done Done) {
 			label := fmt.Sprint(scenario, "-", action)
-			return func() {
+			return func(done Done) {
 				mem := &memory.SharedMemory{}
 
 				printerBroker := createPrinterBroker(mem)
@@ -149,6 +149,8 @@ var _ = Describe("nodeService", func() {
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3"), transformer(result))).Should(Succeed())
+
+				close(done)
 			}
 		}
 
@@ -198,65 +200,65 @@ var _ = Describe("nodeService", func() {
 				"withEndpoints": false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractEvents))
+			}, extractEvents), 3)
 
 			It("$node.events - all true", harness("$node.events", "all-true", map[string]interface{}{
 				"withEndpoints": true,
 				"onlyAvailable": true,
 				"onlyLocal":     true,
-			}, extractEvents))
+			}, extractEvents), 3)
 
 			It("$node.actions - all false", harness("$node.actions", "all-false", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractActions))
+			}, extractActions), 3)
 
 			It("$node.actions - all true", harness("$node.actions", "all-true", map[string]interface{}{
 				"withEndpoints": true,
 				"skipInternal":  true,
 				"onlyAvailable": true,
 				"onlyLocal":     true,
-			}, extractActions))
+			}, extractActions), 3)
 
 			It("$node.actions - withEndpoints", harness("$node.actions", "withEndpoints", map[string]interface{}{
 				"withEndpoints": true,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractActions))
+			}, extractActions), 3)
 
 			It("$node.actions - skipInternal", harness("$node.actions", "skipInternal", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  true,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractActions))
+			}, extractActions), 3)
 
 			It("$node.actions - onlyAvailable", harness("$node.actions", "onlyAvailable", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  false,
 				"onlyAvailable": true,
 				"onlyLocal":     false,
-			}, extractActions))
+			}, extractActions), 3)
 
 			It("$node.actions - onlyLocal", harness("$node.actions", "onlyLocal", map[string]interface{}{
 				"withEndpoints": false,
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     true,
-			}, extractActions))
+			}, extractActions), 3)
 
 			It("$node.list with no services", harness("$node.list", "no-services", map[string]interface{}{
 				"withServices":  false,
 				"onlyAvailable": false,
-			}, extractNodes))
+			}, extractNodes), 3)
 
 			It("$node.list with services", harness("$node.list", "with-services", map[string]interface{}{
 				"withServices":  true,
 				"onlyAvailable": false,
-			}, extractNodes))
+			}, extractNodes), 3)
 
 			It("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
 				"withEndpoints": false,
@@ -265,7 +267,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - all true", harness("$node.services", "all-true", map[string]interface{}{
 				"withEndpoints": true,
@@ -274,7 +276,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  true,
 				"onlyAvailable": true,
 				"onlyLocal":     true,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - withActions", harness("$node.services", "withActions", map[string]interface{}{
 				"withActions":   true,
@@ -283,7 +285,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - withEndpoints", harness("$node.services", "withEndpoints", map[string]interface{}{
 				"withActions":   false,
@@ -292,7 +294,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - withEvents", harness("$node.services", "withEvents", map[string]interface{}{
 				"withActions":   false,
@@ -301,7 +303,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - skipInternal", harness("$node.services", "skipInternal", map[string]interface{}{
 				"withActions":   false,
@@ -310,7 +312,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  true,
 				"onlyAvailable": false,
 				"onlyLocal":     false,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - onlyAvailable", harness("$node.services", "onlyAvailable", map[string]interface{}{
 				"withActions":   false,
@@ -319,7 +321,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  false,
 				"onlyAvailable": true,
 				"onlyLocal":     false,
-			}, extractServices))
+			}, extractServices), 3)
 
 			It("$node.services - onlyLocal", harness("$node.services", "onlyLocal", map[string]interface{}{
 				"withActions":   false,
@@ -328,7 +330,7 @@ var _ = Describe("nodeService", func() {
 				"skipInternal":  false,
 				"onlyAvailable": false,
 				"onlyLocal":     true,
-			}, extractServices))
+			}, extractServices), 3)
 		})
 
 		It("Should subscribe for internal events and receive events when happen :)", func() {
