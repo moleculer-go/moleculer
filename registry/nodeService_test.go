@@ -2,8 +2,10 @@ package registry_test
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
+	"github.com/moleculer-go/cupaloy/v2"
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
@@ -13,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 )
+
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == ""))
 
 func cleanupNode(in map[string]interface{}) map[string]interface{} {
 	if in == nil {
@@ -421,9 +425,9 @@ var _ = Describe("nodeService", func() {
 					step <- true
 				}
 			})
-			<-step
-			Expect(snap.SnapshotMulti("remote-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
+			Expect(<-step).Should(BeTrue())
 
+			serviceRemoved = []moleculer.Payload{}
 			step = make(chan bool)
 			onEvent("$registry.service.removed", func(list []moleculer.Payload, cancel func()) {
 				if hasService(serviceRemoved, "remote-service") {
@@ -433,9 +437,7 @@ var _ = Describe("nodeService", func() {
 			})
 			//stop broker 2 .. should remove services on broker 1
 			bkr2.Stop()
-			<-step
-			fmt.Println("after remote-service removed")
-			Expect(snap.SnapshotMulti("remote-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
+			Expect(<-step).Should(BeTrue())
 
 			bkr1.Stop()
 		})

@@ -1,4 +1,0 @@
-([]moleculer.Payload) (len=2) {
-  (*payload.RawPayload)(map[name:$node nodeID:test-node2 version:]),
-  (*payload.RawPayload)(map[name:remote-service nodeID:test-node2 version:])
-}
