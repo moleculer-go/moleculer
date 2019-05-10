@@ -7,6 +7,8 @@ import (
 	"github.com/moleculer-go/moleculer/transit/memory"
 	log "github.com/sirupsen/logrus"
 
+	btest "github.com/moleculer-go/moleculer/test/broker"
+
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 
@@ -42,9 +44,10 @@ var _ = Describe("Broker", func() {
 
 		Expect(result.Value()).Should(Equal(actionResult))
 
+		broker.Stop()
 	})
 
-	It("Should make a local call, call should panic and returned paylod should contain the error", func() {
+	It("Should make a local call, call should panic and returned paylod should contain the error", func(done Done) {
 		service := moleculer.ServiceSchema{
 			Name: "do",
 			Actions: []moleculer.Action{
@@ -70,11 +73,11 @@ var _ = Describe("Broker", func() {
 		bkrConfig := &moleculer.Config{
 			DiscoverNodeID: func() string { return "do-broker" },
 		}
-		bkr := broker.New(baseConfig, bkrConfig)
-		bkr.Publish(service)
-		bkr.Start()
+		bkr1 := broker.New(baseConfig, bkrConfig)
+		bkr1.Publish(service)
+		bkr1.Start()
 
-		result := <-bkr.Call("do.panic", true)
+		result := <-bkr1.Call("do.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
 		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
@@ -99,19 +102,22 @@ var _ = Describe("Broker", func() {
 		bkrConfig = &moleculer.Config{
 			DiscoverNodeID: func() string { return "remote-broker" },
 		}
-		bkr = broker.New(baseConfig, bkrConfig)
-		bkr.Publish(service)
-		bkr.Start()
+		bkr2 := broker.New(baseConfig, bkrConfig)
+		bkr2.Publish(service)
+		bkr2.Start()
 
-		result = <-bkr.Call("remote.panic", true)
+		<-btest.WaitServiceStarted(bkr2, "do")
+		result = <-bkr2.Call("remote.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
 		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
-		result = <-bkr.Call("remote.panic", false)
+		result = <-bkr2.Call("remote.panic", false)
 
 		Expect(result.IsError()).Should(Equal(false))
 		Expect(result.String()).Should(BeEquivalentTo("no panic"))
+
+		close(done)
 	})
 
 	It("Should call multiple local calls (in chain)", func() {

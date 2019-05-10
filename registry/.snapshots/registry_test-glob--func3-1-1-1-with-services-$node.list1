@@ -14,20 +14,7 @@
       (string) (len=13) "100.100.0.100"
     },
     (string) (len=8) "hostname": (string) (len=7) "removed",
-    (string) (len=8) "services": ([]map[string]interface {}) (len=3) {
-      (map[string]interface {}) (len=7) {
-        (string) (len=4) "name": (string) (len=17) "internal-consumer",
-        (string) (len=6) "events": (map[string]map[string]interface {}) {
-        },
-        (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
-        (string) (len=7) "actions": (map[string]map[string]interface {}) {
-        },
-        (string) (len=7) "version": (string) "",
-        (string) (len=8) "metadata": (map[string]interface {}) {
-        },
-        (string) (len=8) "settings": (map[string]interface {}) {
-        }
-      },
+    (string) (len=8) "services": ([]map[string]interface {}) (len=2) {
       (map[string]interface {}) (len=7) {
         (string) (len=4) "name": (string) (len=5) "$node",
         (string) (len=6) "events": (map[string]map[string]interface {}) {

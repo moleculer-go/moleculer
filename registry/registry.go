@@ -529,7 +529,7 @@ func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy
 	if len(opts) > 0 && opts[0].NodeID != "" {
 		return registry.actions.NextFromNode(actionName, opts[0].NodeID)
 	}
-	return registry.actions.Next(actionName, strategy)
+	return registry.actions.Next(actionName, strategy, registry.nodes)
 }
 
 func (registry *ServiceRegistry) KnownEventListeners(addNode bool) []string {
@@ -547,11 +547,17 @@ func (registry *ServiceRegistry) KnownEventListeners(addNode bool) []string {
 	return result
 }
 
-func (registry *ServiceRegistry) KnownNodes() []string {
+func (registry *ServiceRegistry) KnownNodes(available bool) []string {
 	nodes := registry.nodes.list()
 	result := make([]string, len(nodes))
 	for index, node := range nodes {
-		result[index] = node.GetID()
+		if available {
+			if node.IsAvailable() {
+				result[index] = node.GetID()
+			}
+		} else {
+			result[index] = node.GetID()
+		}
 	}
 	sort.Strings(result)
 	return result

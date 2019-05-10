@@ -10,6 +10,7 @@ import (
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/test"
+	btest "github.com/moleculer-go/moleculer/test/broker"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -83,40 +84,6 @@ var _ = Describe("nodeService", func() {
 				mem := &memory.SharedMemory{}
 
 				printerBroker := createPrinterBroker(mem)
-				var serviceAdded, serviceRemoved []moleculer.Payload
-				events := bus.Construct()
-				addedMutex := &sync.Mutex{}
-
-				onEvent := func(event string, callback func(list []moleculer.Payload, cancel func())) {
-					events.On(event, func(v ...interface{}) {
-						list := v[0].([]moleculer.Payload)
-						callback(list, func() {
-							events = bus.Construct()
-						})
-					})
-				}
-
-				printerBroker.Publish(moleculer.ServiceSchema{
-					Name: "internal-consumer",
-					Events: []moleculer.Event{
-						moleculer.Event{
-							Name: "$registry.service.added",
-							Handler: func(ctx moleculer.Context, params moleculer.Payload) {
-								addedMutex.Lock()
-								defer addedMutex.Unlock()
-								serviceAdded = append(serviceAdded, params)
-								events.EmitSync("$registry.service.added", serviceAdded)
-							},
-						},
-						moleculer.Event{
-							Name: "$registry.service.removed",
-							Handler: func(ctx moleculer.Context, params moleculer.Payload) {
-								serviceRemoved = append(serviceRemoved, params)
-								events.EmitSync("$registry.service.removed", serviceRemoved)
-							},
-						},
-					},
-				})
 				printerBroker.Start()
 
 				result := <-printerBroker.Call(action, params)
@@ -125,15 +92,7 @@ var _ = Describe("nodeService", func() {
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
-
-				step := make(chan bool)
-				onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
-					if hasService(serviceAdded, "scanner") {
-						cancel()
-						step <- true
-					}
-				})
-				<-step
+				<-btest.WaitNode("node_printerBroker", &scannerBroker)
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -141,14 +100,8 @@ var _ = Describe("nodeService", func() {
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
-				step = make(chan bool)
-				onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
-					if hasService(serviceAdded, "cpu") {
-						cancel()
-						step <- true
-					}
-				})
-				<-step
+				<-btest.WaitNode("node_printerBroker", &cpuBroker)
+				<-btest.WaitNode("node_scannerBroker", &cpuBroker)
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())

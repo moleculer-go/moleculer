@@ -163,6 +163,8 @@ var DefaultConfig = Config{
 	RequestTimeout:            1 * time.Minute,
 	MCallTimeout:              5 * time.Second,
 	WaitForNeighboursInterval: 200 * time.Millisecond,
+
+	DontWaitForNeighbours: true,
 }
 
 // discoverNodeID - should return the node id for this machine

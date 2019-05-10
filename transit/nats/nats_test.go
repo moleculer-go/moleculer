@@ -5,16 +5,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/moleculer-go/moleculer/payload"
-	"github.com/moleculer-go/moleculer/util"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/context"
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
+	btest "github.com/moleculer-go/moleculer/test/broker"
 	"github.com/moleculer-go/moleculer/transit/nats"
+	"github.com/moleculer-go/moleculer/util"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 func natsTestHost() string {
@@ -72,7 +72,9 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		It("should make a remote call from profile broker a to user broker", func() {
 			userBroker.Start()
+			step := btest.WaitServiceStarted(profileBroker, "user")
 			profileBroker.Start()
+			<-step
 
 			result := <-profileBroker.Call("user.update", longList)
 			Expect(result.Error()).Should(BeNil())
@@ -84,7 +86,10 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		It("should fail after brokers are stoped", func() {
 			userBroker.Start()
+			step := btest.WaitServiceStarted(profileBroker, "user")
+
 			profileBroker.Start()
+			<-step
 
 			p := (<-profileBroker.Call("user.update", longList))
 			if p.IsError() {

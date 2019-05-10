@@ -3,6 +3,7 @@ package broker
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"time"
 
@@ -120,7 +121,7 @@ var _ = Describe("Broker Internals", func() {
 				// 	Expect(snap.SnapshotMulti("entries_1-music.verse_2-music.chorus", entries)).Should(Succeed())
 				// }
 				soundsBroker.Start()
-				Expect(snap.SnapshotMulti("soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes(true))).Should(Succeed())
 
 				//Scenario: action music.start will emit music.verse wich emits music.chorus - becuase there are 2 listeners for music.serve
 				//there should be too emits to music.chorus
@@ -178,7 +179,7 @@ var _ = Describe("Broker Internals", func() {
 				visualBroker.Publish(vjService)
 
 				visualBroker.Start()
-				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes(true))).Should(Succeed())
 
 				time.Sleep(400 * time.Millisecond)
 
@@ -213,12 +214,18 @@ var _ = Describe("Broker Internals", func() {
 					DiscoverNodeID: func() string { return "AquaBroker" },
 				})
 				aquaBroker.Publish(vjService)
+				step := waitServiceStarted(aquaBroker, "music")
 				aquaBroker.Start()
-				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+
+				<-waitNode("VisualBroker", aquaBroker)
+				<-waitNode("AquaBroker", visualBroker)
+
+				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes(true))).Should(Succeed())
 				Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				counters.Clear()
 
+				<-step
 				aquaBroker.Call("music.start", chorus)
 
 				Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
@@ -252,11 +259,15 @@ var _ = Describe("Broker Internals", func() {
 					fmt.Println("\n############# stormBroker -> $node.disconnected -> node id: ", nodeID, " #############")
 				})
 				stormBroker.Start()
-				Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+				<-waitNode("VisualBroker", stormBroker)
+				<-waitNode("AquaBroker", stormBroker)
+				<-waitNode("StormBroker", visualBroker)
+				<-waitNode("StormBroker", aquaBroker)
+
+				Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes(true))).Should(Succeed())
 				Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				counters.Clear()
-
 				stormBroker.Call("music.start", verse)
 
 				Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
@@ -283,7 +294,7 @@ var _ = Describe("Broker Internals", func() {
 
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownNodes", stormBroker.registry.KnownNodes(true))).Should(Succeed())
 				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				//now broadcast and every music.tone event listener should receive it.
@@ -303,12 +314,12 @@ var _ = Describe("Broker Internals", func() {
 				fmt.Println("\n############# Broadcasts - Remove one DJ Service #############")
 				//remove one dj service
 				stormBroker.Stop()
-				time.Sleep(time.Second)
+				<-waitNodeStop("StormBroker", visualBroker, aquaBroker, soundsBroker)
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-stopped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes(true))).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes(true))).Should(Succeed())
+				Expect(snap.SnapshotMulti("stormBroker-stopped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes(true))).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
@@ -318,15 +329,13 @@ var _ = Describe("Broker Internals", func() {
 				fmt.Println("\n############# Broadcasts - Remove second DJ Service #############")
 				//remove the other dj service
 				soundsBroker.Stop()
-				time.Sleep(time.Second)
-
+				<-waitNodeStop("SoundsBroker", aquaBroker, visualBroker)
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("soundsBroker-Stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("soundsBroker-Stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-Stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes(true))).Should(Succeed())
+				Expect(snap.SnapshotMulti("soundsBroker-Stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes(true))).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
-				time.Sleep(time.Second)
 
 				Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
@@ -597,4 +606,98 @@ type validService struct {
 
 func (s validService) Name() string {
 	return "validService"
+}
+
+func hasService(list []moleculer.Payload, names ...string) bool {
+	for _, p := range list {
+		for _, name := range names {
+			if p.Get("name").String() == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func waitNodeStop(nodeID string, bkrs ...*ServiceBroker) chan bool {
+	res := make(chan bool)
+	go func() {
+		for {
+			found := 0
+			for _, bkr := range bkrs {
+				for _, node := range bkr.registry.KnownNodes(true) {
+					if nodeID == node {
+						found = found + 1
+						break
+					}
+				}
+			}
+			if found == 0 {
+				res <- true
+				return
+			}
+			time.Sleep(time.Second)
+		}
+	}()
+	return res
+}
+
+func waitNode(nodeID string, bkrs ...*ServiceBroker) chan bool {
+	res := make(chan bool)
+	go func() {
+		for {
+			found := 0
+			for _, bkr := range bkrs {
+				for _, node := range bkr.registry.KnownNodes(true) {
+					if nodeID == node {
+						found = found + 1
+						break
+					}
+				}
+			}
+			if found == len(bkrs) {
+				res <- true
+				return
+			}
+			time.Sleep(time.Nanosecond)
+		}
+	}()
+	return res
+}
+
+var waitBrokers = map[*ServiceBroker]*[]moleculer.Payload{}
+
+func waitServiceStarted(bkr *ServiceBroker, name ...string) chan bool {
+	res := make(chan bool)
+	serviceAdded, exists := waitBrokers[bkr]
+	if !exists {
+		list := []moleculer.Payload{}
+		serviceAdded = &list
+		waitBrokers[bkr] = serviceAdded
+		addedMutex := &sync.Mutex{}
+		bkr.Publish(moleculer.ServiceSchema{
+			Name: "service-added-checker",
+			Events: []moleculer.Event{
+				moleculer.Event{
+					Name: "$registry.service.added",
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+						addedMutex.Lock()
+						defer addedMutex.Unlock()
+						list = append(list, params)
+					},
+				},
+			},
+		})
+	}
+
+	go func() {
+		for {
+			if hasService((*serviceAdded), name...) {
+				res <- true
+				return
+			}
+			time.Sleep(time.Nanosecond)
+		}
+	}()
+	return res
 }

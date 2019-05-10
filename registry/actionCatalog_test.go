@@ -26,6 +26,7 @@ var _ = Describe("Actions Catalog", func() {
 
 			msg := "message from action"
 			catalog := registry.CreateActionCatalog(logger)
+			nodeCatalog := registry.CreateNodesCatalog(logger)
 			peopleCreate := func(ctx moleculer.Context, params moleculer.Payload) interface{} {
 				return msg
 			}
@@ -33,10 +34,11 @@ var _ = Describe("Actions Catalog", func() {
 			testService.SetNodeID(node1.GetID())
 			testAction := service.CreateServiceAction("people", "create", peopleCreate, params)
 
+			nodeCatalog.Add(node1)
 			catalog.Add(testAction, &testService, true)
 
 			actionName := "people.create"
-			actionEntry := catalog.Next(actionName, strategy)
+			actionEntry := catalog.Next(actionName, strategy, nodeCatalog)
 			Expect(actionEntry).Should(Not(BeNil()))
 
 		})
@@ -57,8 +59,9 @@ var _ = Describe("Actions Catalog", func() {
 		It("Should add a local action to Action Catalog", func() {
 
 			catalog := registry.CreateActionCatalog(logger)
+			nodeCatalog := registry.CreateNodesCatalog(logger)
 
-			nextActionEntry := catalog.Next("bank.credit", strategy)
+			nextActionEntry := catalog.Next("bank.credit", strategy, nodeCatalog)
 			Expect(nextActionEntry).Should(BeNil())
 			testService := service.Service{}
 			testService.SetNodeID(node1.GetID())
@@ -66,7 +69,7 @@ var _ = Describe("Actions Catalog", func() {
 
 			//Expect(catalog.Size()).Should(Equal(1))
 
-			nextActionEntry = catalog.Next("bank.credit", strategy)
+			nextActionEntry = catalog.Next("bank.credit", strategy, nodeCatalog)
 			Expect(nextActionEntry).Should(Not(BeNil()))
 			Expect(nextActionEntry.IsLocal()).Should(Equal(true))
 
@@ -75,27 +78,30 @@ var _ = Describe("Actions Catalog", func() {
 		It("Should add actions and return using Next and NextEndpointFromNode", func() {
 
 			catalog := registry.CreateActionCatalog(logger)
+			nodeCatalog := registry.CreateNodesCatalog(logger)
 
-			nextAction := catalog.Next("bank.credit", strategy)
+			nextAction := catalog.Next("bank.credit", strategy, nodeCatalog)
 			Expect(nextAction).Should(BeNil())
 
 			testService := service.Service{}
 			testService.SetNodeID(node1.GetID())
 			catalog.Add(bankCreditAction, &testService, true)
+			nodeCatalog.Add(node1)
+			nodeCatalog.Add(node2)
 
 			//Expect(catalog.Size()).Should(Equal(1))
 
-			nextAction = catalog.Next("bank.credit", strategy)
+			nextAction = catalog.Next("bank.credit", strategy, nodeCatalog)
 			Expect(nextAction).Should(Not(BeNil()))
 			Expect(nextAction.IsLocal()).Should(Equal(true))
 
-			nextAction = catalog.Next("user.signUp", strategy)
+			nextAction = catalog.Next("user.signUp", strategy, nodeCatalog)
 			Expect(nextAction).Should(BeNil())
 
 			catalog.Add(service.CreateServiceAction("user", "signUp", handler, params), &testService, true)
 
 			//Expect(catalog.Size()).Should(Equal(2))
-			nextAction = catalog.Next("user.signUp", strategy)
+			nextAction = catalog.Next("user.signUp", strategy, nodeCatalog)
 			Expect(nextAction).Should(Not(BeNil()))
 			Expect(nextAction.IsLocal()).Should(Equal(true))
 

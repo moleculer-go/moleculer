@@ -5,7 +5,11 @@
       (string) (len=5) "count": (string) (len=7) "removed",
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=3) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
           (string) (len=9) "available": (bool) true
@@ -23,7 +27,11 @@
       (string) (len=5) "count": (string) (len=7) "removed",
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=3) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
           (string) (len=9) "available": (bool) true
@@ -55,7 +63,11 @@
       (string) (len=5) "count": (string) (len=7) "removed",
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=3) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
           (string) (len=9) "available": (bool) true
@@ -73,7 +85,11 @@
       (string) (len=5) "count": (string) (len=7) "removed",
       (string) (len=8) "hasLocal": (bool) false,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=1) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
           (string) (len=9) "available": (bool) true
@@ -87,7 +103,11 @@
       (string) (len=5) "count": (string) (len=7) "removed",
       (string) (len=8) "hasLocal": (bool) true,
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=3) {
+        (map[string]interface {}) (len=2) {
+          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
+          (string) (len=9) "available": (bool) true
+        },
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
           (string) (len=9) "available": (bool) true

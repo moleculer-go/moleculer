@@ -463,3 +463,10 @@ func New(userConfig ...*moleculer.Config) *ServiceBroker {
 	broker.init()
 	return &broker
 }
+
+func (b *ServiceBroker) KnownNodes(available bool) []string {
+	if b.registry == nil {
+		return []string{}
+	}
+	return b.registry.KnownNodes(available)
+}

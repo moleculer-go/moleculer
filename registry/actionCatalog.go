@@ -208,18 +208,21 @@ func (actionCatalog *ActionCatalog) printDebugActions() {
 }
 
 // Next find all actions registered in this node and use the strategy to select and return the best one to be called.
-func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
+func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy, nodeCatalog *NodeCatalog) *ActionEntry {
 	list, exists := actionCatalog.actions.Load(actionName)
 	if !exists {
 		actionCatalog.logger.Debug("actionCatalog.Next() no entries found for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 		return nil
 	}
 	actions := list.([]ActionEntry)
-	nodes := make([]strategy.Selector, len(actions))
-	for index, action := range actions {
-		nodes[index] = action
+	nodes := []strategy.Selector{}
+	for _, action := range actions {
 		if action.IsLocal() {
 			return &action
+		}
+		node, exists := nodeCatalog.findNode(action.TargetNodeID())
+		if exists && node.IsAvailable() {
+			nodes = append(nodes, action)
 		}
 	}
 	if selected := stg.Select(nodes); selected != nil {
