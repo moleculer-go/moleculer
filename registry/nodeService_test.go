@@ -3,7 +3,6 @@ package registry_test
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
@@ -80,6 +79,40 @@ var _ = Describe("nodeService", func() {
 				mem := &memory.SharedMemory{}
 
 				printerBroker := createPrinterBroker(mem)
+				var serviceAdded, serviceRemoved []moleculer.Payload
+				events := bus.Construct()
+				addedMutex := &sync.Mutex{}
+
+				onEvent := func(event string, callback func(list []moleculer.Payload, cancel func())) {
+					events.On(event, func(v ...interface{}) {
+						list := v[0].([]moleculer.Payload)
+						callback(list, func() {
+							events = bus.Construct()
+						})
+					})
+				}
+
+				printerBroker.Publish(moleculer.ServiceSchema{
+					Name: "internal-consumer",
+					Events: []moleculer.Event{
+						moleculer.Event{
+							Name: "$registry.service.added",
+							Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+								addedMutex.Lock()
+								defer addedMutex.Unlock()
+								serviceAdded = append(serviceAdded, params)
+								events.EmitSync("$registry.service.added", serviceAdded)
+							},
+						},
+						moleculer.Event{
+							Name: "$registry.service.removed",
+							Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+								serviceRemoved = append(serviceRemoved, params)
+								events.EmitSync("$registry.service.removed", serviceRemoved)
+							},
+						},
+					},
+				})
 				printerBroker.Start()
 
 				result := <-printerBroker.Call(action, params)
@@ -88,7 +121,15 @@ var _ = Describe("nodeService", func() {
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
-				time.Sleep(300 * time.Millisecond)
+
+				step := make(chan bool)
+				onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
+					if hasService(serviceAdded, "scanner") {
+						cancel()
+						step <- true
+					}
+				})
+				<-step
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -96,7 +137,14 @@ var _ = Describe("nodeService", func() {
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
-				time.Sleep(300 * time.Millisecond)
+				step = make(chan bool)
+				onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
+					if hasService(serviceAdded, "cpu") {
+						cancel()
+						step <- true
+					}
+				})
+				<-step
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -344,7 +392,6 @@ var _ = Describe("nodeService", func() {
 			})
 			<-step
 			Expect(snap.SnapshotMulti("local-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
-			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			//add another node.. so test service removed is invoked
 			bkr2 := broker.New(&moleculer.Config{
@@ -374,7 +421,6 @@ var _ = Describe("nodeService", func() {
 			})
 			<-step
 			Expect(snap.SnapshotMulti("remote-serviceAdded", serviceAdded)).ShouldNot(HaveOccurred())
-			Expect(snap.SnapshotMulti("empty-serviceRemoved", serviceRemoved)).ShouldNot(HaveOccurred())
 
 			step = make(chan bool)
 			onEvent("$registry.service.removed", func(list []moleculer.Payload, cancel func()) {
