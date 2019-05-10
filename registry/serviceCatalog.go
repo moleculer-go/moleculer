@@ -83,8 +83,8 @@ func (serviceCatalog *ServiceCatalog) listByName() map[string][]ServiceEntry {
 // }
 
 // RemoveByNode remove services for the given nodeID.
-func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
-	var removed []string
+func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []*service.Service {
+	var removed []*service.Service
 	serviceCatalog.logger.Debug("RemoveByNode() nodeID: ", nodeID)
 	var keysRemove []string
 	var namesRemove []string
@@ -92,6 +92,8 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
 		service := value.(ServiceEntry)
 		if service.nodeID == nodeID {
+			service := value.(ServiceEntry)
+			removed = append(removed, service.service)
 			keysRemove = append(keysRemove, key.(string))
 			namesRemove = append(namesRemove, service.service.Name())
 			fullNamesRemove = append(fullNamesRemove, service.service.FullName())
@@ -104,7 +106,6 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
 	for _, name := range namesRemove {
 		value, exists := serviceCatalog.servicesByName.Load(name)
 		if exists {
-			removed = append(removed, name)
 			counter := value.(int)
 			counter = counter - 1
 			if counter < 0 {

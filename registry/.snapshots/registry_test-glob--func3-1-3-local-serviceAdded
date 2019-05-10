@@ -1,17 +1,5 @@
-([]map[string]interface {}) (len=3) {
-  (map[string]interface {}) (len=3) {
-    (string) (len=4) "name": (string) (len=13) "service-added",
-    (string) (len=6) "nodeID": (string) (len=10) "test-node1",
-    (string) (len=7) "version": (string) ""
-  },
-  (map[string]interface {}) (len=3) {
-    (string) (len=4) "name": (string) (len=17) "internal-consumer",
-    (string) (len=6) "nodeID": (string) (len=10) "test-node1",
-    (string) (len=7) "version": (string) ""
-  },
-  (map[string]interface {}) (len=3) {
-    (string) (len=4) "name": (string) (len=5) "$node",
-    (string) (len=6) "nodeID": (string) (len=10) "test-node1",
-    (string) (len=7) "version": (string) ""
-  }
+([]moleculer.Payload) (len=3) {
+  (*payload.RawPayload)(map[name:$node nodeID:test-node1 version:]),
+  (*payload.RawPayload)(map[name:internal-consumer nodeID:test-node1 version:]),
+  (*payload.RawPayload)(map[name:service-added nodeID:test-node1 version:])
 }

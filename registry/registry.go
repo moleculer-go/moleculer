@@ -299,12 +299,12 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 
 // removeServicesByNodeID
 func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
-	names := registry.services.RemoveByNode(nodeID)
-	if len(names) > 0 {
-		for _, name := range names {
+	svcs := registry.services.RemoveByNode(nodeID)
+	if len(svcs) > 0 {
+		for _, svc := range svcs {
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.removed",
-				[]interface{}{name})
+				[]interface{}{svc.Summary()})
 		}
 	}
 	registry.actions.RemoveByNode(nodeID)
