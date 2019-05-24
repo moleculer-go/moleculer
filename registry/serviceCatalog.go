@@ -39,7 +39,6 @@ func (serviceCatalog *ServiceCatalog) Find(name string, version string, nodeID s
 
 func (serviceCatalog *ServiceCatalog) FindByName(name string) bool {
 	_, exists := serviceCatalog.servicesByName.Load(name)
-	serviceCatalog.logger.Debug("FindByName name: ", name, " exists: ", exists, " map: ", serviceCatalog.servicesByName)
 	return exists
 }
 

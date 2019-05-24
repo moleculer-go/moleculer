@@ -165,12 +165,24 @@ func (p *RawPayload) FloatArray() []float64 {
 }
 
 func (p *RawPayload) BoolArray() []bool {
+	ba, ok := p.source.([]bool)
+	if ok {
+		return ba
+	}
 	if source := p.Array(); source != nil {
 		array := make([]bool, len(source))
 		for index, item := range source {
 			array[index] = item.Bool()
 		}
 		return array
+	}
+	return nil
+}
+
+func (p *RawPayload) ByteArray() []byte {
+	ba, ok := p.source.([]byte)
+	if ok {
+		return ba
 	}
 	return nil
 }

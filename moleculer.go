@@ -47,6 +47,7 @@ type Payload interface {
 	StringArray() []string
 	Bool() bool
 	BoolArray() []bool
+	ByteArray() []byte
 	Time() time.Time
 	TimeArray() []time.Time
 	Array() []Payload
@@ -199,6 +200,7 @@ type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) cha
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
 type PublishFunc func(...interface{})
+type WaitForFunc func(...string) error
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
 
 type Middlewares map[string]MiddlewareHandler
@@ -263,6 +265,7 @@ type BrokerContext interface {
 	Logger() *log.Entry
 
 	Publish(...interface{})
+	WaitFor(services ...string) error
 }
 
 //Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
@@ -281,4 +284,5 @@ type BrokerDelegates struct {
 	BrokerContext      BrokerContextFunc
 	MiddlewareHandler  MiddlewareHandlerFunc
 	Publish            PublishFunc
+	WaitFor            WaitForFunc
 }
