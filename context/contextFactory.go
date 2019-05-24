@@ -265,6 +265,10 @@ func (context *Context) Broadcast(eventName string, params interface{}, groups .
 	context.broker.BroadcastEvent(newContext)
 }
 
+func (context *Context) WaitFor(services ...string) error {
+	return context.broker.WaitFor(services...)
+}
+
 func (context *Context) Publish(services ...interface{}) {
 	context.broker.Publish(services...)
 }

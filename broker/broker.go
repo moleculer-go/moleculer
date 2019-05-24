@@ -83,7 +83,8 @@ type ServiceBroker struct {
 
 	services []*service.Service
 
-	started bool
+	started  bool
+	starting bool
 
 	rootContext moleculer.BrokerContext
 
@@ -104,7 +105,7 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 // stopService stop the service.
 func (broker *ServiceBroker) stopService(svc *service.Service) {
 	broker.middlewares.CallHandlers("serviceStopping", svc)
-	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.New(nil)))
+	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.Empty()))
 	broker.middlewares.CallHandlers("serviceStopped", svc)
 }
 
@@ -121,7 +122,7 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.middlewares.CallHandlers("serviceStarted", svc)
 
-	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
+	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.Empty()))
 }
 
 // waitForDependencies wait for all services listed in the service dependencies to be discovered.
@@ -150,8 +151,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
 			break
 		}
-
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Microsecond)
 	}
 }
 
@@ -189,13 +189,12 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 
 // addService internal addService .. adds one service.Service instance to broker.services list.
 func (broker *ServiceBroker) addService(svc *service.Service) {
-	broker.logger.Debug("Broker - addService() - fullname: ", svc.FullName(), " # actions: ", len(svc.Actions()), " # events: ", len(svc.Events()))
-
 	svc.SetNodeID(broker.localNode.GetID())
 	broker.services = append(broker.services, svc)
-	if broker.started {
+	if broker.started || broker.starting {
 		broker.startService(svc)
 	}
+	broker.logger.Debug("Broker - addService() - fullname: ", svc.FullName(), " # actions: ", len(svc.Actions()), " # events: ", len(svc.Events()))
 }
 
 // createService create a new service instance, from a struct or a schema :)
@@ -209,6 +208,33 @@ func (broker *ServiceBroker) createService(svc interface{}) (*service.Service, e
 		return svc, nil
 	}
 	return service.FromSchema(schema, broker.delegates), nil
+}
+
+// WaitFor : wait for all services to be available
+func (broker *ServiceBroker) WaitFor(services ...string) error {
+	for _, svc := range services {
+		if err := broker.waitForService(svc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//waitForService wait for a service to be available
+func (broker *ServiceBroker) waitForService(service string) error {
+	start := time.Now()
+	for {
+		if broker.registry.KnowService(service) {
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			err := errors.New("waitForService() - Timeout ! service: " + service)
+			broker.logger.Error(err)
+			return err
+		}
+		time.Sleep(time.Microsecond)
+	}
+	return nil
 }
 
 // Publish : for each service schema it will validate and create
@@ -228,6 +254,7 @@ func (broker *ServiceBroker) Start() {
 		broker.logger.Warn("broker.Start() called on a broker that already started!")
 		return
 	}
+	broker.starting = true
 	broker.logger.Info("Moleculer is starting...")
 	broker.logger.Info("Node ID: ", broker.localNode.GetID())
 
@@ -255,6 +282,7 @@ func (broker *ServiceBroker) Start() {
 	defer broker.middlewares.CallHandlers("brokerStarted", broker.delegates)
 
 	broker.started = true
+	broker.starting = false
 	broker.logger.Info("Service Broker with ", len(broker.services), " service(s) started successfully.")
 }
 
@@ -452,6 +480,7 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		},
 		MiddlewareHandler: broker.middlewares.CallHandlers,
 		Publish:           broker.Publish,
+		WaitFor:           broker.WaitFor,
 	}
 }
 
