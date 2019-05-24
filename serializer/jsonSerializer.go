@@ -148,6 +148,11 @@ func cleanUpForSerialization(values *map[string]interface{}) *map[string]interfa
 			result[key] = temp
 			continue
 		}
+		btsArray, isBytesArray := value.([]byte)
+		if isBytesArray {
+			result[key] = string(btsArray)
+			continue
+		}
 		aTransformer := payload.ArrayTransformer(&value)
 		if aTransformer != nil {
 			iArray := aTransformer.InterfaceArray(&value)
@@ -415,6 +420,10 @@ func (payload JSONPayload) BoolArray() []bool {
 		return array
 	}
 	return nil
+}
+
+func (payload JSONPayload) ByteArray() []byte {
+	return []byte(payload.result.Raw)
 }
 
 func (payload JSONPayload) TimeArray() []time.Time {

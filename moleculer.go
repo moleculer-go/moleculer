@@ -47,6 +47,7 @@ type Payload interface {
 	StringArray() []string
 	Bool() bool
 	BoolArray() []bool
+	ByteArray() []byte
 	Time() time.Time
 	TimeArray() []time.Time
 	Array() []Payload
