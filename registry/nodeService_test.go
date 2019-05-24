@@ -30,12 +30,13 @@ func cleanupNode(in map[string]interface{}) map[string]interface{} {
 func cleanupAction(ins []map[string]interface{}) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(ins))
 	for index, item := range ins {
+		_, endpointsExists := item["endpoints"]
 		result[index] = map[string]interface{}{
 			"name":      item["name"],
 			"count":     "removed",
 			"hasLocal":  item["hasLocal"],
 			"available": item["available"],
-			"endpoints": item["endpoints"],
+			"endpoints": endpointsExists,
 		}
 	}
 	return result
