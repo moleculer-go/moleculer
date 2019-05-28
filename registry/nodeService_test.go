@@ -80,7 +80,7 @@ var _ = Describe("nodeService", func() {
 
 				result := <-printerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "1"), transformer(result))).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "printerBroker"), transformer(result))).Should(Succeed())
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
@@ -88,7 +88,7 @@ var _ = Describe("nodeService", func() {
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "2"), transformer(result))).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "scannerBroker"), transformer(result))).Should(Succeed())
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
@@ -96,7 +96,7 @@ var _ = Describe("nodeService", func() {
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "3"), transformer(result))).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "cpuBroker"), transformer(result))).Should(Succeed())
 
 				close(done)
 			}
@@ -107,9 +107,9 @@ var _ = Describe("nodeService", func() {
 			extractNodes := func(in interface{}) interface{} {
 				list := in.(moleculer.Payload).Array()
 				return map[string]map[string]interface{}{
-					"noPrinterBroker":     cleanupNode(first(findBy("id", "node_printerBroker", list))),
-					"nodedeScannerBroker": cleanupNode(first(findBy("id", "node_scannerBroker", list))),
-					"nodeCpuBroker":       cleanupNode(first(findBy("id", "node_cpuBroker", list))),
+					"nodePrinterBroker": cleanupNode(first(findBy("id", "node_printerBroker", list))),
+					"nodeScannerBroker": cleanupNode(first(findBy("id", "node_scannerBroker", list))),
+					"nodeCpuBroker":     cleanupNode(first(findBy("id", "node_cpuBroker", list))),
 				}
 			}
 

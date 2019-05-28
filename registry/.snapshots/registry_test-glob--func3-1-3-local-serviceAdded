@@ -1,5 +1,0 @@
-([]moleculer.Payload) (len=3) {
-  (*payload.RawPayload)(map[name:$node nodeID:test-node1 version:]),
-  (*payload.RawPayload)(map[name:internal-consumer nodeID:test-node1 version:]),
-  (*payload.RawPayload)(map[name:service-added nodeID:test-node1 version:])
-}

@@ -1,5 +1,0 @@
-(map[string]map[string]interface {}) (len=3) {
-  (string) (len=13) "nodeCpuBroker": (map[string]interface {}) <nil>,
-  (string) (len=15) "noPrinterBroker": (map[string]interface {}) <nil>,
-  (string) (len=19) "nodedeScannerBroker": (map[string]interface {}) <nil>
-}

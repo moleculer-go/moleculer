@@ -1,6 +1,6 @@
 (map[string]map[string]interface {}) (len=3) {
   (string) (len=13) "nodeCpuBroker": (map[string]interface {}) <nil>,
-  (string) (len=15) "noPrinterBroker": (map[string]interface {}) (len=9) {
+  (string) (len=17) "nodePrinterBroker": (map[string]interface {}) (len=9) {
     (string) (len=2) "id": (string) (len=18) "node_printerBroker",
     (string) (len=3) "cpu": (int64) 0,
     (string) (len=3) "seq": (string) (len=7) "removed",
@@ -90,5 +90,5 @@
     },
     (string) (len=9) "available": (bool) true
   },
-  (string) (len=19) "nodedeScannerBroker": (map[string]interface {}) <nil>
+  (string) (len=17) "nodeScannerBroker": (map[string]interface {}) <nil>
 }

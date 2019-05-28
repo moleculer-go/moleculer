@@ -51,13 +51,9 @@
       (string) (len=8) "settings": (map[string]interface {}) {
       },
       (string) (len=9) "available": (bool) true,
-      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=2) {
+      (string) (len=9) "endpoints": ([]map[string]interface {}) (len=1) {
         (map[string]interface {}) (len=2) {
           (string) (len=6) "nodeID": (string) (len=14) "node_cpuBroker",
-          (string) (len=9) "available": (bool) true
-        },
-        (map[string]interface {}) (len=2) {
-          (string) (len=6) "nodeID": (string) (len=18) "node_printerBroker",
           (string) (len=9) "available": (bool) true
         }
       }
