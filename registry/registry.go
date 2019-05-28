@@ -94,6 +94,11 @@ func (registry *ServiceRegistry) KnowService(name string) bool {
 	return registry.services.FindByName(name)
 }
 
+func (registry *ServiceRegistry) KnowNode(nodeID string) bool {
+	_, found := registry.nodes.findNode(nodeID)
+	return found
+}
+
 func (registry *ServiceRegistry) LocalNode() moleculer.Node {
 	return registry.localNode
 }

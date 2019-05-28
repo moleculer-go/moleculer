@@ -220,6 +220,16 @@ func (broker *ServiceBroker) WaitFor(services ...string) error {
 	return nil
 }
 
+// WaitFor : wait for all services to be available
+func (broker *ServiceBroker) WaitForNodes(nodes ...string) error {
+	for _, nodeID := range nodes {
+		if err := broker.waitForNode(nodeID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 //waitForService wait for a service to be available
 func (broker *ServiceBroker) waitForService(service string) error {
 	start := time.Now()
@@ -229,6 +239,23 @@ func (broker *ServiceBroker) waitForService(service string) error {
 		}
 		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
 			err := errors.New("waitForService() - Timeout ! service: " + service)
+			broker.logger.Error(err)
+			return err
+		}
+		time.Sleep(time.Microsecond)
+	}
+	return nil
+}
+
+//waitForNode wait for a node to be available
+func (broker *ServiceBroker) waitForNode(nodeID string) error {
+	start := time.Now()
+	for {
+		if broker.registry.KnowNode(nodeID) {
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			err := errors.New("waitForNode() - Timeout ! nodeID: " + nodeID)
 			broker.logger.Error(err)
 			return err
 		}

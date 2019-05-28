@@ -84,7 +84,7 @@ var _ = Describe("nodeService", func() {
 
 				scannerBroker := createScannerBroker(mem)
 				scannerBroker.Start()
-				scannerBroker.WaitFor("printer")
+				scannerBroker.WaitForNodes("node_printerBroker")
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -92,7 +92,7 @@ var _ = Describe("nodeService", func() {
 
 				cpuBroker := createCpuBroker(mem)
 				cpuBroker.Start()
-				cpuBroker.WaitFor("scanner", "printer")
+				cpuBroker.WaitForNodes("node_printerBroker", "node_scannerBroker")
 
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
