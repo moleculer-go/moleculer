@@ -80,7 +80,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			userBroker.Stop()
 			profileBroker.Stop()
 			close(done)
-		})
+		}, 3)
 
 		It("should fail after brokers are stopped", func(done Done) {
 			userBroker.Start()
@@ -94,7 +94,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 			profileBroker.Stop()
 			close(done)
-		})
+		}, 3)
 	})
 
 	Describe("Start / Stop Cycles.", func() {
