@@ -148,6 +148,7 @@ var DefaultConfig = Config{
 	HeartbeatTimeout:           15 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
 	OfflineTimeout:             10 * time.Minute,
+	DontWaitForNeighbours:      true,
 	NeighboursCheckTimeout:     2 * time.Second,
 	WaitForDependenciesTimeout: 2 * time.Second,
 	Metrics:                    false,

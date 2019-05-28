@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var logLevel = "ERROR"
+var logLevel = "fatal"
 var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {

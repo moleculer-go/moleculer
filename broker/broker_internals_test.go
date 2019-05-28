@@ -40,8 +40,6 @@ var _ = Describe("Broker Internals", func() {
 
 			bench.Time("start broker and send events", func() {
 				currentStep++
-				fmt.Println("\n############# New Test Cycle step: ", currentStep, " #############")
-
 				soundsBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "SoundsBroker" },
 				})
@@ -144,10 +142,6 @@ var _ = Describe("Broker Internals", func() {
 				visualBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "VisualBroker" },
 				})
-				visualBroker.localBus.On("$node.disconnected", func(data ...interface{}) {
-					nodeID := data[0].(string)
-					fmt.Println("\n############# visualBroker -> $node.disconnected -> node id: ", nodeID, " #############")
-				})
 				vjService := moleculer.ServiceSchema{
 					Name:         "vj",
 					Dependencies: []string{"music", "dj"},
@@ -176,11 +170,13 @@ var _ = Describe("Broker Internals", func() {
 					},
 				}
 				visualBroker.Publish(vjService)
-
+				visualBroker.Publish(moleculer.ServiceSchema{
+					Name:         "visualBrokerService",
+					Dependencies: []string{"music"},
+				})
 				visualBroker.Start()
+				visualBroker.WaitFor("music")
 				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-
-				time.Sleep(400 * time.Millisecond)
 
 				counters.Clear()
 
@@ -207,13 +203,17 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
 
-				fmt.Println("\n############# second instance of the VJ service #############")
 				//add a second instance of the vj service, but only one should receive emit events.
 				aquaBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "AquaBroker" },
 				})
 				aquaBroker.Publish(vjService)
+				aquaBroker.Publish(moleculer.ServiceSchema{
+					Name:         "aquaBrokerService",
+					Dependencies: []string{"music", "dj"},
+				})
 				aquaBroker.Start()
+				aquaBroker.WaitFor("music", "visualBrokerService")
 				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
 				Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
@@ -241,17 +241,13 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
 
-				fmt.Println("\n############# second instance of the DJ service #############")
 				//add a second instance of the dj service
 				stormBroker := New(baseConfig, &moleculer.Config{
 					DiscoverNodeID: func() string { return "StormBroker" },
 				})
 				stormBroker.Publish(djService)
-				stormBroker.localBus.On("$node.disconnected", func(data ...interface{}) {
-					nodeID := data[0].(string)
-					fmt.Println("\n############# stormBroker -> $node.disconnected -> node id: ", nodeID, " #############")
-				})
 				stormBroker.Start()
+				stormBroker.WaitFor("music", "visualBrokerService", "aquaBrokerService")
 				Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
 				Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
@@ -279,8 +275,6 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
 
-				fmt.Println("\n############# Broadcasts #############")
-
 				counters.Clear()
 
 				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
@@ -300,10 +294,8 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.tone", 1)).ShouldNot(HaveOccurred())
 
-				fmt.Println("\n############# Broadcasts - Remove one DJ Service #############")
 				//remove one dj service
 				stormBroker.Stop()
-				time.Sleep(time.Second)
 				counters.Clear()
 
 				Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
@@ -315,18 +307,14 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred()) //failed here, again and again
 
-				fmt.Println("\n############# Broadcasts - Remove second DJ Service #############")
 				//remove the other dj service
 				soundsBroker.Stop()
-				time.Sleep(time.Second)
-
 				counters.Clear()
 
 				Expect(snap.SnapshotMulti("soundsBroker-Stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
 				Expect(snap.SnapshotMulti("soundsBroker-Stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
 
 				aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
-				time.Sleep(time.Second)
 
 				Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
@@ -336,8 +324,6 @@ var _ = Describe("Broker Internals", func() {
 
 				Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.tone", 1)).ShouldNot(HaveOccurred())
-
-				fmt.Println("\n############# End of Test #############")
 
 				visualBroker.Stop()
 				aquaBroker.Stop()
@@ -355,7 +341,7 @@ var _ = Describe("Broker Internals", func() {
 			actionHandler := func(result string) func(moleculer.Context, moleculer.Payload) interface{} {
 				return func(ctx moleculer.Context, param moleculer.Payload) interface{} {
 					result := fmt.Sprint("input: (", param.String(), " ) -> output: ( ", result, " )")
-					fmt.Println("MCALL Action --> ", result)
+					//fmt.Println("MCALL Action --> ", result)
 					return result
 				}
 			}
@@ -414,7 +400,6 @@ var _ = Describe("Broker Internals", func() {
 
 			bkr1.Start()
 			bkr2.Start()
-			time.Sleep(100 * time.Millisecond)
 
 			mParams := map[string]map[string]interface{}{
 				"food-lunch": map[string]interface{}{
@@ -500,8 +485,6 @@ var _ = Describe("Broker Internals", func() {
 				},
 			}
 			bkr = New(&config)
-			fmt.Println(bkr.config)
-			fmt.Println(bkr.middlewares)
 			Expect(bkr.middlewares.Has("Config")).Should(BeTrue())
 			Expect(bkr.middlewares.Has("anotherOne")).Should(BeFalse())
 		})

@@ -491,8 +491,6 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	actions := service.Actions()
 	events := service.Events()
 
-	registry.logger.Debug("registry AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events))
-
 	for _, action := range actions {
 		registry.actions.Add(action, service, true)
 	}
@@ -504,7 +502,7 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 		}
 	}
 	registry.localNode.Publish(service.AsMap())
-	registry.logger.Infof("Registry - %s service is registered.", service.FullName())
+	registry.logger.Debug("Registry published local service: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events), " nodeID: ", service.NodeID())
 	registry.notifyServiceAded(service.Summary())
 }
 

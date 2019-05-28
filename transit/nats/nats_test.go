@@ -1,7 +1,6 @@
 package nats_test
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -70,31 +69,31 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		})
 
-		It("should make a remote call from profile broker a to user broker", func() {
+		It("should make a remote call from profile broker a to user broker", func(done Done) {
 			userBroker.Start()
 			profileBroker.Start()
-
+			profileBroker.WaitFor("user")
 			result := <-profileBroker.Call("user.update", longList)
-			Expect(result.Error()).Should(BeNil())
+			Expect(result.Error()).Should(Succeed())
 			Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
 			userBroker.Stop()
 			profileBroker.Stop()
+			close(done)
 		})
 
-		It("should fail after brokers are stoped", func() {
+		It("should fail after brokers are stopped", func(done Done) {
 			userBroker.Start()
 			profileBroker.Start()
 
+			profileBroker.WaitFor("user")
 			p := (<-profileBroker.Call("user.update", longList))
-			if p.IsError() {
-				fmt.Println("Error: ", p)
-			}
-			Expect(p.Error()).Should(BeNil())
+			Expect(p.Error()).Should(Succeed())
 			userBroker.Stop()
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
 
 			profileBroker.Stop()
+			close(done)
 		})
 	})
 
@@ -129,6 +128,10 @@ var _ = Describe("NATS Streaming Transit", func() {
 				})
 				profileBroker.Publish(profileService())
 				profileBroker.Start()
+
+				userBroker.WaitFor("contact", "profile")
+				contactBroker.WaitFor("user", "profile")
+				profileBroker.WaitFor("contact", "user")
 			})
 
 			bench.Time("local calls", func() {
@@ -172,7 +175,6 @@ var _ = Describe("NATS Streaming Transit", func() {
 			})
 
 			loopNumber++
-			fmt.Println("\n\n**** One More Loop -> Total: ", loopNumber)
 
 		}, numberOfLoops)
 

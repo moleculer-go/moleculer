@@ -112,7 +112,7 @@ func (broker *ServiceBroker) stopService(svc *service.Service) {
 // startService start a service.
 func (broker *ServiceBroker) startService(svc *service.Service) {
 
-	broker.logger.Debug("Broker - startService() - fullname: ", svc.FullName())
+	broker.logger.Debug("Broker start service: ", svc.FullName())
 
 	broker.middlewares.CallHandlers("serviceStarting", svc)
 
@@ -435,9 +435,7 @@ func (broker *ServiceBroker) init() {
 
 	broker.registerMiddlewares()
 
-	broker.logger.Debug("Config middleware before: \n", broker.config)
 	broker.config = broker.middlewares.CallHandlers("Config", broker.config).(moleculer.Config)
-	broker.logger.Debug("Config middleware after: \n", broker.config)
 
 	broker.delegates = broker.createDelegates()
 	broker.registry = registry.CreateRegistry(broker.id, broker.delegates)
