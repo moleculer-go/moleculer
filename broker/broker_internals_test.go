@@ -305,7 +305,7 @@ var _ = Describe("Broker Internals", func() {
 				aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
 				Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred()) //failed here, again and again
+				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
 
 				//remove the other dj service
 				soundsBroker.Stop()

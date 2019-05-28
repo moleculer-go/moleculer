@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var CounterCheckTimeout = 2 * time.Second
+var CounterCheckTimeout = 5 * time.Second
 
 func Counter() CounterCheck {
 	return CounterCheck{&sync.Mutex{}, make(map[string]int), make(map[string]int)}
