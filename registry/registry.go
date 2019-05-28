@@ -206,9 +206,9 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 
 	for _, eventEntry := range entries {
 		if eventEntry.isLocal {
-			go eventEntry.emitLocalEvent(context)
+			eventEntry.emitLocalEvent(context)
 		} else {
-			go registry.emitRemoteEvent(context, eventEntry)
+			registry.emitRemoteEvent(context, eventEntry)
 		}
 	}
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " End.")
@@ -230,9 +230,9 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 
 	for _, eventEntry := range entries {
 		if eventEntry.isLocal {
-			go eventEntry.emitLocalEvent(context)
+			eventEntry.emitLocalEvent(context)
 		} else {
-			go registry.emitRemoteEvent(context, eventEntry)
+			registry.emitRemoteEvent(context, eventEntry)
 		}
 	}
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " End.")

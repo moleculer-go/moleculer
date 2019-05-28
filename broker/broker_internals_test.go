@@ -188,9 +188,9 @@ var _ = Describe("Broker Internals", func() {
 				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
 
-				Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred()) //failed here
+				Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
 				Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred()) // failed here
+				Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
 
 				<-visualBroker.Call("music.end", chorus)
 
