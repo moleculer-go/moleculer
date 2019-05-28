@@ -175,7 +175,7 @@ var _ = Describe("Broker Internals", func() {
 					Dependencies: []string{"music"},
 				})
 				visualBroker.Start()
-				visualBroker.WaitFor("music")
+				visualBroker.WaitForNodes("SoundsBroker")
 				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
 
 				counters.Clear()
@@ -213,7 +213,7 @@ var _ = Describe("Broker Internals", func() {
 					Dependencies: []string{"music", "dj"},
 				})
 				aquaBroker.Start()
-				aquaBroker.WaitFor("music", "visualBrokerService")
+				aquaBroker.WaitForNodes("SoundsBroker", "VisualBroker")
 				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
 				Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
@@ -247,7 +247,7 @@ var _ = Describe("Broker Internals", func() {
 				})
 				stormBroker.Publish(djService)
 				stormBroker.Start()
-				stormBroker.WaitFor("music", "visualBrokerService", "aquaBrokerService")
+				stormBroker.WaitForNodes("SoundsBroker", "VisualBroker", "AquaBroker")
 				Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
 				Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
