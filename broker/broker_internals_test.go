@@ -179,7 +179,7 @@ var _ = Describe("Broker Internals", func() {
 				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
 
 				counters.Clear()
-
+				time.Sleep(time.Millisecond)
 				//Scenario: same action music.start as before, but now we added a new broker and new service.
 				visualBroker.Call("music.start", verse)
 
