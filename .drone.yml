@@ -25,10 +25,10 @@ steps:
       - export NATS_HOST="nats-streaming"
       - go build
       - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
-      - curl -sL https://deb.nodesource.com/setup_12.x | bash -
-      - apt-get update
-      - apt-get install -y nodejs
-      - go test github.com/moleculer-go/compatibility/moleculerjs
+      # - curl -sL https://deb.nodesource.com/setup_12.x | bash -
+      # - apt-get update
+      # - apt-get install -y nodejs
+      # - go test github.com/moleculer-go/compatibility/moleculerjs
       - go run github.com/modocache/gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash || echo "Error uploading codecov"
       - go run github.com/mattn/goveralls -coverprofile=coverage.txt -service=drone.io || echo "Error uploading coveralls"
