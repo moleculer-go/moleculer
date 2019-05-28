@@ -213,8 +213,19 @@ var _ = Describe("Broker Internals", func() {
 					Dependencies: []string{"music", "dj"},
 				})
 				aquaBroker.Start()
-				aquaBroker.WaitForNodes("SoundsBroker", "VisualBroker")
+				for {
+					if len(aquaBroker.registry.KnownNodes()) == 3 {
+						break
+					}
+					time.Sleep(time.Microsecond)
+				}
 				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+				for {
+					if len(aquaBroker.registry.KnownEventListeners(true)) == 11 {
+						break
+					}
+					time.Sleep(time.Microsecond)
+				}
 				Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				counters.Clear()
@@ -247,8 +258,19 @@ var _ = Describe("Broker Internals", func() {
 				})
 				stormBroker.Publish(djService)
 				stormBroker.Start()
-				stormBroker.WaitForNodes("SoundsBroker", "VisualBroker", "AquaBroker")
+				for {
+					if len(stormBroker.registry.KnownNodes()) == 4 {
+						break
+					}
+					time.Sleep(time.Microsecond)
+				}
 				Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+				for {
+					if len(stormBroker.registry.KnownEventListeners(true)) == 14 {
+						break
+					}
+					time.Sleep(time.Microsecond)
+				}
 				Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
 
 				counters.Clear()
@@ -277,14 +299,11 @@ var _ = Describe("Broker Internals", func() {
 
 				counters.Clear()
 
-				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("before-stormBroker.Broadcast-stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
-
 				//now broadcast and every music.tone event listener should receive it.
 				stormBroker.Broadcast("music.tone", "broad< storm >cast")
 
-				Expect(counters.Check("dj.music.tone", 2)).ShouldNot(HaveOccurred()) //failed here
-				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred()) //failed here, again, again
+				Expect(counters.Check("dj.music.tone", 2)).ShouldNot(HaveOccurred())
+				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
 
 				counters.Clear()
 
@@ -327,7 +346,6 @@ var _ = Describe("Broker Internals", func() {
 
 				visualBroker.Stop()
 				aquaBroker.Stop()
-
 			})
 		}, eventsTestSize)
 	})
