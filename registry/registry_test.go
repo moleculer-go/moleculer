@@ -3,6 +3,7 @@ package registry_test
 import (
 	"os"
 	"sync"
+	"time"
 
 	"github.com/moleculer-go/cupaloy/v2"
 	bus "github.com/moleculer-go/goemitter"
@@ -237,10 +238,12 @@ var _ = Describe("Registry", func() {
 				}
 			})
 			<-step
+			cpuBroker.WaitForActions("scanner.scan", "printer.print")
+			time.Sleep(time.Millisecond)
 
 			contentToCompute := "Some long long text ..."
 			computeResult := <-printerBroker.Call("cpu.compute", contentToCompute)
-			Expect(computeResult.IsError()).ShouldNot(Equal(true))
+			Expect(computeResult.Error()).Should(Succeed())
 			Expect(computeResult.Value()).Should(Equal(contentToCompute))
 
 			//stopping broker B

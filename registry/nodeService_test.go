@@ -2,6 +2,7 @@ package registry_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/test"
@@ -86,6 +87,7 @@ var _ = Describe("nodeService", func() {
 				scannerBroker.Start()
 				scannerBroker.WaitForNodes("node_printerBroker")
 				scannerBroker.WaitFor("printer")
+				time.Sleep(time.Millisecond)
 
 				result = <-scannerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
@@ -95,10 +97,10 @@ var _ = Describe("nodeService", func() {
 				cpuBroker.Start()
 				cpuBroker.WaitForNodes("node_printerBroker", "node_scannerBroker")
 				cpuBroker.WaitFor("printer", "scanner")
-
+				time.Sleep(time.Millisecond)
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
-				Expect(snap.SnapshotMulti(fmt.Sprint(label, "cpuBroker"), transformer(result))).Should(Succeed())
+				Expect(snap.SnapshotMulti(fmt.Sprint(label, "cpuBroker"), transformer(result))).Should(Succeed()) //failed here perdeu o node priunter
 
 				close(done)
 			}

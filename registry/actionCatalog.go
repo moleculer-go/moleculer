@@ -111,23 +111,6 @@ func (actionCatalog *ActionCatalog) listByName() map[string][]ActionEntry {
 	return result
 }
 
-func (actionCatalog *ActionCatalog) Find(name string, local bool) *ActionEntry {
-	list, exists := actionCatalog.actions.Load(name)
-	if !exists {
-		return nil
-	}
-	actions := list.([]ActionEntry)
-	if !local && len(actions) > 0 {
-		return &actions[0]
-	}
-	for _, action := range actions {
-		if action.isLocal {
-			return &action
-		}
-	}
-	return nil
-}
-
 // Add a new action to the catalog.
 func (actionCatalog *ActionCatalog) Add(action service.Action, service *service.Service, local bool) {
 	entry := ActionEntry{service.NodeID(), &action, local, service, actionCatalog.logger}
@@ -209,12 +192,11 @@ func (actionCatalog *ActionCatalog) printDebugActions() {
 
 // Next find all actions registered in this node and use the strategy to select and return the best one to be called.
 func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strategy) *ActionEntry {
-	list, exists := actionCatalog.actions.Load(actionName)
-	if !exists {
-		actionCatalog.logger.Debug("actionCatalog.Next() no entries found for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
+	actions := actionCatalog.Find(actionName)
+	if actions == nil {
+		actionCatalog.logger.Debug("actionCatalog.Next() action not found: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 		return nil
 	}
-	actions := list.([]ActionEntry)
 	nodes := make([]strategy.Selector, len(actions))
 	for index, action := range actions {
 		nodes[index] = action
@@ -228,4 +210,12 @@ func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strateg
 	}
 	actionCatalog.logger.Debug("actionCatalog.Next() no entries selected for name: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 	return nil
+}
+
+func (actionCatalog *ActionCatalog) Find(name string) []ActionEntry {
+	list, exists := actionCatalog.actions.Load(name)
+	if !exists {
+		return nil
+	}
+	return list.([]ActionEntry)
 }

@@ -220,10 +220,24 @@ func (broker *ServiceBroker) WaitFor(services ...string) error {
 	return nil
 }
 
-// WaitFor : wait for all services to be available
+// WaitForNodes : wait for all nodes to be available
 func (broker *ServiceBroker) WaitForNodes(nodes ...string) error {
 	for _, nodeID := range nodes {
 		if err := broker.waitForNode(nodeID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (broker *ServiceBroker) KnowAction(action string) bool {
+	return broker.registry.KnowAction(action)
+}
+
+//WaitForActions : wait for all actions to be available
+func (broker *ServiceBroker) WaitForActions(actions ...string) error {
+	for _, action := range actions {
+		if err := broker.waitAction(action); err != nil {
 			return err
 		}
 	}
@@ -239,6 +253,23 @@ func (broker *ServiceBroker) waitForService(service string) error {
 		}
 		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
 			err := errors.New("waitForService() - Timeout ! service: " + service)
+			broker.logger.Error(err)
+			return err
+		}
+		time.Sleep(time.Microsecond)
+	}
+	return nil
+}
+
+//waitAction wait for an action to be available
+func (broker *ServiceBroker) waitAction(action string) error {
+	start := time.Now()
+	for {
+		if broker.registry.KnowAction(action) {
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			err := errors.New("waitAction() - Timeout ! action: " + action)
 			broker.logger.Error(err)
 			return err
 		}
@@ -490,10 +521,14 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		HandleRemoteEvent: func(context moleculer.BrokerContext) {
 			broker.registry.HandleRemoteEvent(context)
 		},
-		ServiceForAction: func(name string) *moleculer.ServiceSchema {
-			svc := broker.registry.ServiceForAction(name)
-			if svc != nil {
-				return svc.Schema()
+		ServiceForAction: func(name string) []*moleculer.ServiceSchema {
+			svcs := broker.registry.ServiceForAction(name)
+			if svcs != nil {
+				result := make([]*moleculer.ServiceSchema, len(svcs))
+				for i, svc := range svcs {
+					result[i] = svc.Schema()
+				}
+				return result
 			}
 			return nil
 		},

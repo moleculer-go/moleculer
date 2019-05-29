@@ -94,6 +94,10 @@ func (registry *ServiceRegistry) KnowService(name string) bool {
 	return registry.services.FindByName(name)
 }
 
+func (registry *ServiceRegistry) KnowAction(name string) bool {
+	return registry.actions.Find(name) != nil
+}
+
 func (registry *ServiceRegistry) KnowNode(nodeID string) bool {
 	_, found := registry.nodes.findNode(nodeID)
 	return found
@@ -160,10 +164,14 @@ func (registry *ServiceRegistry) Start() {
 	}
 }
 
-func (registry *ServiceRegistry) ServiceForAction(name string) *service.Service {
-	action := registry.actions.Find(name, true)
-	if action != nil {
-		return action.Service()
+func (registry *ServiceRegistry) ServiceForAction(name string) []*service.Service {
+	actions := registry.actions.Find(name)
+	if actions != nil {
+		result := make([]*service.Service, len(actions))
+		for i, action := range actions {
+			result[i] = action.Service()
+		}
+		return result
 	}
 	return nil
 }

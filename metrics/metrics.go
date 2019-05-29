@@ -53,9 +53,9 @@ func metricsPayload(brokerContext moleculer.BrokerContext) map[string]interface{
 	_, isAction := contextMap["action"]
 	if isAction {
 		action := contextMap["action"].(string)
-		svc := rawContext.BrokerDelegates().ServiceForAction(action)
+		svcs := rawContext.BrokerDelegates().ServiceForAction(action)
 		contextMap["action"] = map[string]string{"name": action}
-		contextMap["service"] = map[string]string{"name": svc.Name, "version": svc.Version}
+		contextMap["service"] = map[string]string{"name": svcs[0].Name, "version": svcs[0].Version}
 	}
 	return contextMap
 }

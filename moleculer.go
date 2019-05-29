@@ -196,7 +196,7 @@ type isStartedFunc func() bool
 type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...Options) chan Payload
 type EmitEventFunc func(context BrokerContext)
-type ServiceForActionFunc func(string) *ServiceSchema
+type ServiceForActionFunc func(string) []*ServiceSchema
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
