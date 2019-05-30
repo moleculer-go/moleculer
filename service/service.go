@@ -347,11 +347,13 @@ func (service *Service) AsMap() map[string]interface{} {
 
 	actions := map[string]map[string]interface{}{}
 	for _, serviceAction := range service.actions {
-		actionInfo := make(map[string]interface{})
-		actionInfo["name"] = serviceAction.fullname
-		actionInfo["rawName"] = serviceAction.name
-		actionInfo["params"] = paramsAsMap(&serviceAction.params)
-		actions[serviceAction.name] = actionInfo
+		if !isInternalAction(serviceAction) {
+			actionInfo := make(map[string]interface{})
+			actionInfo["name"] = serviceAction.fullname
+			actionInfo["rawName"] = serviceAction.name
+			actionInfo["params"] = paramsAsMap(&serviceAction.params)
+			actions[serviceAction.name] = actionInfo
+		}
 	}
 	serviceInfo["actions"] = actions
 
@@ -366,6 +368,10 @@ func (service *Service) AsMap() map[string]interface{} {
 	}
 	serviceInfo["events"] = events
 	return serviceInfo
+}
+
+func isInternalAction(action Action) bool {
+	return strings.Index(action.Name(), "$") == 0
 }
 
 func isInternalEvent(event Event) bool {
