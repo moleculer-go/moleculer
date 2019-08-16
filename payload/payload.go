@@ -433,6 +433,14 @@ func (p *RawPayload) Get(path string) moleculer.Payload {
 	return New(nil)
 }
 
+//Only return a payload containing only the field specified
+func (p *RawPayload) Only(path string) moleculer.Payload {
+	if value, ok := p.mapGet(path); ok {
+		return New(map[string]interface{}{path: value})
+	}
+	return New(nil)
+}
+
 func (p *RawPayload) Value() interface{} {
 	return p.source
 }

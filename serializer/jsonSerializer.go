@@ -211,6 +211,15 @@ func (payload JSONPayload) Get(path string) moleculer.Payload {
 	return message
 }
 
+//Only return a payload containing only the field specified
+func (p JSONPayload) Only(path string) moleculer.Payload {
+	result := p.result.Get(path)
+	if result.Exists() {
+		return payload.Empty().Add(path, JSONPayload{result, p.logger})
+	}
+	return payload.New(nil)
+}
+
 func (payload JSONPayload) Exists() bool {
 	return payload.result.Exists()
 }

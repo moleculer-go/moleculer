@@ -53,6 +53,8 @@ type Payload interface {
 	Array() []Payload
 	Len() int
 	Get(path string) Payload
+	//Only return a payload containing only the field specified
+	Only(path string) Payload
 	IsArray() bool
 	IsMap() bool
 	ForEach(iterator func(key interface{}, value Payload) bool)

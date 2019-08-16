@@ -327,4 +327,15 @@ var _ = Describe("Payload", func() {
 		Expect(params.Error()).Should(Equal(someErrror))
 	})
 
+	It("Only should return a payload containg only the field specified", func() {
+
+		p := New(map[string]string{
+			"name":     "John",
+			"lastname": "Snow",
+			"faction":  "Stark",
+			"Winter":   "is coming!",
+		})
+
+		Expect(snap.SnapshotMulti("Only()", p.Only("Winter"))).ShouldNot(HaveOccurred())
+	})
 })
