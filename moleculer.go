@@ -18,6 +18,7 @@ type ForEachFunc func(iterator func(key interface{}, value Payload) bool)
 // I has convinience methods to read action parameters by name with the right type.
 type Payload interface {
 	First() Payload
+	Sort(field string) Payload
 	Remove(fields ...string) Payload
 	AddItem(value interface{}) Payload
 	Add(field string, value interface{}) Payload
@@ -44,14 +45,16 @@ type Payload interface {
 	FloatArray() []float64
 	String() string
 	StringArray() []string
-	StringIdented(string) string
 	Bool() bool
 	BoolArray() []bool
+	ByteArray() []byte
 	Time() time.Time
 	TimeArray() []time.Time
 	Array() []Payload
 	Len() int
 	Get(path string) Payload
+	//Only return a payload containing only the field specified
+	Only(path string) Payload
 	IsArray() bool
 	IsMap() bool
 	ForEach(iterator func(key interface{}, value Payload) bool)
@@ -147,6 +150,7 @@ var DefaultConfig = Config{
 	HeartbeatTimeout:           15 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
 	OfflineTimeout:             10 * time.Minute,
+	DontWaitForNeighbours:      true,
 	NeighboursCheckTimeout:     2 * time.Second,
 	WaitForDependenciesTimeout: 2 * time.Second,
 	Metrics:                    false,
@@ -194,11 +198,12 @@ type isStartedFunc func() bool
 type LocalNodeFunc func() Node
 type ActionDelegateFunc func(context BrokerContext, opts ...Options) chan Payload
 type EmitEventFunc func(context BrokerContext)
-type ServiceForActionFunc func(string) *ServiceSchema
+type ServiceForActionFunc func(string) []*ServiceSchema
 type MultActionDelegateFunc func(callMaps map[string]map[string]interface{}) chan map[string]Payload
 type BrokerContextFunc func() BrokerContext
 type MiddlewareHandlerFunc func(name string, params interface{}) interface{}
 type PublishFunc func(...interface{})
+type WaitForFunc func(...string) error
 type MiddlewareHandler func(params interface{}, next func(...interface{}))
 
 type Middlewares map[string]MiddlewareHandler
@@ -263,6 +268,7 @@ type BrokerContext interface {
 	Logger() *log.Entry
 
 	Publish(...interface{})
+	WaitFor(services ...string) error
 }
 
 //Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
@@ -281,4 +287,5 @@ type BrokerDelegates struct {
 	BrokerContext      BrokerContextFunc
 	MiddlewareHandler  MiddlewareHandlerFunc
 	Publish            PublishFunc
+	WaitFor            WaitForFunc
 }

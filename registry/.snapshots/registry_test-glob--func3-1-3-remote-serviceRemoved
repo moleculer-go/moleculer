@@ -1,4 +1,0 @@
-([]string) (len=2) {
-  (string) (len=14) "remote-service",
-  (string) (len=5) "$node"
-}

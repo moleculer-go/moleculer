@@ -2,17 +2,20 @@ package payload_test
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 
-	snap "github.com/moleculer-go/cupaloy/v2"
+	"github.com/moleculer-go/cupaloy/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"github.com/moleculer-go/moleculer"
 	. "github.com/moleculer-go/moleculer/payload"
 )
+
+var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
 var _ = Describe("Payload", func() {
 
@@ -324,4 +327,15 @@ var _ = Describe("Payload", func() {
 		Expect(params.Error()).Should(Equal(someErrror))
 	})
 
+	It("Only should return a payload containg only the field specified", func() {
+
+		p := New(map[string]string{
+			"name":     "John",
+			"lastname": "Snow",
+			"faction":  "Stark",
+			"Winter":   "is coming!",
+		})
+
+		Expect(snap.SnapshotMulti("Only()", p.Only("Winter"))).ShouldNot(HaveOccurred())
+	})
 })

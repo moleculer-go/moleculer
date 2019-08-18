@@ -99,19 +99,24 @@ var _ = Describe("Broker", func() {
 		bkrConfig = &moleculer.Config{
 			DiscoverNodeID: func() string { return "remote-broker" },
 		}
-		bkr = broker.New(baseConfig, bkrConfig)
-		bkr.Publish(service)
-		bkr.Start()
+		bkrRemote := broker.New(baseConfig, bkrConfig)
+		bkrRemote.Publish(service)
+		bkrRemote.Start()
 
-		result = <-bkr.Call("remote.panic", true)
+		bkrRemote.WaitFor("do")
+		result = <-bkrRemote.Call("remote.panic", true)
 
 		Expect(result.IsError()).Should(Equal(true))
 		Expect(result.Error().Error()).Should(BeEquivalentTo("some random error..."))
 
+		bkr.WaitFor("remote")
 		result = <-bkr.Call("remote.panic", false)
 
 		Expect(result.IsError()).Should(Equal(false))
 		Expect(result.String()).Should(BeEquivalentTo("no panic"))
+
+		bkrRemote.Stop()
+		bkr.Stop()
 	})
 
 	It("Should call multiple local calls (in chain)", func() {

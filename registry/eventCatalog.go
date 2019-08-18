@@ -148,7 +148,7 @@ func (eventCatalog *EventCatalog) Find(name string, groups []string, preferLocal
 	if !exists {
 		return make([]*EventEntry, 0)
 	}
-	eventCatalog.logger.Debug("event: ", name, " started: ", events)
+	eventCatalog.logger.Trace("event: ", name, " started: ", events)
 
 	entryGroups := make(map[string][]EventEntry)
 	for _, entry := range events.([]EventEntry) {
@@ -162,10 +162,10 @@ func (eventCatalog *EventCatalog) Find(name string, groups []string, preferLocal
 	var result []*EventEntry
 	for _, entries := range entryGroups {
 		if local := findLocal(entries); preferLocal && local != nil {
-			eventCatalog.logger.Debug("event: ", name, " return the local: ", local)
+			eventCatalog.logger.Trace("event: ", name, " found local: ", local)
 			result = append(result, local)
 		} else if len(entries) == 1 {
-			eventCatalog.logger.Debug("event: ", name, " return the single one :)  ", entries[0])
+			eventCatalog.logger.Debug("event: ", name, " found a single one :)  ", entries[0])
 			result = append(result, &entries[0])
 		} else if len(entries) > 1 {
 			if stg == nil {

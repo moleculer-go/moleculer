@@ -64,12 +64,9 @@ var _ = Describe("Actions Catalog", func() {
 			testService.SetNodeID(node1.GetID())
 			catalog.Add(bankCreditAction, &testService, true)
 
-			//Expect(catalog.Size()).Should(Equal(1))
-
 			nextActionEntry = catalog.Next("bank.credit", strategy)
 			Expect(nextActionEntry).Should(Not(BeNil()))
 			Expect(nextActionEntry.IsLocal()).Should(Equal(true))
-
 		})
 
 		It("Should add actions and return using Next and NextEndpointFromNode", func() {
@@ -83,8 +80,6 @@ var _ = Describe("Actions Catalog", func() {
 			testService.SetNodeID(node1.GetID())
 			catalog.Add(bankCreditAction, &testService, true)
 
-			//Expect(catalog.Size()).Should(Equal(1))
-
 			nextAction = catalog.Next("bank.credit", strategy)
 			Expect(nextAction).Should(Not(BeNil()))
 			Expect(nextAction.IsLocal()).Should(Equal(true))
@@ -94,14 +89,12 @@ var _ = Describe("Actions Catalog", func() {
 
 			catalog.Add(service.CreateServiceAction("user", "signUp", handler, params), &testService, true)
 
-			//Expect(catalog.Size()).Should(Equal(2))
 			nextAction = catalog.Next("user.signUp", strategy)
 			Expect(nextAction).Should(Not(BeNil()))
 			Expect(nextAction.IsLocal()).Should(Equal(true))
 
 			testService.SetNodeID(node2.GetID())
 			catalog.Add(service.CreateServiceAction("user", "signUp", handler, params), &testService, false)
-			//Expect(catalog.Size()).Should(Equal(2))
 
 			//local action on node 1
 			nextAction = catalog.NextFromNode("user.signUp", node1.GetID())
@@ -116,7 +109,6 @@ var _ = Describe("Actions Catalog", func() {
 			//invalid node id
 			nextAction = catalog.NextFromNode("user.signUp", "invalid node id")
 			Expect(nextAction).Should(BeNil())
-
 		})
 
 	})

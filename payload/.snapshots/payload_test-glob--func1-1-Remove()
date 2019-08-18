@@ -1,4 +1,1 @@
-(*payload.RawPayload)((len=2) {
-  "faction": Stark,
-  "lastname": Snow,
-})
+(*payload.RawPayload)(map[faction:Stark lastname:Snow])

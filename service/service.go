@@ -218,42 +218,54 @@ func extendHooks(service moleculer.ServiceSchema, mixin *moleculer.Mixin) molecu
 }
 
 // chainCreated chain the Created hook of services and mixins
+// the service.Created handler is called after all of the mixins Created
+// handlers are called. so all initialization that your service need and is done by plugins
+// will be done by the time your service created is called.
 func chainCreated(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	if mixin.Created != nil {
 		svcHook := service.Created
+		mixinHook := mixin.Created
 		service.Created = func(svc moleculer.ServiceSchema, log *log.Entry) {
+			mixinHook(svc, log)
 			if svcHook != nil {
 				svcHook(svc, log)
 			}
-			mixin.Created(svc, log)
 		}
 	}
 	return service
 }
 
 // chainStarted chain the Started hook of services and mixins
+// the service.Started handler is called after all of the mixins Started
+// handlers are called. so all initialization that your service need and is done by plugins
+// will be done by the time your service Started is called.
 func chainStarted(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	if mixin.Started != nil {
 		svcHook := service.Started
+		mixinHook := mixin.Started
 		service.Started = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
+			mixinHook(ctx, svc)
 			if svcHook != nil {
 				svcHook(ctx, svc)
 			}
-			mixin.Started(ctx, svc)
 		}
 	}
 	return service
 }
 
 // chainStopped chain the Stope hook of services and mixins
+// the service.Stopped handler is called after all of the mixins Stopped
+// handlers are called. so all clean up is done by plugins before calling
+// your service Stopped function.
 func chainStopped(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
 	if mixin.Stopped != nil {
 		svcHook := service.Stopped
+		mixinHook := mixin.Stopped
 		service.Stopped = func(ctx moleculer.BrokerContext, svc moleculer.ServiceSchema) {
+			mixinHook(ctx, svc)
 			if svcHook != nil {
 				svcHook(ctx, svc)
 			}
-			mixin.Stopped(ctx, svc)
 		}
 	}
 	return service
@@ -335,11 +347,13 @@ func (service *Service) AsMap() map[string]interface{} {
 
 	actions := map[string]map[string]interface{}{}
 	for _, serviceAction := range service.actions {
-		actionInfo := make(map[string]interface{})
-		actionInfo["name"] = serviceAction.fullname
-		actionInfo["rawName"] = serviceAction.name
-		actionInfo["params"] = paramsAsMap(&serviceAction.params)
-		actions[serviceAction.name] = actionInfo
+		if !isInternalAction(serviceAction) {
+			actionInfo := make(map[string]interface{})
+			actionInfo["name"] = serviceAction.fullname
+			actionInfo["rawName"] = serviceAction.name
+			actionInfo["params"] = paramsAsMap(&serviceAction.params)
+			actions[serviceAction.name] = actionInfo
+		}
 	}
 	serviceInfo["actions"] = actions
 
@@ -354,6 +368,10 @@ func (service *Service) AsMap() map[string]interface{} {
 	}
 	serviceInfo["events"] = events
 	return serviceInfo
+}
+
+func isInternalAction(action Action) bool {
+	return strings.Index(action.Name(), "$") == 0
 }
 
 func isInternalEvent(event Event) bool {
@@ -844,14 +862,14 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 // Start called by the broker when the service is starting.
 func (service *Service) Start(context moleculer.BrokerContext) {
 	if service.started != nil {
-		go service.started(context, (*service.schema))
+		service.started(context, (*service.schema))
 	}
 }
 
 // Stop called by the broker when the service is stopping.
 func (service *Service) Stop(context moleculer.BrokerContext) {
 	if service.stopped != nil {
-		go service.stopped(context, (*service.schema))
+		service.stopped(context, (*service.schema))
 	}
 }
 

@@ -83,7 +83,8 @@ type ServiceBroker struct {
 
 	services []*service.Service
 
-	started bool
+	started  bool
+	starting bool
 
 	rootContext moleculer.BrokerContext
 
@@ -104,14 +105,14 @@ func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 // stopService stop the service.
 func (broker *ServiceBroker) stopService(svc *service.Service) {
 	broker.middlewares.CallHandlers("serviceStopping", svc)
-	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.New(nil)))
+	svc.Stop(broker.rootContext.ChildActionContext("service.stop", payload.Empty()))
 	broker.middlewares.CallHandlers("serviceStopped", svc)
 }
 
 // startService start a service.
 func (broker *ServiceBroker) startService(svc *service.Service) {
 
-	broker.logger.Debug("Broker - startService() - fullname: ", svc.FullName())
+	broker.logger.Debug("Broker start service: ", svc.FullName())
 
 	broker.middlewares.CallHandlers("serviceStarting", svc)
 
@@ -121,7 +122,7 @@ func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.middlewares.CallHandlers("serviceStarted", svc)
 
-	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.New(nil)))
+	svc.Start(broker.rootContext.ChildActionContext("service.start", payload.Empty()))
 }
 
 // waitForDependencies wait for all services listed in the service dependencies to be discovered.
@@ -150,8 +151,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
 			break
 		}
-
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Microsecond)
 	}
 }
 
@@ -189,13 +189,12 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 
 // addService internal addService .. adds one service.Service instance to broker.services list.
 func (broker *ServiceBroker) addService(svc *service.Service) {
-	broker.logger.Debug("Broker - addService() - fullname: ", svc.FullName(), " # actions: ", len(svc.Actions()), " # events: ", len(svc.Events()))
-
 	svc.SetNodeID(broker.localNode.GetID())
 	broker.services = append(broker.services, svc)
-	if broker.started {
+	if broker.started || broker.starting {
 		broker.startService(svc)
 	}
+	broker.logger.Debug("Broker - addService() - fullname: ", svc.FullName(), " # actions: ", len(svc.Actions()), " # events: ", len(svc.Events()))
 }
 
 // createService create a new service instance, from a struct or a schema :)
@@ -209,6 +208,91 @@ func (broker *ServiceBroker) createService(svc interface{}) (*service.Service, e
 		return svc, nil
 	}
 	return service.FromSchema(schema, broker.delegates), nil
+}
+
+// WaitFor : wait for all services to be available
+func (broker *ServiceBroker) WaitFor(services ...string) error {
+	for _, svc := range services {
+		if err := broker.waitForService(svc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WaitForNodes : wait for all nodes to be available
+func (broker *ServiceBroker) WaitForNodes(nodes ...string) error {
+	for _, nodeID := range nodes {
+		if err := broker.waitForNode(nodeID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (broker *ServiceBroker) KnowAction(action string) bool {
+	return broker.registry.KnowAction(action)
+}
+
+//WaitForActions : wait for all actions to be available
+func (broker *ServiceBroker) WaitForActions(actions ...string) error {
+	for _, action := range actions {
+		if err := broker.waitAction(action); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//waitForService wait for a service to be available
+func (broker *ServiceBroker) waitForService(service string) error {
+	start := time.Now()
+	for {
+		if broker.registry.KnowService(service) {
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			err := errors.New("waitForService() - Timeout ! service: " + service)
+			broker.logger.Error(err)
+			return err
+		}
+		time.Sleep(time.Microsecond)
+	}
+	return nil
+}
+
+//waitAction wait for an action to be available
+func (broker *ServiceBroker) waitAction(action string) error {
+	start := time.Now()
+	for {
+		if broker.registry.KnowAction(action) {
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			err := errors.New("waitAction() - Timeout ! action: " + action)
+			broker.logger.Error(err)
+			return err
+		}
+		time.Sleep(time.Microsecond)
+	}
+	return nil
+}
+
+//waitForNode wait for a node to be available
+func (broker *ServiceBroker) waitForNode(nodeID string) error {
+	start := time.Now()
+	for {
+		if broker.registry.KnowNode(nodeID) {
+			break
+		}
+		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			err := errors.New("waitForNode() - Timeout ! nodeID: " + nodeID)
+			broker.logger.Error(err)
+			return err
+		}
+		time.Sleep(time.Microsecond)
+	}
+	return nil
 }
 
 // Publish : for each service schema it will validate and create
@@ -228,6 +312,7 @@ func (broker *ServiceBroker) Start() {
 		broker.logger.Warn("broker.Start() called on a broker that already started!")
 		return
 	}
+	broker.starting = true
 	broker.logger.Info("Moleculer is starting...")
 	broker.logger.Info("Node ID: ", broker.localNode.GetID())
 
@@ -255,6 +340,7 @@ func (broker *ServiceBroker) Start() {
 	defer broker.middlewares.CallHandlers("brokerStarted", broker.delegates)
 
 	broker.started = true
+	broker.starting = false
 	broker.logger.Info("Service Broker with ", len(broker.services), " service(s) started successfully.")
 }
 
@@ -407,9 +493,7 @@ func (broker *ServiceBroker) init() {
 
 	broker.registerMiddlewares()
 
-	broker.logger.Debug("Config middleware before: \n", broker.config)
 	broker.config = broker.middlewares.CallHandlers("Config", broker.config).(moleculer.Config)
-	broker.logger.Debug("Config middleware after: \n", broker.config)
 
 	broker.delegates = broker.createDelegates()
 	broker.registry = registry.CreateRegistry(broker.id, broker.delegates)
@@ -437,10 +521,14 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		HandleRemoteEvent: func(context moleculer.BrokerContext) {
 			broker.registry.HandleRemoteEvent(context)
 		},
-		ServiceForAction: func(name string) *moleculer.ServiceSchema {
-			svc := broker.registry.ServiceForAction(name)
-			if svc != nil {
-				return svc.Schema()
+		ServiceForAction: func(name string) []*moleculer.ServiceSchema {
+			svcs := broker.registry.ServiceForAction(name)
+			if svcs != nil {
+				result := make([]*moleculer.ServiceSchema, len(svcs))
+				for i, svc := range svcs {
+					result[i] = svc.Schema()
+				}
+				return result
 			}
 			return nil
 		},
@@ -452,6 +540,7 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		},
 		MiddlewareHandler: broker.middlewares.CallHandlers,
 		Publish:           broker.Publish,
+		WaitFor:           broker.WaitFor,
 	}
 }
 

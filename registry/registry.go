@@ -94,6 +94,15 @@ func (registry *ServiceRegistry) KnowService(name string) bool {
 	return registry.services.FindByName(name)
 }
 
+func (registry *ServiceRegistry) KnowAction(name string) bool {
+	return registry.actions.Find(name) != nil
+}
+
+func (registry *ServiceRegistry) KnowNode(nodeID string) bool {
+	_, found := registry.nodes.findNode(nodeID)
+	return found
+}
+
 func (registry *ServiceRegistry) LocalNode() moleculer.Node {
 	return registry.localNode
 }
@@ -155,10 +164,14 @@ func (registry *ServiceRegistry) Start() {
 	}
 }
 
-func (registry *ServiceRegistry) ServiceForAction(name string) *service.Service {
-	action := registry.actions.Find(name, true)
-	if action != nil {
-		return action.Service()
+func (registry *ServiceRegistry) ServiceForAction(name string) []*service.Service {
+	actions := registry.actions.Find(name)
+	if actions != nil {
+		result := make([]*service.Service, len(actions))
+		for i, action := range actions {
+			result[i] = action.Service()
+		}
+		return result
 	}
 	return nil
 }
@@ -201,9 +214,9 @@ func (registry *ServiceRegistry) LoadBalanceEvent(context moleculer.BrokerContex
 
 	for _, eventEntry := range entries {
 		if eventEntry.isLocal {
-			go eventEntry.emitLocalEvent(context)
+			eventEntry.emitLocalEvent(context)
 		} else {
-			go registry.emitRemoteEvent(context, eventEntry)
+			registry.emitRemoteEvent(context, eventEntry)
 		}
 	}
 	registry.logger.Trace("LoadBalanceEvent() - ", eventSig, " End.")
@@ -225,9 +238,9 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 
 	for _, eventEntry := range entries {
 		if eventEntry.isLocal {
-			go eventEntry.emitLocalEvent(context)
+			eventEntry.emitLocalEvent(context)
 		} else {
-			go registry.emitRemoteEvent(context, eventEntry)
+			registry.emitRemoteEvent(context, eventEntry)
 		}
 	}
 	registry.logger.Trace("BroadcastEvent() - ", eventSig, " End.")
@@ -299,12 +312,12 @@ func (registry *ServiceRegistry) invokeRemoteAction(context moleculer.BrokerCont
 
 // removeServicesByNodeID
 func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
-	names := registry.services.RemoveByNode(nodeID)
-	if len(names) > 0 {
-		for _, name := range names {
+	svcs := registry.services.RemoveByNode(nodeID)
+	if len(svcs) > 0 {
+		for _, svc := range svcs {
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.removed",
-				[]interface{}{name})
+				[]interface{}{svc.Summary()})
 		}
 	}
 	registry.actions.RemoveByNode(nodeID)
@@ -491,8 +504,6 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	actions := service.Actions()
 	events := service.Events()
 
-	registry.logger.Debug("registry AddLocalService() nodeID: ", service.NodeID(), " service.fullname: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events))
-
 	for _, action := range actions {
 		registry.actions.Add(action, service, true)
 	}
@@ -504,7 +515,7 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 		}
 	}
 	registry.localNode.Publish(service.AsMap())
-	registry.logger.Infof("Registry - %s service is registered.", service.FullName())
+	registry.logger.Debug("Registry published local service: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events), " nodeID: ", service.NodeID())
 	registry.notifyServiceAded(service.Summary())
 }
 

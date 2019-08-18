@@ -148,6 +148,11 @@ func cleanUpForSerialization(values *map[string]interface{}) *map[string]interfa
 			result[key] = temp
 			continue
 		}
+		btsArray, isBytesArray := value.([]byte)
+		if isBytesArray {
+			result[key] = string(btsArray)
+			continue
+		}
 		aTransformer := payload.ArrayTransformer(&value)
 		if aTransformer != nil {
 			iArray := aTransformer.InterfaceArray(&value)
@@ -204,6 +209,15 @@ func (payload JSONPayload) Get(path string) moleculer.Payload {
 	result := payload.result.Get(path)
 	message := JSONPayload{result, payload.logger}
 	return message
+}
+
+//Only return a payload containing only the field specified
+func (p JSONPayload) Only(path string) moleculer.Payload {
+	result := p.result.Get(path)
+	if result.Exists() {
+		return payload.Empty().Add(path, JSONPayload{result, p.logger})
+	}
+	return payload.New(nil)
 }
 
 func (payload JSONPayload) Exists() bool {
@@ -417,6 +431,10 @@ func (payload JSONPayload) BoolArray() []bool {
 	return nil
 }
 
+func (payload JSONPayload) ByteArray() []byte {
+	return []byte(payload.result.Raw)
+}
+
 func (payload JSONPayload) TimeArray() []time.Time {
 	if source := payload.result.Array(); source != nil {
 		array := make([]time.Time, len(source))
@@ -438,6 +456,15 @@ func (payload JSONPayload) Array() []moleculer.Payload {
 		return array
 	}
 	return nil
+}
+
+func (p JSONPayload) Sort(field string) moleculer.Payload {
+	if !p.IsArray() {
+		return p
+	}
+	ps := &payload.Sortable{field, p.Array()}
+	sort.Sort(ps)
+	return ps.Payload()
 }
 
 func (payload JSONPayload) IsArray() bool {

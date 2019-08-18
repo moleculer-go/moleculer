@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var CounterCheckTimeout = 2 * time.Second
+var CounterCheckTimeout = 10 * time.Second
 
 func Counter() CounterCheck {
 	return CounterCheck{&sync.Mutex{}, make(map[string]int), make(map[string]int)}
@@ -69,7 +69,7 @@ func (counter *CounterCheck) checkAbs(values *map[string]int, name string, targe
 				result <- errors.New(fmt.Sprint("counter check timed out! -> name: ", name, " target: ", target, " current: ", value))
 				break
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Microsecond)
 		}
 	}()
 	return <-result

@@ -39,7 +39,6 @@ func (serviceCatalog *ServiceCatalog) Find(name string, version string, nodeID s
 
 func (serviceCatalog *ServiceCatalog) FindByName(name string) bool {
 	_, exists := serviceCatalog.servicesByName.Load(name)
-	serviceCatalog.logger.Debug("FindByName name: ", name, " exists: ", exists, " map: ", serviceCatalog.servicesByName)
 	return exists
 }
 
@@ -83,8 +82,8 @@ func (serviceCatalog *ServiceCatalog) listByName() map[string][]ServiceEntry {
 // }
 
 // RemoveByNode remove services for the given nodeID.
-func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
-	var removed []string
+func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []*service.Service {
+	var removed []*service.Service
 	serviceCatalog.logger.Debug("RemoveByNode() nodeID: ", nodeID)
 	var keysRemove []string
 	var namesRemove []string
@@ -92,6 +91,8 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
 		service := value.(ServiceEntry)
 		if service.nodeID == nodeID {
+			service := value.(ServiceEntry)
+			removed = append(removed, service.service)
 			keysRemove = append(keysRemove, key.(string))
 			namesRemove = append(namesRemove, service.service.Name())
 			fullNamesRemove = append(fullNamesRemove, service.service.FullName())
@@ -104,7 +105,6 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []string {
 	for _, name := range namesRemove {
 		value, exists := serviceCatalog.servicesByName.Load(name)
 		if exists {
-			removed = append(removed, name)
 			counter := value.(int)
 			counter = counter - 1
 			if counter < 0 {
@@ -132,9 +132,6 @@ func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 	nodeID := service.NodeID()
 	key := createKey(service.Name(), service.Version(), nodeID)
 	serviceCatalog.services.Store(key, ServiceEntry{service, nodeID})
-
-	serviceCatalog.logger.Debug("Add service fullName: ", service.FullName())
-
 	value, exists := serviceCatalog.servicesByName.Load(service.FullName())
 	if exists {
 		serviceCatalog.servicesByName.Store(service.FullName(), value.(int)+1)

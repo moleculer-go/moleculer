@@ -1,7 +1,6 @@
 package nats_test
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/moleculer-go/moleculer/payload"
@@ -113,7 +112,6 @@ var _ = Describe("NATS Streaming Transit", func() {
 			})
 
 			loopNumber++
-			fmt.Println("\n\n**** One More Loop -> Total: ", loopNumber)
 
 		}, numberOfLoops)
 

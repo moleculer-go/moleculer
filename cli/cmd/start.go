@@ -13,7 +13,7 @@ import (
 
 var environment string
 
-// helloCmd represents the hello command
+// startCmd starts the service broker
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "starts the service broker.",
