@@ -198,10 +198,9 @@ func (broker *ServiceBroker) addService(svc *service.Service) {
 	}
 }
 
-// createService create a new service instance, from a struct or a schema :)
-func (broker *ServiceBroker) createService(svc interface{}) (*service.Service, error) {
+// resolveSchema getting schema from interface
+func (broker *ServiceBroker) resolveSchema(svc interface{}) (moleculer.ServiceSchema, bool) {
 	schema, isSchema := svc.(moleculer.ServiceSchema)
-
 	if !isSchema {
 		s, ok := svc.(*moleculer.ServiceSchema)
 		if ok {
@@ -209,6 +208,14 @@ func (broker *ServiceBroker) createService(svc interface{}) (*service.Service, e
 			isSchema = ok
 		}
 	}
+
+	return schema, isSchema
+}
+
+// createService create a new service instance, from a struct or a schema :)
+func (broker *ServiceBroker) createService(svc interface{}) (*service.Service, error) {
+
+	schema, isSchema := broker.resolveSchema(svc)
 
 	if !isSchema {
 		svc, err := service.FromObject(svc, broker.delegates)
