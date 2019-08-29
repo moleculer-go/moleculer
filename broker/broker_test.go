@@ -162,4 +162,31 @@ var _ = Describe("Broker", func() {
 		Expect(result.Value()).Should(Equal(actionResult))
 	})
 
+	It("Should make a local call and return results (service schema as pointer)", func() {
+		actionResult := "abra cadabra"
+		service := &moleculer.ServiceSchema{
+			Name: "do",
+			Actions: []moleculer.Action{
+				moleculer.Action{
+					Name: "stuff",
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) interface{} {
+						return actionResult
+					},
+				},
+			},
+		}
+
+		broker := broker.New(&moleculer.Config{
+			LogLevel: "ERROR",
+		})
+		broker.Publish(service)
+		broker.Start()
+
+		result := <-broker.Call("do.stuff", 1)
+
+		fmt.Printf("Results from action: %s", result)
+
+		Expect(result.Value()).Should(Equal(actionResult))
+
+	})
 })
