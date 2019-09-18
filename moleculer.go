@@ -139,6 +139,8 @@ type Config struct {
 	Created                    func()
 	Started                    func()
 	Stopped                    func()
+
+	Services map[string]interface{}
 }
 
 var DefaultConfig = Config{

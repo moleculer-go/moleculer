@@ -438,9 +438,21 @@ func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 	return &serviceEvent
 }
 
+//UpdateFromMap update the service metadata and settings from a serviceInfo map
 func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+}
+
+// AddSettings add settings to the service. it will be merged with the
+// existing service settings
+func (service *Service) AddSettings(settings map[string]interface{}) {
+	service.settings = MergeSettings(service.settings, settings)
+}
+
+// AddMetadata add metadata to the service. it will be merged with existing service metadata.
+func (service *Service) AddMetadata(metadata map[string]interface{}) {
+	service.metadata = MergeSettings(service.metadata, metadata)
 }
 
 // populateFromMap populate a service with data from a map[string]interface{}.
@@ -862,6 +874,8 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 // Start called by the broker when the service is starting.
 func (service *Service) Start(context moleculer.BrokerContext) {
 	if service.started != nil {
+		service.schema.Settings = service.settings
+		service.schema.Metadata = service.metadata
 		service.started(context, (*service.schema))
 	}
 }

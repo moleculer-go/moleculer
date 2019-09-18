@@ -19,9 +19,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func mergeMaps(base, new map[string]interface{}) map[string]interface{} {
+	if base == nil {
+		base = map[string]interface{}{}
+	}
+	for key, value := range new {
+		base[key] = value
+	}
+	return base
+}
+
 func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) moleculer.Config {
 	if len(userConfig) > 0 {
 		for _, config := range userConfig {
+			if config.Services != nil {
+				baseConfig.Services = mergeMaps(baseConfig.Services, config.Services)
+			}
+
 			if config.LogLevel != "" {
 				baseConfig.LogLevel = config.LogLevel
 			}
@@ -109,10 +123,44 @@ func (broker *ServiceBroker) stopService(svc *service.Service) {
 	broker.middlewares.CallHandlers("serviceStopped", svc)
 }
 
+// applyServiceConfig apply broker config to the service configuration
+// settings is an import config copy from broker to the service.
+func (broker *ServiceBroker) applyServiceConfig(svc *service.Service) {
+	if bkrConfig, exists := broker.config.Services[svc.Name()]; exists {
+		svcConfig, ok := bkrConfig.(map[string]interface{})
+		if ok {
+			_, ok := svcConfig["settings"]
+			if ok {
+				settings, ok := svcConfig["settings"].(map[string]interface{})
+				if ok {
+					svc.AddSettings(settings)
+				} else {
+					broker.logger.Error("Could not add service settings - Error converting the input settings to map[string]interface{} - Invalid format! Service Config : ", svcConfig)
+				}
+			}
+
+			_, ok = svcConfig["metadata"]
+			if ok {
+				metadata, ok := svcConfig["metadata"].(map[string]interface{})
+				if ok {
+					svc.AddSettings(metadata)
+				} else {
+					broker.logger.Error("Could not add service metadata - Error converting the input metadata to map[string]interface{} - Invalid format! Service Config : ", svcConfig)
+				}
+			}
+		} else {
+			broker.logger.Error("Could not apply service configuration - Error converting the service config to map[string]interface{} - Invalid format! Broker Config : ", bkrConfig)
+		}
+
+	}
+}
+
 // startService start a service.
 func (broker *ServiceBroker) startService(svc *service.Service) {
 
 	broker.logger.Debug("Broker start service: ", svc.FullName())
+
+	broker.applyServiceConfig(svc)
 
 	broker.middlewares.CallHandlers("serviceStarting", svc)
 
