@@ -143,3 +143,10 @@ func (t *NatsTransporter) Publish(command, nodeID string, message moleculer.Payl
 func (t *NatsTransporter) SetPrefix(prefix string) {
 	t.prefix = prefix
 }
+
+func (t *NatsTransporter) SetNodeID(nodeID string) {
+}
+
+func (t *NatsTransporter) SetSerializer(serializer serializer.Serializer) {
+	// Ignored while transporter initialized in pubsub function
+}

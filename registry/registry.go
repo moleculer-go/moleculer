@@ -516,11 +516,11 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	}
 	registry.localNode.Publish(service.AsMap())
 	registry.logger.Debug("Registry published local service: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events), " nodeID: ", service.NodeID())
-	registry.notifyServiceAded(service.Summary())
+	registry.notifyServiceAdded(service.Summary())
 }
 
-// notifyServiceAded notify when a service is added to the registry.
-func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
+// notifyServiceAdded notify when a service is added to the registry.
+func (registry *ServiceRegistry) notifyServiceAdded(svc map[string]string) {
 	if registry.broker.IsStarted() {
 		registry.broker.Bus().EmitAsync(
 			"$registry.service.added",

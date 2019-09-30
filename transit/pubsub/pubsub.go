@@ -155,6 +155,8 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 		transport = pubsub.createMemoryTransporter()
 	}
 	transport.SetPrefix("MOL")
+	transport.SetNodeID(pubsub.broker.LocalNode().GetID())
+	transport.SetSerializer(pubsub.serializer)
 	return transport
 }
 
