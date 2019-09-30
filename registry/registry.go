@@ -461,7 +461,9 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 		if newService {
 			registry.logger.Infof("Registry - remote %s service is registered.", svc.FullName())
 
-			registry.notifyServiceAdded(svc.Summary())
+			registry.broker.Bus().EmitAsync(
+				"$registry.service.added",
+				[]interface{}{svc.Summary()})
 		}
 	}
 
