@@ -296,7 +296,7 @@ func (t *AmqpTransporter) subscribeInternal(subscriber subscriber) {
 			return
 		}
 
-		if err := t.channel.QueueBind(b.queueName, b.pattern, b.topic, true, nil); err != nil {
+		if err := t.channel.QueueBind(b.queueName, b.pattern, b.topic, false, nil); err != nil {
 			t.logger.Error("AMQP Subscribe() - Can't bind queue to exchange: ", err)
 			return
 		}
