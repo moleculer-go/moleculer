@@ -50,7 +50,11 @@ func createTransit(broker *moleculer.BrokerDelegates) transit.Transit {
 // createStrategy create a strsategy instance based on the config.
 func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	//TODO: when new strategies are addes.. adde config check here to load the right one.
-	return strategy.RoundRobinStrategy{}
+	if broker.Config.StrategyFactory != nil {
+		return broker.Config.StrategyFactory().(strategy.Strategy)
+	}
+
+	return strategy.RandomStrategy{}
 }
 
 func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRegistry {

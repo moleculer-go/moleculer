@@ -37,6 +37,9 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.TransporterFactory != nil {
 				baseConfig.TransporterFactory = config.TransporterFactory
 			}
+			if config.StrategyFactory != nil {
+				baseConfig.StrategyFactory = config.StrategyFactory
+			}
 			if config.DisableInternalMiddlewares {
 				baseConfig.DisableInternalMiddlewares = config.DisableInternalMiddlewares
 			}

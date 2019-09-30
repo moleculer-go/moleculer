@@ -19,13 +19,13 @@ func (sel SelectorImpl) TargetNodeID() string {
 }
 
 var _ = Describe("Strategy", func() {
-	thisStrategy := strategy.RoundRobinStrategy{}
+	thisStrategy := strategy.RandomStrategy{}
 
 	list := []strategy.Selector{SelectorImpl{"alpha"}, SelectorImpl{"beta"}, SelectorImpl{"gamma"}, SelectorImpl{"delta"}}
 
 	emptyList := []strategy.Selector{}
 
-	It("Should return a ramdon target node according to strategy", func() {
+	It("Should return a random target node according to strategy", func() {
 		thisNode := thisStrategy.Select(list)
 		Expect(thisNode).Should(Not(BeNil()))
 	})
