@@ -11,6 +11,10 @@ services:
     command: [-mc, 0]
     ports:
       - 4222
+  - name: rabbitmq
+    image: rabbitmq
+    ports:
+      - 5672
 
 steps:
   - name: tests
@@ -23,6 +27,7 @@ steps:
     commands:
       - export STAN_HOST="nats-streaming"
       - export NATS_HOST="nats-streaming"
+      - export AMQP_HOST="guest:guest@rabbitmq"
       - go build
       - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
       # - curl -sL https://deb.nodesource.com/setup_12.x | bash -
