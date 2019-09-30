@@ -47,7 +47,7 @@ func createTransit(broker *moleculer.BrokerDelegates) transit.Transit {
 	return transit
 }
 
-// createStrategy create a strsategy instance based on the config.
+// createStrategy create a strategy instance based on the config.
 func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	//TODO: when new strategies are addes.. adde config check here to load the right one.
 	if broker.Config.StrategyFactory != nil {
@@ -461,9 +461,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 		if newService {
 			registry.logger.Infof("Registry - remote %s service is registered.", svc.FullName())
 
-			registry.broker.Bus().EmitAsync(
-				"$registry.service.added",
-				[]interface{}{svc.Summary()})
+			registry.notifyServiceAdded(svc.Summary())
 		}
 	}
 
