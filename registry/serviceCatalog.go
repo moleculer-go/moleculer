@@ -219,7 +219,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 // updateRemote : update remote service info and return what actions are new, updated and deleted
 func (serviceCatalog *ServiceCatalog) updateRemote(nodeID string, serviceInfo map[string]interface{}) (*service.Service, bool, []map[string]interface{}, []service.Action, []service.Action, []map[string]interface{}, []service.Event, []service.Event) {
 
-	key := createKey(serviceInfo["name"].(string), serviceInfo["version"].(string), nodeID)
+	key := createKey(serviceInfo["name"].(string), service.ParseVersion(serviceInfo["version"]), nodeID)
 	item, serviceExists := serviceCatalog.services.Load(key)
 
 	if serviceExists {

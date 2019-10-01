@@ -69,6 +69,26 @@ type HasEvents interface {
 	Events() []moleculer.Event
 }
 
+func ParseVersion(iver interface{}) string {
+
+	v, ok := iver.(string)
+	if ok {
+		return v
+	}
+
+	f, ok := iver.(float64)
+	if ok {
+		return fmt.Sprintf("%g", f)
+	}
+
+	i, ok := iver.(int64)
+	if ok {
+		return fmt.Sprintf("%d", i)
+	}
+
+	return fmt.Sprintf("%v", iver)
+}
+
 type Service struct {
 	nodeID       string
 	fullname     string
@@ -460,7 +480,7 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 	if nodeID, ok := serviceInfo["nodeID"]; ok {
 		service.nodeID = nodeID.(string)
 	}
-	service.version = serviceInfo["version"].(string)
+	service.version = ParseVersion(serviceInfo["version"])
 	service.name = serviceInfo["name"].(string)
 	service.fullname = joinVersionToName(
 		service.name,
