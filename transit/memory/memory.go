@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
 	"github.com/moleculer-go/moleculer/util"
 	log "github.com/sirupsen/logrus"
@@ -42,6 +43,13 @@ func Create(logger *log.Entry, memory *SharedMemory) MemoryTransporter {
 
 func (transporter *MemoryTransporter) SetPrefix(prefix string) {
 	transporter.prefix = prefix
+}
+
+func (transporter *MemoryTransporter) SetNodeID(nodeID string) {
+}
+
+func (transporter *MemoryTransporter) SetSerializer(serializer serializer.Serializer) {
+
 }
 
 func (transporter *MemoryTransporter) Connect() chan error {

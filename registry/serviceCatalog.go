@@ -144,7 +144,7 @@ func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 
 func serviceActionExists(name string, actions []service.Action) bool {
 	for _, action := range actions {
-		if action.Name() == name {
+		if action.FullName() == name {
 			return true
 		}
 	}

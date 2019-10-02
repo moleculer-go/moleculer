@@ -41,8 +41,21 @@ type PubSub struct {
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 	if pubsub.isConnected && pubsub.brokerStarted {
-		pubsub.broker.LocalNode().IncreaseSequence()
-		pubsub.broadcastNodeInfo("")
+		localNodeID := pubsub.broker.LocalNode().GetID()
+
+		// Checking that was added local service
+		isLocalServiceAdded := false
+		for _, value := range values {
+			if value.(map[string]string)["nodeID"] == localNodeID {
+				isLocalServiceAdded = true
+				break
+			}
+		}
+
+		if isLocalServiceAdded {
+			pubsub.broker.LocalNode().IncreaseSequence()
+			pubsub.broadcastNodeInfo("")
+		}
 	}
 }
 
@@ -155,6 +168,8 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 		transport = pubsub.createMemoryTransporter()
 	}
 	transport.SetPrefix("MOL")
+	transport.SetNodeID(pubsub.broker.LocalNode().GetID())
+	transport.SetSerializer(pubsub.serializer)
 	return transport
 }
 

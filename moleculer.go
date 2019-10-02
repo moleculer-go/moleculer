@@ -111,6 +111,7 @@ type Mixin struct {
 }
 
 type TransporterFactoryFunc func() interface{}
+type StrategyFactoryFunc func() interface{}
 
 type Config struct {
 	LogLevel                   string
@@ -118,6 +119,7 @@ type Config struct {
 	DiscoverNodeID             func() string
 	Transporter                string
 	TransporterFactory         TransporterFactoryFunc
+	StrategyFactory            StrategyFactoryFunc
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
 	OfflineCheckFrequency      time.Duration
