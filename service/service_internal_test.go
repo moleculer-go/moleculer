@@ -453,6 +453,17 @@ var _ = Describe("Service", func() {
 		Expect(fn).Should(BeNil())
 	})
 
+	It("ParseVersion()", func() {
+		intVer := 1
+		Expect(ParseVersion(intVer)).Should(Equal("1"))
+
+		floatVer := 1.1
+		Expect(ParseVersion(floatVer)).Should(Equal("1.1"))
+
+		strVer := "v0.1.1"
+		Expect(ParseVersion(strVer)).Should(Equal("v0.1.1"))
+	})
+
 })
 
 type NoPointers struct {
