@@ -132,3 +132,25 @@ $ go run github.com/moleculer-go/store/examples/populates
 
 
 ```
+
+# Running tests
+
+
+```
+# integration tests require mongo, nats streaming and rabbitmq
+
+# run mongo
+docker run -d -p 27017:27017 mongo
+
+# run nats-streaming
+docker run -d -p 4222:4222 nats-streaming -mc 0
+
+
+# run rabbitmq
+docker run -d -p 5672:5672 rabbitmq
+
+# running all tests
+go test ./...
+# or
+ginkgo -r
+```
