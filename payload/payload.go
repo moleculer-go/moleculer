@@ -548,18 +548,12 @@ func Error(msgs ...interface{}) moleculer.Payload {
 	return New(errors.New(fmt.Sprint(msgs...)))
 }
 
-var emptyList = &RawPayload{}
-
 func EmptyList() moleculer.Payload {
-	emptyList.source = []interface{}{}
-	return emptyList
+	return &RawPayload{source: []interface{}{}}
 }
 
-var emptyValue = &RawPayload{}
-
 func Empty() moleculer.Payload {
-	emptyValue.source = map[string]interface{}{}
-	return emptyValue
+	return &RawPayload{source: map[string]interface{}{}}
 }
 
 func New(source interface{}) moleculer.Payload {
