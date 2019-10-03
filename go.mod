@@ -14,7 +14,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/moleculer-go/cupaloy/v2 v2.5.2
-	github.com/moleculer-go/goemitter v1.0.1
+	github.com/moleculer-go/goemitter v1.0.2
 	github.com/nats-io/gnatsd v1.4.1 // indirect
 	github.com/nats-io/go-nats v1.7.2
 	github.com/nats-io/go-nats-streaming v0.4.2
