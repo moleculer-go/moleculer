@@ -8,6 +8,7 @@ import (
 	"github.com/streadway/amqp"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -88,6 +89,7 @@ func createNode(namespace, name string, service *moleculer.ServiceSchema) *broke
 		DiscoverNodeID: func() string {
 			return namespace + "-" + name
 		},
+		WaitForDependenciesTimeout: 5 * time.Second,
 		TransporterFactory: func() interface{} {
 			return CreateAmqpTransporter(amqpConfig)
 		},
@@ -181,4 +183,51 @@ func createBroadcastWorker(name string, logs *[]string) *broker.ServiceBroker {
 	b = createNode("test-broadcast", "event-"+name, &service)
 
 	return b
+}
+
+func waitServicesNum(bkr *broker.ServiceBroker, num int) *sync.WaitGroup {
+	wg := sync.WaitGroup{}
+	wg.Add(num)
+
+	serviceAddHandler := func(values ...interface{}) {
+		nodeInfo := values[0].(map[string]string)
+		if nodeInfo["name"][0] != '$' {
+			wg.Done()
+		}
+	}
+
+	go func() {
+		wg.Wait()
+
+		bkr.LocalBus().RemoveListener("$registry.service.added", serviceAddHandler)
+	}()
+
+	bkr.LocalBus().On("$registry.service.added", serviceAddHandler)
+
+	return &wg
+}
+
+func waitServices(bkr *broker.ServiceBroker, names []string) *sync.WaitGroup {
+	wg := sync.WaitGroup{}
+	wg.Add(len(names))
+
+	serviceAddHandler := func(values ...interface{}) {
+		nodeInfo := values[0].(map[string]string)
+		for _, name := range names {
+			if nodeInfo["name"] == name {
+				wg.Done()
+				break
+			}
+		}
+	}
+
+	go func() {
+		wg.Wait()
+
+		bkr.LocalBus().RemoveListener("$registry.service.added", serviceAddHandler)
+	}()
+
+	bkr.LocalBus().On("$registry.service.added", serviceAddHandler)
+
+	return &wg
 }
