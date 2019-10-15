@@ -89,7 +89,7 @@ func createNode(namespace, name string, service *moleculer.ServiceSchema) *broke
 		DiscoverNodeID: func() string {
 			return namespace + "-" + name
 		},
-		WaitForDependenciesTimeout: 5 * time.Second,
+		WaitForDependenciesTimeout: 10 * time.Second,
 		TransporterFactory: func() interface{} {
 			return CreateAmqpTransporter(amqpConfig)
 		},
