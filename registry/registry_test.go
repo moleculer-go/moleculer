@@ -220,11 +220,11 @@ var _ = Describe("Registry", func() {
 			<-step
 
 			scanResult = <-scannerBroker.Call("scanner.scan", scanText)
-			Expect(scanResult.IsError()).ShouldNot(Equal(true))
+			Expect(scanResult.IsError()).Should(BeFalse())
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			scanResult = <-printerBroker.Call("scanner.scan", scanText)
-			Expect(scanResult.IsError()).ShouldNot(Equal(true))
+			Expect(scanResult.IsError()).Should(BeFalse())
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
 			cpuBroker.Start()
