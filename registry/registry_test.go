@@ -263,6 +263,6 @@ var _ = Describe("Registry", func() {
 			}).Should(Panic()) //broker B is stopped ... so it should panic
 
 			close(done)
-		}, 3)
+		}, 10)
 	})
 })
