@@ -422,7 +422,7 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 
 		for _, newAction := range newActions {
 			serviceAction := service.CreateServiceAction(
-				serviceInfo["name"].(string),
+				svc.FullName(),
 				newAction.Name(),
 				nil,
 				moleculer.ObjectSchema{nil})
