@@ -18,7 +18,7 @@ import (
 var logLevel = "fatal"
 var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
-func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
+func createPrinterBroker(mem *memory.SharedMemory, version string) broker.ServiceBroker {
 	broker := broker.New(&moleculer.Config{
 		DiscoverNodeID: func() string { return "node_printerBroker" },
 		LogLevel:       logLevel,
@@ -29,7 +29,8 @@ func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	})
 
 	broker.Publish(moleculer.ServiceSchema{
-		Name: "printer",
+		Name:    "printer",
+		Version: version,
 		Actions: []moleculer.Action{
 			{
 				Name: "print",
@@ -52,7 +53,7 @@ func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	return (*broker)
 }
 
-func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
+func createScannerBroker(mem *memory.SharedMemory, version string) broker.ServiceBroker {
 	broker := broker.New(&moleculer.Config{
 		DiscoverNodeID: func() string { return "node_scannerBroker" },
 		LogLevel:       logLevel,
@@ -62,7 +63,8 @@ func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 		},
 	})
 	broker.Publish(moleculer.ServiceSchema{
-		Name: "scanner",
+		Name:    "scanner",
+		Version: version,
 		Actions: []moleculer.Action{
 			{
 				Name: "scan",
@@ -86,7 +88,7 @@ func createScannerBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	return (*broker)
 }
 
-func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
+func createCpuBroker(mem *memory.SharedMemory, version string) broker.ServiceBroker {
 	broker := broker.New(&moleculer.Config{
 		DiscoverNodeID: func() string { return "node_cpuBroker" },
 		LogLevel:       logLevel,
@@ -96,18 +98,27 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 		},
 	})
 	broker.Publish(moleculer.ServiceSchema{
-		Name: "cpu",
+		Name:    "cpu",
+		Version: version,
 		Actions: []moleculer.Action{
 			{
 				Name: "compute",
 				Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+					var version string
+					if params.Get("version").Exists() {
+						version += params.Get("version").String() + "."
+					}
+
 					context.Logger().Debug("compute action invoked!")
 
-					scanResult := <-context.Call("scanner.scan", params)
+					scanResult := <-context.Call(version+"scanner.scan", params.Get("content"))
+					if scanResult.IsError() {
+						return scanResult.Error()
+					}
 
 					context.Logger().Debug("scanResult: ", scanResult)
 
-					printResult := <-context.Call("printer.print", scanResult)
+					printResult := <-context.Call(version+"printer.print", scanResult)
 
 					return printResult
 				},
@@ -115,7 +126,8 @@ func createCpuBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 		},
 	})
 	broker.Publish(moleculer.ServiceSchema{
-		Name: "printer",
+		Name:    "printer",
+		Version: version,
 		Actions: []moleculer.Action{
 			{
 				Name: "print",
@@ -153,7 +165,7 @@ var _ = Describe("Registry", func() {
 
 			mem := &memory.SharedMemory{}
 
-			printerBroker := createPrinterBroker(mem)
+			printerBroker := createPrinterBroker(mem, "")
 
 			var serviceAdded, serviceRemoved []moleculer.Payload
 			events := bus.Construct()
@@ -190,10 +202,10 @@ var _ = Describe("Registry", func() {
 
 			Expect(printerBroker.LocalNode().GetID()).Should(Equal("node_printerBroker"))
 
-			scannerBroker := createScannerBroker(mem)
+			scannerBroker := createScannerBroker(mem, "")
 			Expect(scannerBroker.LocalNode().GetID()).Should(Equal("node_scannerBroker"))
 
-			cpuBroker := createCpuBroker(mem)
+			cpuBroker := createCpuBroker(mem, "")
 			Expect(cpuBroker.LocalNode().GetID()).Should(Equal("node_cpuBroker"))
 
 			printerBroker.Start()
@@ -241,10 +253,10 @@ var _ = Describe("Registry", func() {
 			cpuBroker.WaitForActions("scanner.scan", "printer.print")
 			time.Sleep(time.Millisecond)
 
-			contentToCompute := "Some long long text ..."
+			contentToCompute := map[string]interface{}{"content": "Some long long text ..."}
 			computeResult := <-printerBroker.Call("cpu.compute", contentToCompute)
 			Expect(computeResult.Error()).Should(Succeed())
-			Expect(computeResult.Value()).Should(Equal(contentToCompute))
+			Expect(computeResult.Value()).Should(Equal(contentToCompute["content"]))
 
 			//stopping broker B
 			scannerBroker.Stop()
@@ -261,6 +273,67 @@ var _ = Describe("Registry", func() {
 			Expect(func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
 			}).Should(Panic()) //broker B is stopped ... so it should panic
+
+			close(done)
+		}, 10)
+
+		It("3 brokers should perform remote Calls with versioned services", func(done Done) {
+
+			mem := &memory.SharedMemory{}
+
+			printerBroker := createPrinterBroker(mem, "v2")
+
+			Expect(printerBroker.LocalNode().GetID()).Should(Equal("node_printerBroker"))
+
+			scannerBroker := createScannerBroker(mem, "v2")
+			Expect(scannerBroker.LocalNode().GetID()).Should(Equal("node_scannerBroker"))
+
+			cpuBroker := createCpuBroker(mem, "v1")
+			Expect(cpuBroker.LocalNode().GetID()).Should(Equal("node_cpuBroker"))
+
+			printerBroker.Start()
+			scannerBroker.Start()
+			cpuBroker.Start()
+
+			cpuBroker.WaitForActions("v1.scanner.scan", "v1.printer.print")
+			time.Sleep(time.Millisecond)
+
+			contentToCompute := map[string]interface{}{"content": "Some long long text ...", "version": "v2"}
+			computeResult := <-printerBroker.Call("v1.cpu.compute", contentToCompute)
+			Expect(computeResult.Error()).Should(Succeed())
+			Expect(computeResult.Value()).Should(Equal(contentToCompute["content"]))
+
+			close(done)
+		}, 10)
+
+		It("broker perform call versioned service action without indication service version", func(done Done) {
+
+			mem := &memory.SharedMemory{}
+
+			printerBroker := createPrinterBroker(mem, "v2")
+
+			Expect(printerBroker.LocalNode().GetID()).Should(Equal("node_printerBroker"))
+
+			scannerBroker := createScannerBroker(mem, "v2")
+			Expect(scannerBroker.LocalNode().GetID()).Should(Equal("node_scannerBroker"))
+
+			cpuBroker := createCpuBroker(mem, "v1")
+			Expect(cpuBroker.LocalNode().GetID()).Should(Equal("node_cpuBroker"))
+
+			printerBroker.Start()
+			scannerBroker.Start()
+			cpuBroker.Start()
+
+			cpuBroker.WaitForActions("v1.scanner.scan", "v1.printer.print")
+			time.Sleep(time.Millisecond)
+
+			// Call local action
+			printResult := <-printerBroker.Call("printer.print", nil)
+			Expect(printResult.Error()).Should(HaveOccurred())
+
+			// Call remote action
+			computeResult := <-printerBroker.Call("v1.cpu.compute", nil)
+			Expect(computeResult.Error()).Should(HaveOccurred())
 
 			close(done)
 		}, 10)
