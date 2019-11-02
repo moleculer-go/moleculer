@@ -76,14 +76,14 @@ var _ = Describe("nodeService", func() {
 			return func(done Done) {
 				mem := &memory.SharedMemory{}
 
-				printerBroker := createPrinterBroker(mem)
+				printerBroker := createPrinterBroker(mem, "")
 				printerBroker.Start()
 
 				result := <-printerBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "printerBroker"), transformer(result))).Should(Succeed())
 
-				scannerBroker := createScannerBroker(mem)
+				scannerBroker := createScannerBroker(mem, "")
 				scannerBroker.Start()
 				scannerBroker.WaitForNodes("node_printerBroker")
 				scannerBroker.WaitFor("printer")
@@ -93,7 +93,7 @@ var _ = Describe("nodeService", func() {
 				Expect(result.Exists()).Should(BeTrue())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "scannerBroker"), transformer(result))).Should(Succeed())
 
-				cpuBroker := createCpuBroker(mem)
+				cpuBroker := createCpuBroker(mem, "")
 				cpuBroker.Start()
 				cpuBroker.WaitForNodes("node_printerBroker", "node_scannerBroker")
 				cpuBroker.WaitFor("printer", "scanner")
