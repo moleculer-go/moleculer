@@ -71,6 +71,9 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.DontWaitForNeighbours {
 				baseConfig.DontWaitForNeighbours = config.DontWaitForNeighbours
 			}
+			if config.WaitForDependenciesTimeout != 0 {
+				baseConfig.WaitForDependenciesTimeout = config.WaitForDependenciesTimeout
+			}
 
 			if config.Middlewares != nil {
 				baseConfig.Middlewares = config.Middlewares
