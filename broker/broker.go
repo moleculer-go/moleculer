@@ -183,7 +183,7 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 	}
 	start := time.Now()
 	for {
-		if !broker.started {
+		if !broker.started && !broker.starting) {
 			break
 		}
 		found := true
