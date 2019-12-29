@@ -247,8 +247,10 @@ type Context interface {
 }
 
 type BrokerContext interface {
+	MCall(map[string]map[string]interface{}) chan map[string]Payload
 	Call(actionName string, params interface{}, opts ...Options) chan Payload
 	Emit(eventName string, params interface{}, groups ...string)
+	Broadcast(eventName string, params interface{}, groups ...string)
 
 	ChildActionContext(actionName string, params Payload, opts ...Options) BrokerContext
 	ChildEventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext
