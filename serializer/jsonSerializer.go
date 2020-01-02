@@ -205,9 +205,14 @@ func (serializer JSONSerializer) PayloadToContextMap(message moleculer.Payload) 
 	return serializer.contextMap(message.RawMap())
 }
 
-func (payload JSONPayload) Get(path string) moleculer.Payload {
-	result := payload.result.Get(path)
-	message := JSONPayload{result, payload.logger}
+func (jp JSONPayload) Get(path string, defaultValue ...interface{}) moleculer.Payload {
+	result := jp.result.Get(path)
+	if !result.Exists() && len(defaultValue) > 1 {
+		return payload.New(defaultValue)
+	} else if !result.Exists() && len(defaultValue) > 0 {
+		return payload.New(defaultValue[0])
+	}
+	message := JSONPayload{result, jp.logger}
 	return message
 }
 

@@ -1,13 +1,14 @@
 package amqp
 
 import (
+	"sort"
+	"sync"
+	"time"
+
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"sort"
-	"sync"
-	"time"
 )
 
 var queues = []string{
@@ -250,7 +251,7 @@ var _ = Describe("Test AMQPTransporter", func() {
 		})
 	})
 
-	Describe("Test AMQPTransporter event emit with built-in balancer", func() {
+	XDescribe("Test AMQPTransporter event emit with built-in balancer", func() {
 		var logs []string
 
 		pub := createEmitWorker("pub", "emit-handler", &logs)
