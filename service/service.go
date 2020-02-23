@@ -475,32 +475,6 @@ func (service *Service) AddMetadata(metadata map[string]interface{}) {
 	service.metadata = MergeSettings(service.metadata, metadata)
 }
 
-// populateFromMap populate a service with data from a map[string]interface{}.
-func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
-	if nodeID, ok := serviceInfo["nodeID"]; ok {
-		service.nodeID = nodeID.(string)
-	}
-	service.version = ParseVersion(serviceInfo["version"])
-	service.name = serviceInfo["name"].(string)
-	service.fullname = joinVersionToName(
-		service.name,
-		service.version)
-
-	service.settings = serviceInfo["settings"].(map[string]interface{})
-	service.metadata = serviceInfo["metadata"].(map[string]interface{})
-	actions := serviceInfo["actions"].(map[string]interface{})
-	for _, item := range actions {
-		actionInfo := item.(map[string]interface{})
-		service.AddActionMap(actionInfo)
-	}
-
-	events := serviceInfo["events"].(map[string]interface{})
-	for _, item := range events {
-		eventInfo := item.(map[string]interface{})
-		service.AddEventMap(eventInfo)
-	}
-}
-
 // populateFromSchema populate a service with data from a moleculer.Service.
 func (service *Service) populateFromSchema() {
 	schema := service.schema
@@ -843,6 +817,44 @@ func objToSchema(obj interface{}) (moleculer.ServiceSchema, error) {
 	return schema, nil
 }
 
+func mapToSchema(serviceInfo map[string]interface{}) moleculer.ServiceSchema {
+	schema := moleculer.ServiceSchema{}
+
+	schema.Version = ParseVersion(serviceInfo["version"])
+	schema.Name = serviceInfo["name"].(string)
+	schema.Settings = serviceInfo["settings"].(map[string]interface{})
+	schema.Metadata = serviceInfo["metadata"].(map[string]interface{})
+
+	actions := serviceInfo["actions"].(map[string]interface{})
+	for _, item := range actions {
+		actionInfo := item.(map[string]interface{})
+
+		action := moleculer.Action{}
+		action.Name = actionInfo["rawName"].(string)
+		action.Schema = paramsFromMap(actionInfo["schema"])
+
+		schema.Actions = append(schema.Actions, action)
+	}
+
+	events := serviceInfo["events"].(map[string]interface{})
+	for _, item := range events {
+		eventInfo := item.(map[string]interface{})
+
+		event := moleculer.Event{}
+		event.Name = eventInfo["name"].(string)
+
+		if group, exists := eventInfo["group"]; exists {
+			event.Group = group.(string)
+		} else {
+			event.Group = schema.Name
+		}
+
+		schema.Events = append(schema.Events, event)
+	}
+
+	return schema
+}
+
 func mergeActions(actions ...[]moleculer.Action) []moleculer.Action {
 	r := []moleculer.Action{}
 	for _, list := range actions {
@@ -870,8 +882,11 @@ func FromSchema(schema moleculer.ServiceSchema, bkr *moleculer.BrokerDelegates) 
 	if len(schema.Mixins) > 0 {
 		schema = applyMixins(schema)
 	}
-	logger := serviceLogger(bkr, schema)
-	service := &Service{schema: &schema, logger: logger}
+	service := &Service{schema: &schema}
+	if bkr != nil {
+		service.logger = serviceLogger(bkr, schema)
+	}
+
 	service.populateFromSchema()
 	if service.name == "" {
 		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
@@ -883,12 +898,8 @@ func FromSchema(schema moleculer.ServiceSchema, bkr *moleculer.BrokerDelegates) 
 }
 
 func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
-	service := &Service{}
-	populateFromMap(service, serviceInfo)
-	if service.name == "" {
-		panic(errors.New("Service name can't be empty! Maybe it is not a valid Service schema."))
-	}
-	return service
+	schema := mapToSchema(serviceInfo)
+	return FromSchema(schema, nil)
 }
 
 // Start called by the broker when the service is starting.
