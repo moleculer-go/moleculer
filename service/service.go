@@ -842,11 +842,8 @@ func mapToSchema(serviceInfo map[string]interface{}) moleculer.ServiceSchema {
 
 		event := moleculer.Event{}
 		event.Name = eventInfo["name"].(string)
-
 		if group, exists := eventInfo["group"]; exists {
 			event.Group = group.(string)
-		} else {
-			event.Group = schema.Name
 		}
 
 		schema.Events = append(schema.Events, event)
