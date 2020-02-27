@@ -5,6 +5,7 @@ import "github.com/moleculer-go/moleculer"
 type Serializer interface {
 	BytesToPayload(*[]byte) moleculer.Payload
 	PayloadToBytes(moleculer.Payload) []byte
+	PayloadToString(moleculer.Payload) string
 	PayloadToContextMap(moleculer.Payload) map[string]interface{}
 	MapToPayload(*map[string]interface{}) (moleculer.Payload, error)
 }

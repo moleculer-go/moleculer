@@ -45,6 +45,10 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 }
 
 func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byte {
+	return []byte(serializer.PayloadToString(payload))
+}
+
+func (serializer JSONSerializer) PayloadToString(payload moleculer.Payload) string {
 	var err error
 	jp, isJson := payload.(JSONPayload)
 	if !isJson {
@@ -53,7 +57,7 @@ func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byt
 			if err != nil {
 				panic(err)
 			}
-			return []byte(jp.result.String())
+			return jp.result.String()
 		}
 		rawMap := payload.RawMap()
 		if payload.IsError() {
@@ -64,16 +68,16 @@ func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byt
 			if err != nil {
 				panic(err)
 			}
-			return []byte(jp.result.String())
+			return jp.result.String()
 		}
 		json, err := sjson.Set("{root:false}", "root", payload.Value())
 		if err != nil {
 			panic(err)
 		}
 		jp = JSONPayload{gjson.Get(json, "root"), serializer.logger}
-		return []byte(jp.result.String())
+		return jp.result.String()
 	}
-	return []byte(jp.result.String())
+	return jp.result.String()
 }
 
 func (jpayload JSONPayload) Remove(fields ...string) moleculer.Payload {
