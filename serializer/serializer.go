@@ -1,8 +1,12 @@
 package serializer
 
-import "github.com/moleculer-go/moleculer"
+import (
+	"github.com/moleculer-go/moleculer"
+	"io"
+)
 
 type Serializer interface {
+	ReaderToPayload(io.Reader) moleculer.Payload
 	BytesToPayload(*[]byte) moleculer.Payload
 	PayloadToBytes(moleculer.Payload) []byte
 	PayloadToString(moleculer.Payload) string

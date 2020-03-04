@@ -1,7 +1,9 @@
 package serializer
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"sort"
 	"strconv"
 	"time"
@@ -40,6 +42,19 @@ func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[s
 
 func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload {
 	result := gjson.ParseBytes(*bytes)
+	payload := JSONPayload{result, serializer.logger}
+	return payload
+}
+
+// ReaderToPayload transform an io.Reader into a Payload assusming the contes is a valid json :)
+func (serializer JSONSerializer) ReaderToPayload(r io.Reader) moleculer.Payload {
+	buf := bytes.Buffer{}
+	buf.ReadFrom(r)
+	json := buf.String()
+	if !gjson.Valid(json) {
+		return payload.New(errors.New("invalid json"))
+	}
+	result := gjson.Parse(json)
 	payload := JSONPayload{result, serializer.logger}
 	return payload
 }
