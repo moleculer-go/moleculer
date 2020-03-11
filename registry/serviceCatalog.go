@@ -206,7 +206,7 @@ func (serviceCatalog *ServiceCatalog) updateActions(serviceMap map[string]interf
 		}
 	}
 	for _, action := range current.Actions() {
-		name := action.FullName()
+		name := action.Name()
 		_, exists := actions[name]
 		if !exists {
 			deletedActions = append(deletedActions, action)
