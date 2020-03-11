@@ -30,6 +30,11 @@ steps:
       - export AMQP_HOST="guest:guest@rabbitmq"
       - go build
       - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
+      - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
+      - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
+      - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
+      - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace
+
       # - curl -sL https://deb.nodesource.com/setup_12.x | bash -
       # - apt-get update
       # - apt-get install -y nodejs
