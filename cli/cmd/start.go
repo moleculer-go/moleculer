@@ -9,6 +9,7 @@ import (
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var environment string
@@ -25,6 +26,10 @@ var startCmd = &cobra.Command{
 		}
 
 		argsConfig := argsToConfig(cmd)
+		services := viper.GetStringMap("services")
+		if services != nil {
+			UserOpts.Config.Services = services
+		}
 		broker := broker.New(UserOpts.Config, argsConfig)
 
 		signalC := make(chan os.Signal)

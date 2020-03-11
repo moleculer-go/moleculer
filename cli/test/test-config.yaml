@@ -1,0 +1,10 @@
+log: error
+transporter: NATS
+
+services:
+  user:
+    table: userTable
+    idField: id
+  sink:
+    port: 8081
+  

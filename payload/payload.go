@@ -426,9 +426,14 @@ func (p *RawPayload) mapGet(path string) (interface{}, bool) {
 	return nil, false
 }
 
-func (p *RawPayload) Get(path string) moleculer.Payload {
+func (p *RawPayload) Get(path string, defaultValue ...interface{}) moleculer.Payload {
 	if value, ok := p.mapGet(path); ok {
 		return New(value)
+	}
+	if len(defaultValue) > 1 {
+		return New(defaultValue)
+	} else if len(defaultValue) > 0 {
+		return New(defaultValue[0])
 	}
 	return New(nil)
 }
@@ -548,18 +553,12 @@ func Error(msgs ...interface{}) moleculer.Payload {
 	return New(errors.New(fmt.Sprint(msgs...)))
 }
 
-var emptyList = &RawPayload{}
-
 func EmptyList() moleculer.Payload {
-	emptyList.source = []interface{}{}
-	return emptyList
+	return &RawPayload{source: []interface{}{}}
 }
 
-var emptyValue = &RawPayload{}
-
 func Empty() moleculer.Payload {
-	emptyValue.source = map[string]interface{}{}
-	return emptyValue
+	return &RawPayload{source: map[string]interface{}{}}
 }
 
 func New(source interface{}) moleculer.Payload {

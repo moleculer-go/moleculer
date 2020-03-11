@@ -2,6 +2,7 @@ package transit
 
 import (
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/serializer"
 )
 
 type TransportHandler func(moleculer.Payload)
@@ -27,4 +28,6 @@ type Transport interface {
 	Publish(command, nodeID string, message moleculer.Payload)
 
 	SetPrefix(prefix string)
+	SetNodeID(nodeID string)
+	SetSerializer(serializer serializer.Serializer)
 }

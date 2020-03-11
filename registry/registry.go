@@ -47,10 +47,14 @@ func createTransit(broker *moleculer.BrokerDelegates) transit.Transit {
 	return transit
 }
 
-// createStrategy create a strsategy instance based on the config.
+// createStrategy create a strategy instance based on the config.
 func createStrategy(broker *moleculer.BrokerDelegates) strategy.Strategy {
 	//TODO: when new strategies are addes.. adde config check here to load the right one.
-	return strategy.RoundRobinStrategy{}
+	if broker.Config.StrategyFactory != nil {
+		return broker.Config.StrategyFactory().(strategy.Strategy)
+	}
+
+	return strategy.RandomStrategy{}
 }
 
 func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRegistry {
@@ -516,11 +520,11 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	}
 	registry.localNode.Publish(service.AsMap())
 	registry.logger.Debug("Registry published local service: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events), " nodeID: ", service.NodeID())
-	registry.notifyServiceAded(service.Summary())
+	registry.notifyServiceAdded(service.Summary())
 }
 
-// notifyServiceAded notify when a service is added to the registry.
-func (registry *ServiceRegistry) notifyServiceAded(svc map[string]string) {
+// notifyServiceAdded notify when a service is added to the registry.
+func (registry *ServiceRegistry) notifyServiceAdded(svc map[string]string) {
 	if registry.broker.IsStarted() {
 		registry.broker.Bus().EmitAsync(
 			"$registry.service.added",

@@ -2,6 +2,7 @@ package serializer_test
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/moleculer-go/cupaloy/v2"
@@ -228,5 +229,20 @@ var _ = Describe("JSON Serializer", func() {
 		Expect(contextAgain.Payload().Get("name").String()).Should(Equal("John"))
 		Expect(contextAgain.Payload().Get("lastName").String()).Should(Equal("Snow"))
 
+	})
+
+	It("Should transform Reader into Payload", func() {
+		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
+		r := strings.NewReader(`{"fieldX":"valueZ"}`)
+		p := serial.ReaderToPayload(r)
+		Expect(p.Get("fieldX").String()).Should(Equal("valueZ"))
+	})
+
+	It("ReaderToPayload should return error for invalid json", func() {
+		serial := serializer.CreateJSONSerializer(log.WithField("unit", "test"))
+		r := strings.NewReader(`{ some crazy invalid json }`)
+		p := serial.ReaderToPayload(r)
+		Expect(p.Error()).ShouldNot(BeNil())
+		Expect(p.Error().Error()).Should(Equal("invalid json"))
 	})
 })

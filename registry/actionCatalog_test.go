@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("Actions Catalog", func() {
 	logger := log.WithField("unit test pkg", "registry_test")
-	strategy := strategy.RoundRobinStrategy{}
+	strategy := strategy.RandomStrategy{}
 	params := moleculer.ObjectSchema{nil}
 	node1 := registry.CreateNode("node-test-1", true, logger)
 	node2 := registry.CreateNode("node-test-2", true, logger)

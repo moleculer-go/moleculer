@@ -52,7 +52,7 @@ type Payload interface {
 	TimeArray() []time.Time
 	Array() []Payload
 	Len() int
-	Get(path string) Payload
+	Get(path string, defaultValue ...interface{}) Payload
 	//Only return a payload containing only the field specified
 	Only(path string) Payload
 	IsArray() bool
@@ -111,6 +111,7 @@ type Mixin struct {
 }
 
 type TransporterFactoryFunc func() interface{}
+type StrategyFactoryFunc func() interface{}
 
 type Config struct {
 	LogLevel                   string
@@ -118,6 +119,7 @@ type Config struct {
 	DiscoverNodeID             func() string
 	Transporter                string
 	TransporterFactory         TransporterFactoryFunc
+	StrategyFactory            StrategyFactoryFunc
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
 	OfflineCheckFrequency      time.Duration
@@ -139,6 +141,8 @@ type Config struct {
 	Created                    func()
 	Started                    func()
 	Stopped                    func()
+
+	Services map[string]interface{}
 }
 
 var DefaultConfig = Config{

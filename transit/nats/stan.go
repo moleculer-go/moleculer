@@ -103,6 +103,13 @@ func (transporter *StanTransporter) SetPrefix(prefix string) {
 	transporter.prefix = prefix
 }
 
+func (transporter *StanTransporter) SetNodeID(nodeID string) {
+}
+
+func (transporter *StanTransporter) SetSerializer(serializer serializer.Serializer) {
+	// Ignored while transporter initialized in pubsub function
+}
+
 func (transporter *StanTransporter) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Subscribe() No connection :( -> command: ", command, " nodeID: ", nodeID)

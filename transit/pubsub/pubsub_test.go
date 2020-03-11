@@ -4,6 +4,7 @@ import (
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/serializer"
+	"github.com/moleculer-go/moleculer/service"
 	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/transit"
 	. "github.com/onsi/ginkgo"
@@ -26,9 +27,11 @@ var _ = Describe("PubSub Internals", func() {
 		Expect(pubsub.neighbours()).Should(BeEquivalentTo(3))
 	})
 
-	It("onServiceAdded should call broadcastNodeInfo", func() {
+	It("onServiceAdded should call broadcastNodeInfo for local service", func() {
 		localNode := test.NodeMock{ID: "test", ExportAsMapResult: map[string]interface{}{}}
 		mockT := &mockTransporter{}
+		svc := service.Service{}
+		svc.SetNodeID(localNode.GetID())
 		pubsub := PubSub{
 			isConnected: true,
 			serializer:  &serializer.JSONSerializer{},
@@ -40,8 +43,28 @@ var _ = Describe("PubSub Internals", func() {
 			transport:     mockT,
 			brokerStarted: true,
 		}
-		pubsub.onServiceAdded()
+		pubsub.onServiceAdded(svc.Summary())
 		Expect(mockT.PublishCalled).Should(BeTrue())
+	})
+
+	It("onServiceAdded shouldn't call broadcastNodeInfo for remote service", func() {
+		localNode := test.NodeMock{ID: "test", ExportAsMapResult: map[string]interface{}{}}
+		mockT := &mockTransporter{}
+		svc := service.Service{}
+		svc.SetNodeID("test-remote")
+		pubsub := PubSub{
+			isConnected: true,
+			serializer:  &serializer.JSONSerializer{},
+			broker: &moleculer.BrokerDelegates{
+				LocalNode: func() moleculer.Node {
+					return &localNode
+				},
+			},
+			transport:     mockT,
+			brokerStarted: true,
+		}
+		pubsub.onServiceAdded(svc.Summary())
+		Expect(mockT.PublishCalled).Should(BeFalse())
 	})
 
 	It("onBrokerStarted should call broadcastNodeInfo", func() {
@@ -101,4 +124,10 @@ func (t *mockTransporter) Publish(command, nodeID string, message moleculer.Payl
 }
 
 func (t *mockTransporter) SetPrefix(string) {
+}
+
+func (t *mockTransporter) SetNodeID(string) {
+}
+
+func (t *mockTransporter) SetSerializer(serializer.Serializer) {
 }

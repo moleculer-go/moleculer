@@ -69,6 +69,26 @@ type HasEvents interface {
 	Events() []moleculer.Event
 }
 
+func ParseVersion(iver interface{}) string {
+
+	v, ok := iver.(string)
+	if ok {
+		return v
+	}
+
+	f, ok := iver.(float64)
+	if ok {
+		return fmt.Sprintf("%g", f)
+	}
+
+	i, ok := iver.(int64)
+	if ok {
+		return fmt.Sprintf("%d", i)
+	}
+
+	return fmt.Sprintf("%v", iver)
+}
+
 type Service struct {
 	nodeID       string
 	fullname     string
@@ -438,9 +458,21 @@ func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 	return &serviceEvent
 }
 
+//UpdateFromMap update the service metadata and settings from a serviceInfo map
 func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+}
+
+// AddSettings add settings to the service. it will be merged with the
+// existing service settings
+func (service *Service) AddSettings(settings map[string]interface{}) {
+	service.settings = MergeSettings(service.settings, settings)
+}
+
+// AddMetadata add metadata to the service. it will be merged with existing service metadata.
+func (service *Service) AddMetadata(metadata map[string]interface{}) {
+	service.metadata = MergeSettings(service.metadata, metadata)
 }
 
 // populateFromMap populate a service with data from a map[string]interface{}.
@@ -448,7 +480,7 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 	if nodeID, ok := serviceInfo["nodeID"]; ok {
 		service.nodeID = nodeID.(string)
 	}
-	service.version = serviceInfo["version"].(string)
+	service.version = ParseVersion(serviceInfo["version"])
 	service.name = serviceInfo["name"].(string)
 	service.fullname = joinVersionToName(
 		service.name,
@@ -862,6 +894,8 @@ func CreateServiceFromMap(serviceInfo map[string]interface{}) *Service {
 // Start called by the broker when the service is starting.
 func (service *Service) Start(context moleculer.BrokerContext) {
 	if service.started != nil {
+		service.schema.Settings = service.settings
+		service.schema.Metadata = service.metadata
 		service.started(context, (*service.schema))
 	}
 }
