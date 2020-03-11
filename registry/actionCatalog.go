@@ -112,9 +112,13 @@ func (actionCatalog *ActionCatalog) listByName() map[string][]ActionEntry {
 }
 
 // Add a new action to the catalog.
-func (actionCatalog *ActionCatalog) Add(action service.Action, service *service.Service, local bool) {
-	entry := ActionEntry{service.NodeID(), &action, local, service, actionCatalog.logger}
+func (actionCatalog *ActionCatalog) Add(action service.Action, serv *service.Service, local bool) {
+	entry := ActionEntry{serv.NodeID(), &action, local, serv, actionCatalog.logger}
 	name := action.FullName()
+	ver := serv.Version()
+	if ver != "" && !strings.HasPrefix(name, ver) {
+		name = service.JoinVersionToName(name, ver)
+	}
 	list, exists := actionCatalog.actions.Load(name)
 	if !exists {
 		list = []ActionEntry{entry}

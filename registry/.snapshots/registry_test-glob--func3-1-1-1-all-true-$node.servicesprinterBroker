@@ -9,7 +9,7 @@
         }
       },
       (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
-        (string) (len=5) "print": (map[string]interface {}) (len=3) {
+        (string) (len=13) "printer.print": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=13) "printer.print",
           (string) (len=6) "params": (map[string]interface {}) {
           },

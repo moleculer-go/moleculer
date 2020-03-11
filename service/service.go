@@ -324,7 +324,7 @@ func applyMixins(service moleculer.ServiceSchema) moleculer.ServiceSchema {
 	return service
 }
 
-func joinVersionToName(name string, version string) string {
+func JoinVersionToName(name string, version string) string {
 	if version != "" {
 		return fmt.Sprintf("%s.%s", version, name)
 	}
@@ -372,7 +372,7 @@ func (service *Service) AsMap() map[string]interface{} {
 			actionInfo["name"] = serviceAction.fullname
 			actionInfo["rawName"] = serviceAction.name
 			actionInfo["params"] = paramsAsMap(&serviceAction.params)
-			actions[serviceAction.name] = actionInfo
+			actions[serviceAction.fullname] = actionInfo
 		}
 	}
 	serviceInfo["actions"] = actions
@@ -482,7 +482,7 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 	}
 	service.version = ParseVersion(serviceInfo["version"])
 	service.name = serviceInfo["name"].(string)
-	service.fullname = joinVersionToName(
+	service.fullname = JoinVersionToName(
 		service.name,
 		service.version)
 
@@ -506,7 +506,7 @@ func (service *Service) populateFromSchema() {
 	schema := service.schema
 	service.name = schema.Name
 	service.version = schema.Version
-	service.fullname = joinVersionToName(service.name, service.version)
+	service.fullname = JoinVersionToName(service.name, service.version)
 	service.dependencies = schema.Dependencies
 	service.settings = schema.Settings
 	if service.settings == nil {
