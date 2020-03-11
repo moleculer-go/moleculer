@@ -372,7 +372,7 @@ func (service *Service) AsMap() map[string]interface{} {
 			actionInfo["name"] = serviceAction.fullname
 			actionInfo["rawName"] = serviceAction.name
 			actionInfo["params"] = paramsAsMap(&serviceAction.params)
-			actions[serviceAction.name] = actionInfo
+			actions[serviceAction.fullname] = actionInfo
 		}
 	}
 	serviceInfo["actions"] = actions
