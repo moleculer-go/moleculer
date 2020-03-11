@@ -3,7 +3,7 @@
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=3) "cpu",
       (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
-        (string) (len=7) "compute": (map[string]interface {}) (len=3) {
+        (string) (len=11) "cpu.compute": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=11) "cpu.compute",
           (string) (len=6) "params": (map[string]interface {}) {
           },
@@ -23,37 +23,37 @@
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=5) "$node",
       (string) (len=7) "actions": (map[string]map[string]interface {}) (len=6) {
-        (string) (len=4) "list": (map[string]interface {}) (len=3) {
+        (string) (len=10) "$node.list": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=10) "$node.list",
           (string) (len=6) "params": (map[string]interface {}) {
           },
           (string) (len=7) "rawName": (string) (len=4) "list"
         },
-        (string) (len=6) "events": (map[string]interface {}) (len=3) {
+        (string) (len=12) "$node.events": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=12) "$node.events",
           (string) (len=6) "params": (map[string]interface {}) {
           },
           (string) (len=7) "rawName": (string) (len=6) "events"
         },
-        (string) (len=6) "health": (map[string]interface {}) (len=3) {
+        (string) (len=12) "$node.health": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=12) "$node.health",
           (string) (len=6) "params": (map[string]interface {}) {
           },
           (string) (len=7) "rawName": (string) (len=6) "health"
         },
-        (string) (len=7) "actions": (map[string]interface {}) (len=3) {
+        (string) (len=13) "$node.actions": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=13) "$node.actions",
           (string) (len=6) "params": (map[string]interface {}) {
           },
           (string) (len=7) "rawName": (string) (len=7) "actions"
         },
-        (string) (len=7) "options": (map[string]interface {}) (len=3) {
+        (string) (len=13) "$node.options": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=13) "$node.options",
           (string) (len=6) "params": (map[string]interface {}) {
           },
           (string) (len=7) "rawName": (string) (len=7) "options"
         },
-        (string) (len=8) "services": (map[string]interface {}) (len=3) {
+        (string) (len=14) "$node.services": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=14) "$node.services",
           (string) (len=6) "params": (map[string]interface {}) {
           },
@@ -73,7 +73,7 @@
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=7) "printer",
       (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
-        (string) (len=5) "print": (map[string]interface {}) (len=3) {
+        (string) (len=13) "printer.print": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=13) "printer.print",
           (string) (len=6) "params": (map[string]interface {}) {
           },
@@ -93,7 +93,7 @@
     (map[string]interface {}) (len=7) {
       (string) (len=4) "name": (string) (len=7) "scanner",
       (string) (len=7) "actions": (map[string]map[string]interface {}) (len=1) {
-        (string) (len=4) "scan": (map[string]interface {}) (len=3) {
+        (string) (len=12) "scanner.scan": (map[string]interface {}) (len=3) {
           (string) (len=4) "name": (string) (len=12) "scanner.scan",
           (string) (len=6) "params": (map[string]interface {}) {
           },
