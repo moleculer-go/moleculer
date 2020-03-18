@@ -1,7 +1,9 @@
 package serializer
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"sort"
 	"strconv"
 	"time"
@@ -44,7 +46,24 @@ func (serializer JSONSerializer) BytesToPayload(bytes *[]byte) moleculer.Payload
 	return payload
 }
 
+// ReaderToPayload transform an io.Reader into a Payload assusming the contes is a valid json :)
+func (serializer JSONSerializer) ReaderToPayload(r io.Reader) moleculer.Payload {
+	buf := bytes.Buffer{}
+	buf.ReadFrom(r)
+	json := buf.String()
+	if !gjson.Valid(json) {
+		return payload.New(errors.New("invalid json"))
+	}
+	result := gjson.Parse(json)
+	payload := JSONPayload{result, serializer.logger}
+	return payload
+}
+
 func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byte {
+	return []byte(serializer.PayloadToString(payload))
+}
+
+func (serializer JSONSerializer) PayloadToString(payload moleculer.Payload) string {
 	var err error
 	jp, isJson := payload.(JSONPayload)
 	if !isJson {
@@ -53,7 +72,7 @@ func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byt
 			if err != nil {
 				panic(err)
 			}
-			return []byte(jp.result.String())
+			return jp.result.String()
 		}
 		rawMap := payload.RawMap()
 		if payload.IsError() {
@@ -64,16 +83,16 @@ func (serializer JSONSerializer) PayloadToBytes(payload moleculer.Payload) []byt
 			if err != nil {
 				panic(err)
 			}
-			return []byte(jp.result.String())
+			return jp.result.String()
 		}
 		json, err := sjson.Set("{root:false}", "root", payload.Value())
 		if err != nil {
 			panic(err)
 		}
 		jp = JSONPayload{gjson.Get(json, "root"), serializer.logger}
-		return []byte(jp.result.String())
+		return jp.result.String()
 	}
-	return []byte(jp.result.String())
+	return jp.result.String()
 }
 
 func (jpayload JSONPayload) Remove(fields ...string) moleculer.Payload {
