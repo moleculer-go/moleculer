@@ -58,6 +58,7 @@ type Payload interface {
 	IsArray() bool
 	IsMap() bool
 	ForEach(iterator func(key interface{}, value Payload) bool)
+	MapOver(tranform func(in Payload) Payload) Payload
 }
 
 // ActionSchema is used by the validation engine to check if parameters sent to the action are valid.

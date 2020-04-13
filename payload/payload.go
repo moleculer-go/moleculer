@@ -227,6 +227,18 @@ func (p *RawPayload) Array() []moleculer.Payload {
 	return nil
 }
 
+func (p *RawPayload) MapOver(transform func(in moleculer.Payload) moleculer.Payload) moleculer.Payload {
+	if p.IsArray() {
+		list := []moleculer.Payload{}
+		for _, value := range p.Array() {
+			list = append(list, transform(value))
+		}
+		return New(list)
+	} else {
+		return Error("payload.MapOver can only deal with array payloads.")
+	}
+}
+
 func (p *RawPayload) ForEach(iterator func(key interface{}, value moleculer.Payload) bool) {
 	if p.IsArray() {
 		list := p.Array()

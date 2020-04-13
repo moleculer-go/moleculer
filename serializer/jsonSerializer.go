@@ -505,6 +505,18 @@ func (payload JSONPayload) ForEach(iterator func(key interface{}, value molecule
 	})
 }
 
+func (p JSONPayload) MapOver(transform func(in moleculer.Payload) moleculer.Payload) moleculer.Payload {
+	if p.IsArray() {
+		list := []moleculer.Payload{}
+		for _, value := range p.Array() {
+			list = append(list, transform(value))
+		}
+		return payload.New(list)
+	} else {
+		return payload.Error("payload.MapOver can only deal with array payloads.")
+	}
+}
+
 func (payload JSONPayload) Bool() bool {
 	return payload.result.Bool()
 }
