@@ -167,10 +167,17 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 		pubsub.logger.Info("Transporter: Memory")
 		transport = pubsub.createMemoryTransporter()
 	}
-	transport.SetPrefix("MOL")
+	transport.SetPrefix(resolveNamespace(pubsub.broker.Config.Namespace))
 	transport.SetNodeID(pubsub.broker.LocalNode().GetID())
 	transport.SetSerializer(pubsub.serializer)
 	return transport
+}
+
+func resolveNamespace(namespace string) string {
+	if namespace != "" {
+		return "MOL-" + namespace
+	}
+	return "MOL"
 }
 
 func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
@@ -195,18 +202,18 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 }
 
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
-	//TODO: move this to config and params
 	broker := pubsub.broker
+	logger := broker.Logger("transport", "stan")
+
 	url := "stan://" + os.Getenv("STAN_HOST") + ":4222"
 	clusterID := "test-cluster"
-
 	localNodeID := broker.LocalNode().GetID()
-	logger := broker.Logger("transport", "stan")
+	clientID := strings.ReplaceAll(localNodeID, ".", "_")
 
 	options := nats.StanOptions{
 		url,
 		clusterID,
-		localNodeID,
+		clientID,
 		logger,
 		pubsub.serializer,
 		func(message moleculer.Payload) bool {

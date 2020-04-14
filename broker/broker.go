@@ -78,6 +78,10 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.RequestTimeout != 0 {
 				baseConfig.RequestTimeout = config.RequestTimeout
 			}
+
+			if config.Namespace != "" {
+				baseConfig.Namespace = config.Namespace
+			}
 		}
 	}
 	return baseConfig
