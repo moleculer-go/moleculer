@@ -39,6 +39,7 @@ type ServiceRegistry struct {
 	offlineCheckFrequency time.Duration
 	offlineTimeout        time.Duration
 	nodeReceivedMutex     *sync.Mutex
+	namespace             string
 }
 
 // createTransit create a transit instance based on the config.
@@ -80,6 +81,7 @@ func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRe
 		offlineTimeout:        config.OfflineTimeout,
 		stopping:              false,
 		nodeReceivedMutex:     &sync.Mutex{},
+		namespace:             config.Namespace,
 	}
 
 	registry.logger.Debug("Service Registry created for broker: ", nodeID)
@@ -256,11 +258,15 @@ func (registry *ServiceRegistry) BroadcastEvent(context moleculer.BrokerContext)
 func (registry *ServiceRegistry) LoadBalanceCall(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
 	actionName := context.ActionName()
 	params := context.Payload()
-	registry.logger.Trace("LoadBalanceCall() - actionName: ", actionName, " params: ", params, " opts: ", opts)
+
+	registry.logger.Trace("LoadBalanceCall() - actionName: ", actionName, " params: ", params, " namespace: ", registry.namespace, " opts: ", opts)
 
 	actionEntry := registry.nextAction(actionName, registry.strategy, opts...)
 	if actionEntry == nil {
-		msg := fmt.Sprint("Registry - endpoint not found for actionName: ", actionName)
+		msg := "Registry - endpoint not found for actionName: " + actionName
+		if registry.namespace != "" {
+			msg = msg + " namespace: " + registry.namespace
+		}
 		registry.logger.Error(msg)
 		resultChan := make(chan moleculer.Payload, 1)
 		resultChan <- payload.Error(msg)
