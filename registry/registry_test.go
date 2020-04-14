@@ -292,6 +292,16 @@ var _ = Describe("Registry", func() {
 				},
 			})
 
+			stage2Broker := broker.New(&moleculer.Config{
+				DiscoverNodeID: func() string { return "node1_stage2Broker" },
+				LogLevel:       logLevel,
+				Namespace:      "stage",
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+
 			//alarm service - prints the alarm and return the namespace :)
 			alarmService := func(namemspace string) moleculer.ServiceSchema {
 				return moleculer.ServiceSchema{
@@ -308,13 +318,13 @@ var _ = Describe("Registry", func() {
 				}
 			}
 
+			//available in the dev namespace only
 			devOnlyService := moleculer.ServiceSchema{
-				Name: "good",
+				Name: "devOnly",
 				Actions: []moleculer.Action{
 					{
 						Name: "code",
 						Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
-							context.Logger().Info("nice code :)")
 							return "🧠"
 						},
 					},
@@ -326,12 +336,24 @@ var _ = Describe("Registry", func() {
 			devBroker.Start()
 
 			stageBroker.Start()
+			stage2Broker.Publish(moleculer.ServiceSchema{
+				Name: "stage2",
+				Actions: []moleculer.Action{
+					{
+						Name: "where",
+						Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+							return "🌏"
+						},
+					},
+				},
+			})
+			stage2Broker.Start()
 
 			devAlarm := <-devBroker.Call("alarm.bell", nil)
 			Expect(devAlarm.IsError()).Should(BeFalse())
 			Expect(devAlarm.String()).Should(Equal("dev"))
 
-			code := <-devBroker.Call("good.code", nil)
+			code := <-devBroker.Call("devOnly.code", nil)
 			Expect(code.IsError()).Should(BeFalse())
 			Expect(code.String()).Should(Equal("🧠"))
 
@@ -351,8 +373,14 @@ var _ = Describe("Registry", func() {
 			Expect(code.IsError()).Should(BeTrue())
 			Expect(code.Error().Error()).Should(Equal("Registry - endpoint not found for actionName: good.code namespace: stage"))
 
+			//make sure 2 brokers on the same namespace can talk to each other
+			msg := <-stageBroker.Call("stage2.where", nil)
+			Expect(msg.IsError()).Should(BeFalse())
+			Expect(msg.String()).Should(Equal("🌏"))
+
 			devBroker.Stop()
 			stageBroker.Stop()
+			stage2Broker.Stop()
 
 			close(done)
 		}, 2)
