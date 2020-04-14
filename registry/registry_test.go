@@ -265,4 +265,96 @@ var _ = Describe("Registry", func() {
 			close(done)
 		}, 3)
 	})
+
+	Describe("Namespace", func() {
+
+		It("Services across namespaces cannos see each other", func(done Done) {
+
+			mem := &memory.SharedMemory{}
+
+			devBroker := broker.New(&moleculer.Config{
+				DiscoverNodeID: func() string { return "node1_devBroker" },
+				LogLevel:       logLevel,
+				Namespace:      "dev",
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+
+			stageBroker := broker.New(&moleculer.Config{
+				DiscoverNodeID: func() string { return "node1_stageBroker" },
+				LogLevel:       logLevel,
+				Namespace:      "stage",
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+
+			//alarm service - prints the alarm and return the namespace :)
+			alarmService := func(namemspace string) moleculer.ServiceSchema {
+				return moleculer.ServiceSchema{
+					Name: "alarm",
+					Actions: []moleculer.Action{
+						{
+							Name: "bell",
+							Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+								context.Logger().Info("alarm.bell ringing !!! namemspace: ", namemspace)
+								return namemspace
+							},
+						},
+					},
+				}
+			}
+
+			devOnlyService := moleculer.ServiceSchema{
+				Name: "good",
+				Actions: []moleculer.Action{
+					{
+						Name: "code",
+						Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+							context.Logger().Info("nice code :)")
+							return "🧠"
+						},
+					},
+				},
+			}
+
+			devBroker.Publish(alarmService("dev"))
+			devBroker.Publish(devOnlyService)
+			devBroker.Start()
+
+			stageBroker.Start()
+
+			devAlarm := <-devBroker.Call("alarm.bell", nil)
+			Expect(devAlarm.IsError()).Should(BeFalse())
+			Expect(devAlarm.String()).Should(Equal("dev"))
+
+			code := <-devBroker.Call("good.code", nil)
+			Expect(code.IsError()).Should(BeFalse())
+			Expect(code.String()).Should(Equal("🧠"))
+
+			time.Sleep(time.Millisecond)
+
+			//alarm.bell should not be accessible to the stage broker
+			stageAlarm := <-stageBroker.Call("alarm.bell", nil)
+			Expect(stageAlarm.IsError()).Should(BeTrue())
+			Expect(stageAlarm.Error().Error()).Should(Equal("Registry - endpoint not found for actionName: alarm.bell namespace: stage"))
+
+			stageBroker.Publish(alarmService("stage"))
+			stageAlarm = <-stageBroker.Call("alarm.bell", nil)
+			Expect(stageAlarm.IsError()).Should(BeFalse())
+			Expect(stageAlarm.String()).Should(Equal("stage"))
+
+			code = <-stageBroker.Call("good.code", nil)
+			Expect(code.IsError()).Should(BeTrue())
+			Expect(code.Error().Error()).Should(Equal("Registry - endpoint not found for actionName: good.code namespace: stage"))
+
+			devBroker.Stop()
+			stageBroker.Stop()
+
+			close(done)
+		}, 2)
+	})
 })
