@@ -24,7 +24,8 @@ func (p *RawPayload) Exists() bool {
 
 func (p *RawPayload) IsError() bool {
 	_, isError := p.source.(error)
-	return isError
+	_, isPError := p.source.(payloadError)
+	return isError || isPError
 }
 
 func (p *RawPayload) Error() error {
@@ -563,6 +564,27 @@ func (p *RawPayload) AddMany(toAdd map[string]interface{}) moleculer.Payload {
 
 func Error(msgs ...interface{}) moleculer.Payload {
 	return New(errors.New(fmt.Sprint(msgs...)))
+}
+
+type payloadError struct {
+	err     string
+	payload moleculer.Payload
+}
+
+func (e payloadError) Error() string {
+	return e.err
+}
+
+func PayloadError(msg string, p moleculer.Payload) moleculer.Payload {
+	return &RawPayload{source: payloadError{msg, p}}
+}
+
+func (p *RawPayload) ErrorPayload() moleculer.Payload {
+	pError, ok := p.source.(payloadError)
+	if ok {
+		return pError.payload
+	}
+	return nil
 }
 
 func EmptyList() moleculer.Payload {

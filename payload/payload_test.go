@@ -338,4 +338,13 @@ var _ = Describe("Payload", func() {
 
 		Expect(snap.SnapshotMulti("Only()", p.Only("Winter"))).ShouldNot(HaveOccurred())
 	})
+
+	It("PayloadError should create an error with payload", func() {
+		p := PayloadError("Custom error message", New(map[string]string{
+			"root_Cause": "root cause description",
+			"code":       "12321321",
+		}))
+		Expect(snap.SnapshotMulti("PayloadError() .Error()", p.Error())).ShouldNot(HaveOccurred())
+		Expect(snap.SnapshotMulti("PayloadError() .ErrorPayload()", p.ErrorPayload())).ShouldNot(HaveOccurred())
+	})
 })

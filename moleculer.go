@@ -31,6 +31,7 @@ type Payload interface {
 	Exists() bool
 	IsError() bool
 	Error() error
+	ErrorPayload() Payload
 	Value() interface{}
 	ValueArray() []interface{}
 	Int() int
