@@ -540,6 +540,13 @@ func (payload JSONPayload) Error() error {
 	return nil
 }
 
+func (p JSONPayload) ErrorPayload() moleculer.Payload {
+	if p.IsError() {
+		return p
+	}
+	return nil
+}
+
 func orderedKeys(m map[string]moleculer.Payload) []string {
 	keys := make([]string, len(m))
 	i := 0
