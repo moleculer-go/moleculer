@@ -52,6 +52,7 @@ type Payload interface {
 	Time() time.Time
 	TimeArray() []time.Time
 	Array() []Payload
+	At(index int) Payload
 	Len() int
 	Get(path string, defaultValue ...interface{}) Payload
 	//Only return a payload containing only the field specified

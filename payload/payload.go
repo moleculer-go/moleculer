@@ -3,6 +3,7 @@ package payload
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -214,6 +215,17 @@ func (p *RawPayload) First() moleculer.Payload {
 		return New(transformer.First(&p.source))
 	}
 	return New(nil)
+}
+
+//At returns the item at the given index
+func (p *RawPayload) At(index int) moleculer.Payload {
+	if transformer := ArrayTransformer(&p.source); transformer != nil {
+		l := transformer.InterfaceArray(&p.source)
+		if index >= 0 && index < len(l) {
+			return New(l[index])
+		}
+	}
+	return nil
 }
 
 func (p *RawPayload) Array() []moleculer.Payload {
@@ -439,7 +451,62 @@ func (p *RawPayload) mapGet(path string) (interface{}, bool) {
 	return nil, false
 }
 
-func (p *RawPayload) Get(path string, defaultValue ...interface{}) moleculer.Payload {
+func isPath(s string) bool {
+	return strings.Contains(s, ".")
+}
+
+var indexedKey = regexp.MustCompile(`^(\w+)\[(\d+)\]$`)
+
+//isIndexed checks if key is indexed e.g. stage[0]
+func isIndexed(s string) bool {
+	return indexedKey.MatchString(s)
+}
+
+func splitIndex(s string) (key string, index int) {
+	parts := indexedKey.FindStringSubmatch(s)
+	key = parts[1]
+	index, _ = strconv.Atoi(parts[2])
+	return key, index
+}
+
+func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payload {
+	//check if is a path of key
+	if isPath(s) {
+		if defaultValue != nil {
+			return p.getPath(s, defaultValue)
+		}
+		return p.getPath(s)
+	}
+	if isIndexed(s) {
+		k, index := splitIndex(s)
+		var v moleculer.Payload
+		if defaultValue != nil {
+			v = p.getKey(k, defaultValue)
+		} else {
+			v = p.getKey(k)
+		}
+		return v.At(index)
+	}
+	if defaultValue != nil {
+		return p.getKey(s, defaultValue)
+	}
+	return p.getKey(s)
+}
+
+//getPath get a value using a path expression e.g. address.country.code
+// it also accepts indexed lists like address.options[0].label
+func (p *RawPayload) getPath(path string, defaultValue ...interface{}) moleculer.Payload {
+	parts := strings.Split(path, ".")
+	k := parts[0]
+	v := p.Get(k, defaultValue)
+	for i := 1; i < len(parts); i++ {
+		k = parts[i]
+		v = v.Get(k, defaultValue)
+	}
+	return v
+}
+
+func (p *RawPayload) getKey(path string, defaultValue ...interface{}) moleculer.Payload {
 	if value, ok := p.mapGet(path); ok {
 		return New(value)
 	}

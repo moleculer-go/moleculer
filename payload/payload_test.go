@@ -347,4 +347,32 @@ var _ = Describe("Payload", func() {
 		Expect(snap.SnapshotMulti("PayloadError() .Error()", p.Error())).ShouldNot(HaveOccurred())
 		Expect(snap.SnapshotMulti("PayloadError() .ErrorPayload()", p.ErrorPayload())).ShouldNot(HaveOccurred())
 	})
+
+	type M map[string]interface{}
+	It("should deal field paths name.subname...", func() {
+		p := New(M{
+			"name":     "John",
+			"lastname": "Snow",
+			"address": M{
+				"street": "jonny ave",
+				"country": M{
+					"code": "NZ",
+					"name": "New Zealand",
+				},
+				"options": []M{
+					M{
+						"label": "item 1",
+					},
+					M{
+						"label": "item 2",
+					},
+				},
+			},
+		})
+		Expect(p.Get("name").String()).Should(Equal("John"))
+		Expect(p.Get("address.street").String()).Should(Equal("jonny ave"))
+		Expect(p.Get("address.country.code").String()).Should(Equal("NZ"))
+		Expect(p.Get("address.options[0].label").String()).Should(Equal("item 1"))
+		Expect(p.Get("address.options[1].label").String()).Should(Equal("item 2"))
+	})
 })

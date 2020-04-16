@@ -75,7 +75,7 @@ func (context *Context) BrokerDelegates() *moleculer.BrokerDelegates {
 	return context.broker
 }
 
-// ChildActionContext : create a chiold context for a specific action call.
+// ChildActionContext : create a child context for a specific action call.
 func (context *Context) ChildActionContext(actionName string, params moleculer.Payload, opts ...moleculer.Options) moleculer.BrokerContext {
 	parentContext := context
 	meta := parentContext.meta
