@@ -498,6 +498,17 @@ func (payload JSONPayload) TimeArray() []time.Time {
 	return nil
 }
 
+func (payload JSONPayload) At(index int) moleculer.Payload {
+	if payload.IsArray() {
+		source := payload.result.Array()
+		if index >= 0 && index < len(source) {
+			item := source[index]
+			return JSONPayload{item, payload.logger}
+		}
+	}
+	return nil
+}
+
 func (payload JSONPayload) Array() []moleculer.Payload {
 	if payload.IsArray() {
 		source := payload.result.Array()
