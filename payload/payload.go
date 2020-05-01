@@ -473,7 +473,7 @@ func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payloa
 	//check if is a path of key
 	if isPath(s) {
 		if defaultValue != nil {
-			return p.getPath(s, defaultValue)
+			return p.getPath(s, defaultValue...)
 		}
 		return p.getPath(s)
 	}
@@ -481,14 +481,14 @@ func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payloa
 		k, index := splitIndex(s)
 		var v moleculer.Payload
 		if defaultValue != nil {
-			v = p.getKey(k, defaultValue)
+			v = p.getKey(k, defaultValue...)
 		} else {
 			v = p.getKey(k)
 		}
 		return v.At(index)
 	}
 	if defaultValue != nil {
-		return p.getKey(s, defaultValue)
+		return p.getKey(s, defaultValue...)
 	}
 	return p.getKey(s)
 }
@@ -498,10 +498,13 @@ func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payloa
 func (p *RawPayload) getPath(path string, defaultValue ...interface{}) moleculer.Payload {
 	parts := strings.Split(path, ".")
 	k := parts[0]
-	v := p.Get(k, defaultValue)
+	v := p.Get(k, defaultValue...)
 	for i := 1; i < len(parts); i++ {
+		if v == nil {
+			return New(nil)
+		}
 		k = parts[i]
-		v = v.Get(k, defaultValue)
+		v = v.Get(k, defaultValue...)
 	}
 	return v
 }
