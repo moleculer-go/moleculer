@@ -6,6 +6,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
+	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/raft v1.0.1 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/moleculer-go/cupaloy/v2 v2.5.2

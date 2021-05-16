@@ -17,6 +17,7 @@ import (
 	"github.com/moleculer-go/moleculer/transit"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	"github.com/moleculer-go/moleculer/transit/nats"
+	"github.com/moleculer-go/moleculer/util"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/serializer"
@@ -526,12 +527,23 @@ func (pubsub *PubSub) neighbours() int64 {
 	return int64(len(pubsub.knownNeighbours))
 }
 
+func configToMap(config moleculer.Config) map[string]string {
+	m := make(map[string]string)
+	m["logLevel"] = config.LogLevel
+	m["transporter"] = config.Transporter
+	m["namespace"] = config.Namespace
+	m["requestTimeout"] = config.RequestTimeout.String()
+	return m
+}
+
 // broadcastNodeInfo send the local node info to the target node, if empty to all nodes.
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]
 	payload["neighbours"] = pubsub.neighbours()
 	payload["ver"] = version.MoleculerProtocol()
+	payload["config"] = configToMap(pubsub.broker.Config)
+	payload["instanceID"] = pubsub.broker.InstanceID()
 
 	message, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
@@ -563,6 +575,7 @@ func (pubsub *PubSub) SendPing() {
 	ping["sender"] = sender
 	ping["ver"] = version.MoleculerProtocol()
 	ping["time"] = time.Now().Unix()
+	ping["id"] = util.RandomString(12)
 	pingMessage, _ := pubsub.serializer.MapToPayload(&ping)
 	pubsub.transport.Publish("PING", sender, pingMessage)
 
@@ -576,6 +589,7 @@ func (pubsub *PubSub) pingHandler() transit.TransportHandler {
 		pong["ver"] = version.MoleculerProtocol()
 		pong["time"] = message.Get("time").Int()
 		pong["arrived"] = time.Now().Unix()
+		pong["id"] = util.RandomString(12)
 
 		pongMessage, _ := pubsub.serializer.MapToPayload(&pong)
 		pubsub.transport.Publish("PONG", sender, pongMessage)
@@ -594,6 +608,7 @@ func (pubsub *PubSub) pongHandler() transit.TransportHandler {
 		mapValue["nodeID"] = message.Get("sender").String()
 		mapValue["elapsedTime"] = elapsed
 		mapValue["timeDiff"] = timeDiff
+		mapValue["id"] = message.Get("id").String()
 
 		pubsub.broker.Bus().EmitAsync("$node.pong", []interface{}{mapValue})
 	}
