@@ -1,0 +1,5 @@
+([]string) (len=3) {
+  (string) (len=10) "AquaBroker",
+  (string) (len=12) "SoundsBroker",
+  (string) (len=12) "VisualBroker"
+}
