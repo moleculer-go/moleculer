@@ -149,7 +149,7 @@ var _ = Describe("Registry", func() {
 
 	Describe("Auto discovery", func() {
 		//failed with timeout
-		It("3 brokers should auto discovery and perform local and remote Calls", func(done Done) {
+		It("3 brokers should auto discovery and perform local and remote Calls", func() {
 			mem := &memory.SharedMemory{}
 			printerBroker := createPrinterBroker(mem)
 			var serviceAdded, serviceRemoved []moleculer.Payload
@@ -260,13 +260,12 @@ var _ = Describe("Registry", func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
 			}).Should(Panic()) //broker B is stopped ... so it should panic
 
-			close(done)
-		}, 5)
+		})
 	})
 
 	Describe("Namespace", func() {
 
-		It("Services across namespaces cannos see each other", func(done Done) {
+		It("Services across namespaces cannos see each other", func() {
 
 			mem := &memory.SharedMemory{}
 
@@ -380,7 +379,6 @@ var _ = Describe("Registry", func() {
 			stageBroker.Stop()
 			stage2Broker.Stop()
 
-			close(done)
-		}, 2)
+		})
 	})
 })
