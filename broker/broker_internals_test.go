@@ -18,6 +18,11 @@ import (
 
 var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
+func hasKey(m map[string]moleculer.Payload, k string) bool {
+	_, foundKey := m[k]
+	return foundKey
+}
+
 var _ = Describe("Broker Internals", func() {
 
 	Describe("Broker events", func() {
@@ -434,10 +439,16 @@ var _ = Describe("Broker Internals", func() {
 			}
 
 			mcallResults := <-bkr2.MCall(mParams)
-			Expect(snap.SnapshotMulti("bkr2-results", mcallResults)).Should(Succeed())
+			Expect(hasKey(mcallResults, "music-start")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "music-end")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-dinner")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-lunch")).Should(BeTrue())
 
 			mcallResults = <-bkr1.MCall(mParams)
-			Expect(snap.SnapshotMulti("bkr1-results", mcallResults)).Should(Succeed())
+			Expect(hasKey(mcallResults, "music-start")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "music-end")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-dinner")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-lunch")).Should(BeTrue())
 
 			bkr1.Stop()
 			bkr2.Stop()
