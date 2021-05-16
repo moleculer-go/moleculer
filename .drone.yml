@@ -34,6 +34,7 @@ steps:
       # - apt-get update
       # - apt-get install -y nodejs
       # - go test github.com/moleculer-go/compatibility/moleculerjs
+      - go get github.com/modocache/gover
       - go run github.com/modocache/gover ./ coverage.txt
       - curl -s https://codecov.io/bash | bash || echo "Error uploading codecov"
       - go run github.com/mattn/goveralls -coverprofile=coverage.txt -service=drone.io || echo "Error uploading coveralls"
