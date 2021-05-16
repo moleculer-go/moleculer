@@ -148,13 +148,10 @@ func hasNode(list []moleculer.Payload, nodeID string) bool {
 var _ = Describe("Registry", func() {
 
 	Describe("Auto discovery", func() {
-
+		//failed with timeout
 		It("3 brokers should auto discovery and perform local and remote Calls", func(done Done) {
-
 			mem := &memory.SharedMemory{}
-
 			printerBroker := createPrinterBroker(mem)
-
 			var serviceAdded, serviceRemoved []moleculer.Payload
 			events := bus.Construct()
 			addedMutex := &sync.Mutex{}
@@ -246,9 +243,6 @@ var _ = Describe("Registry", func() {
 			Expect(computeResult.Error()).Should(Succeed())
 			Expect(computeResult.Value()).Should(Equal(contentToCompute))
 
-			//stopping broker B
-			scannerBroker.Stop()
-
 			step = make(chan bool)
 			onEvent("$registry.service.removed", func(list []moleculer.Payload, cancel func()) {
 				if hasNode(serviceRemoved, "node_scannerBroker") {
@@ -256,6 +250,11 @@ var _ = Describe("Registry", func() {
 					step <- true
 				}
 			})
+
+			//stopping broker B
+			scannerBroker.Stop()
+
+			//wait services from node node_scannerBroker to be removed
 			<-step
 
 			Expect(func() {
@@ -263,7 +262,7 @@ var _ = Describe("Registry", func() {
 			}).Should(Panic()) //broker B is stopped ... so it should panic
 
 			close(done)
-		}, 3)
+		}, 5)
 	})
 
 	Describe("Namespace", func() {

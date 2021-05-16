@@ -1,0 +1,13 @@
+([]string) (len=11) {
+  (string) (len=24) "AquaBroker.vj.music.tone",
+  (string) (len=25) "AquaBroker.vj.music.verse",
+  (string) (len=26) "AquaBroker.vj.music.chorus",
+  (string) (len=26) "SoundsBroker.dj.music.tone",
+  (string) (len=26) "VisualBroker.vj.music.tone",
+  (string) (len=27) "SoundsBroker.dj.music.verse",
+  (string) (len=27) "VisualBroker.vj.music.verse",
+  (string) (len=28) "SoundsBroker.dj.music.chorus",
+  (string) (len=28) "VisualBroker.vj.music.chorus",
+  (string) (len=30) "SoundsBroker.music.music.verse",
+  (string) (len=31) "SoundsBroker.music.music.chorus"
+}
