@@ -205,8 +205,6 @@ var _ = Describe("Registry", func() {
 			scanResult := <-printerBroker.Call("scanner.scan", printText)
 			Expect(scanResult.IsError()).Should(BeTrue())
 
-			scannerBroker.Start()
-
 			step := make(chan bool)
 			onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
 				if hasNode(serviceAdded, "node_scannerBroker") {
@@ -214,6 +212,7 @@ var _ = Describe("Registry", func() {
 					step <- true
 				}
 			})
+			scannerBroker.Start()
 			<-step
 
 			scanResult = <-scannerBroker.Call("scanner.scan", scanText)
@@ -224,8 +223,6 @@ var _ = Describe("Registry", func() {
 			Expect(scanResult.IsError()).ShouldNot(Equal(true))
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
-			cpuBroker.Start()
-
 			serviceAdded = []moleculer.Payload{}
 			step = make(chan bool)
 			onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
@@ -234,7 +231,9 @@ var _ = Describe("Registry", func() {
 					step <- true
 				}
 			})
+			cpuBroker.Start()
 			<-step
+
 			cpuBroker.WaitForActions("scanner.scan", "printer.print")
 			time.Sleep(time.Millisecond)
 
