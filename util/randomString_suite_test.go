@@ -1,4 +1,4 @@
-package broker
+package util
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestContext(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "Context Suite")
+	ginkgo.RunSpecs(t, "RandomString Suite")
 }

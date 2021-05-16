@@ -338,4 +338,61 @@ var _ = Describe("Payload", func() {
 
 		Expect(snap.SnapshotMulti("Only()", p.Only("Winter"))).ShouldNot(HaveOccurred())
 	})
+
+	It("PayloadError should create an error with payload", func() {
+		p := PayloadError("Custom error message", New(map[string]string{
+			"root_Cause": "root cause description",
+			"code":       "12321321",
+		}))
+		Expect(snap.SnapshotMulti("PayloadError() .Error()", p.Error())).ShouldNot(HaveOccurred())
+		Expect(snap.SnapshotMulti("PayloadError() .ErrorPayload()", p.ErrorPayload())).ShouldNot(HaveOccurred())
+	})
+
+	type M map[string]interface{}
+	It("should deal field paths name.subname...", func() {
+		p := New(M{
+			"name":     "John",
+			"lastname": "Snow",
+			"address": M{
+				"street": "jonny ave",
+				"country": M{
+					"code": "NZ",
+					"name": "New Zealand",
+				},
+				"options": []M{
+					M{
+						"label": "item 1",
+					},
+					M{
+						"label": "item 2",
+					},
+				},
+			},
+		})
+		Expect(p.Get("name").String()).Should(Equal("John"))
+		Expect(p.Get("address.street").String()).Should(Equal("jonny ave"))
+		Expect(p.Get("address.country.code").String()).Should(Equal("NZ"))
+		Expect(p.Get("address.options[0].label").String()).Should(Equal("item 1"))
+		Expect(p.Get("address.options[1].label").String()).Should(Equal("item 2"))
+	})
+	It("should deal field paths name.subname...", func() {
+		p := New(M{
+			"address": M{
+				"street": "jonny ave",
+				"options": []M{
+					M{
+						"label": "item 1",
+					},
+				},
+			},
+		})
+		Expect(p.Get("address.street").String()).Should(Equal("jonny ave"))
+
+		Expect(p.Get("wrong.path").Exists()).Should(BeFalse())
+		Expect(p.Get("wrong.path").String()).Should(Equal("<nil>"))
+
+		Expect(p.Get("address.wrong").Exists()).Should(BeFalse())
+
+		Expect(p.Get("address.options[10].label").Exists()).Should(BeFalse())
+	})
 })

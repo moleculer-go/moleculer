@@ -53,7 +53,6 @@ func (transporter *StanTransporter) Connect() chan error {
 		connection, err := stan.Connect(transporter.clusterID, transporter.clientID, stan.NatsURL(transporter.url))
 		if err != nil {
 			transporter.logger.Error("STAN Connect() - Error: ", err, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)
-			//panic("Error trying to connect to stan server. url: " + transporter.url + " clusterID: " + transporter.clusterID + " clientID: " + transporter.clientID + " -> Stan error: " + error.Error())
 			endChan <- err
 			return
 		}

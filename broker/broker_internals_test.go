@@ -18,13 +18,15 @@ import (
 
 var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
+func hasKey(m map[string]moleculer.Payload, k string) bool {
+	_, foundKey := m[k]
+	return foundKey
+}
+
 var _ = Describe("Broker Internals", func() {
 
 	Describe("Broker events", func() {
-		eventsTestSize := 1
-		currentStep := 0
-		//TODO needs refactoring.. the test is not realiable and fail from time to time.
-		Measure("Local and remote events", func(bench Benchmarker) {
+		It("Should trigger Local and remote events", func() {
 			logLevel := "ERROR"
 			verse := "3 little birds..."
 			chorus := "don't worry..."
@@ -38,321 +40,319 @@ var _ = Describe("Broker Internals", func() {
 			}
 			counters := test.Counter()
 
-			bench.Time("start broker and send events", func() {
-				currentStep++
-				soundsBroker := New(baseConfig, &moleculer.Config{
-					DiscoverNodeID: func() string { return "SoundsBroker" },
-				})
-				soundsBroker.Publish(moleculer.ServiceSchema{
-					Name: "music",
-					Actions: []moleculer.Action{
-						moleculer.Action{
-							Name: "start",
-							Handler: func(ctx moleculer.Context, verse moleculer.Payload) interface{} {
-								ctx.Logger().Debug(" ** !!! ### music.start ### !!! ** ")
-								ctx.Emit("music.verse", verse)
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.start")
-								return nil
-							},
-						},
-						moleculer.Action{
-							Name: "end",
-							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) interface{} {
-								ctx.Emit("music.chorus", chorus)
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.end")
-								return nil
-							},
-						},
-					},
-					Events: []moleculer.Event{
-						moleculer.Event{
-							Name: "music.verse",
-							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
-								ctx.Logger().Debug("music.verse --> ", verse.String())
-								ctx.Emit("music.chorus", verse)
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.music.verse")
-							},
-						},
-						moleculer.Event{
-							Name: "music.chorus",
-							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
-								ctx.Logger().Debug("music.chorus --> ", chorus.String())
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.music.chorus")
-							},
-						},
-					},
-				})
-				djService := moleculer.ServiceSchema{
-					Name:         "dj",
-					Dependencies: []string{"music"},
-					Events: []moleculer.Event{
-						moleculer.Event{
-							Name: "music.verse",
-							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
-								ctx.Logger().Debug("DJ music.verse --> ", verse.String())
-								ctx.Emit("music.chorus", verse)
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.verse")
-							},
-						},
-						moleculer.Event{
-							Name: "music.chorus",
-							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
-								ctx.Logger().Debug("DJ  music.chorus --> ", chorus.String())
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.chorus")
-							},
-						},
-						moleculer.Event{
-							Name: "music.tone",
-							Handler: func(ctx moleculer.Context, ring moleculer.Payload) {
-								ctx.Logger().Debug("DJ  music.tone ring --> ", ring.String())
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.tone")
-							},
-						},
-					},
-				}
-				soundsBroker.Publish(djService)
-
-				// soundsBroker.delegates.EmitEvent = func(context moleculer.BrokerContext) {
-				// 	entries := soundsBroker.registry.LoadBalanceEvent(context)
-				// 	fmt.Println("entries -> ", entries)
-				// 	Expect(snap.SnapshotMulti("entries_1-music.verse_2-music.chorus", entries)).Should(Succeed())
-				// }
-				soundsBroker.Start()
-				Expect(snap.SnapshotMulti("soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
-
-				//Scenario: action music.start will emit music.verse wich emits music.chorus - becuase there are 2 listeners for music.serve
-				//there should be too emits to music.chorus
-				<-soundsBroker.Call("music.start", verse)
-
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred()) //failed here
-				Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
-
-				//Scenario: music.end will emit music.chorus once.
-				<-soundsBroker.Call("music.end", chorus)
-
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
-
-				visualBroker := New(baseConfig, &moleculer.Config{
-					DiscoverNodeID: func() string { return "VisualBroker" },
-				})
-				vjService := moleculer.ServiceSchema{
-					Name:         "vj",
-					Dependencies: []string{"music", "dj"},
-					Events: []moleculer.Event{
-						moleculer.Event{
-							Name: "music.verse",
-							Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
-								ctx.Logger().Debug("VJ music.verse --> ", verse.String())
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.verse")
-							},
-						},
-						moleculer.Event{
-							Name: "music.chorus",
-							Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
-								ctx.Logger().Debug("VJ  music.chorus --> ", chorus.String())
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.chorus")
-							},
-						},
-						moleculer.Event{
-							Name: "music.tone",
-							Handler: func(ctx moleculer.Context, ring moleculer.Payload) {
-								ctx.Logger().Debug("VJ  music.tone ring --> ", ring.String())
-								counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.tone")
-							},
-						},
-					},
-				}
-				visualBroker.Publish(vjService)
-				visualBroker.Publish(moleculer.ServiceSchema{
-					Name:         "visualBrokerService",
-					Dependencies: []string{"music"},
-				})
-				visualBroker.Start()
-				visualBroker.WaitForNodes("SoundsBroker")
-				Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-
-				counters.Clear()
-				time.Sleep(time.Millisecond)
-				//Scenario: same action music.start as before, but now we added a new broker and new service.
-				visualBroker.Call("music.start", verse)
-
-				Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
-
-				<-visualBroker.Call("music.end", chorus)
-
-				Expect(counters.Check("music.end", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
-
-				//add a second instance of the vj service, but only one should receive emit events.
-				aquaBroker := New(baseConfig, &moleculer.Config{
-					DiscoverNodeID: func() string { return "AquaBroker" },
-				})
-				aquaBroker.Publish(vjService)
-				aquaBroker.Publish(moleculer.ServiceSchema{
-					Name:         "aquaBrokerService",
-					Dependencies: []string{"music", "dj"},
-				})
-				aquaBroker.Start()
-				for {
-					if len(aquaBroker.registry.KnownNodes()) == 3 {
-						break
-					}
-					time.Sleep(time.Microsecond)
-				}
-				Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				for {
-					if len(aquaBroker.registry.KnownEventListeners(true)) == 11 {
-						break
-					}
-					time.Sleep(time.Microsecond)
-				}
-				Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
-
-				counters.Clear()
-
-				aquaBroker.Call("music.start", chorus)
-
-				Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred()) //failed here
-				Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
-
-				<-visualBroker.Call("music.end", chorus)
-
-				Expect(counters.Check("music.end", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
-
-				//add a second instance of the dj service
-				stormBroker := New(baseConfig, &moleculer.Config{
-					DiscoverNodeID: func() string { return "StormBroker" },
-				})
-				stormBroker.Publish(djService)
-				stormBroker.Start()
-				for {
-					if len(stormBroker.registry.KnownNodes()) == 4 {
-						break
-					}
-					time.Sleep(time.Microsecond)
-				}
-				Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
-				for {
-					if len(stormBroker.registry.KnownEventListeners(true)) == 14 {
-						break
-					}
-					time.Sleep(time.Microsecond)
-				}
-				Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
-
-				counters.Clear()
-
-				stormBroker.Call("music.start", verse)
-
-				Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
-
-				<-stormBroker.Call("music.end", chorus)
-
-				Expect(counters.Check("music.end", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
-
-				Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
-
-				counters.Clear()
-
-				//now broadcast and every music.tone event listener should receive it.
-				stormBroker.Broadcast("music.tone", "broad< storm >cast")
-
-				Expect(counters.Check("dj.music.tone", 2)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
-
-				counters.Clear()
-
-				//emit and only 2 shuold be accounted
-				stormBroker.Emit("music.tone", "Emit< storm >cast")
-
-				Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.tone", 1)).ShouldNot(HaveOccurred())
-
-				//remove one dj service
-				stormBroker.Stop()
-				counters.Clear()
-
-				Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("stormBroker-stopped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
-
-				aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
-
-				Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
-
-				//remove the other dj service
-				soundsBroker.Stop()
-				counters.Clear()
-
-				Expect(snap.SnapshotMulti("soundsBroker-Stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-				Expect(snap.SnapshotMulti("soundsBroker-Stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-
-				aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
-
-				Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
-
-				counters.Clear()
-				aquaBroker.Emit("music.tone", "Emit< aqua >cast")
-
-				Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
-				Expect(counters.Check("vj.music.tone", 1)).ShouldNot(HaveOccurred())
-
-				visualBroker.Stop()
-				aquaBroker.Stop()
+			soundsBroker := New(baseConfig, &moleculer.Config{
+				DiscoverNodeID: func() string { return "SoundsBroker" },
 			})
-		}, eventsTestSize)
+			soundsBroker.Publish(moleculer.ServiceSchema{
+				Name: "music",
+				Actions: []moleculer.Action{
+					moleculer.Action{
+						Name: "start",
+						Handler: func(ctx moleculer.Context, verse moleculer.Payload) interface{} {
+							ctx.Logger().Debug(" ** !!! ### music.start ### !!! ** ")
+							ctx.Emit("music.verse", verse)
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.start")
+							return nil
+						},
+					},
+					moleculer.Action{
+						Name: "end",
+						Handler: func(ctx moleculer.Context, chorus moleculer.Payload) interface{} {
+							ctx.Emit("music.chorus", chorus)
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.end")
+							return nil
+						},
+					},
+				},
+				Events: []moleculer.Event{
+					moleculer.Event{
+						Name: "music.verse",
+						Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
+							ctx.Logger().Debug("music.verse --> ", verse.String())
+							ctx.Emit("music.chorus", verse)
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.music.verse")
+						},
+					},
+					moleculer.Event{
+						Name: "music.chorus",
+						Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
+							ctx.Logger().Debug("music.chorus --> ", chorus.String())
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "music.music.chorus")
+						},
+					},
+				},
+			})
+			djService := moleculer.ServiceSchema{
+				Name:         "dj",
+				Dependencies: []string{"music"},
+				Events: []moleculer.Event{
+					moleculer.Event{
+						Name: "music.verse",
+						Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
+							ctx.Logger().Debug("DJ music.verse --> ", verse.String())
+							ctx.Emit("music.chorus", verse)
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.verse")
+						},
+					},
+					moleculer.Event{
+						Name: "music.chorus",
+						Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
+							ctx.Logger().Debug("DJ  music.chorus --> ", chorus.String())
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.chorus")
+						},
+					},
+					moleculer.Event{
+						Name: "music.tone",
+						Handler: func(ctx moleculer.Context, ring moleculer.Payload) {
+							ctx.Logger().Debug("DJ  music.tone ring --> ", ring.String())
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "dj.music.tone")
+						},
+					},
+				},
+			}
+			soundsBroker.Publish(djService)
+
+			// soundsBroker.delegates.EmitEvent = func(context moleculer.BrokerContext) {
+			// 	entries := soundsBroker.registry.LoadBalanceEvent(context)
+			// 	fmt.Println("entries -> ", entries)
+			// 	Expect(snap.SnapshotMulti("entries_1-music.verse_2-music.chorus", entries)).Should(Succeed())
+			// }
+			soundsBroker.Start()
+			Expect(snap.SnapshotMulti("soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+
+			//Scenario: action music.start will emit music.verse wich emits music.chorus - becuase there are 2 listeners for music.serve
+			//there should be too emits to music.chorus
+			<-soundsBroker.Call("music.start", verse)
+
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred()) //failed here
+			Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
+
+			//Scenario: music.end will emit music.chorus once.
+			<-soundsBroker.Call("music.end", chorus)
+
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
+
+			visualBroker := New(baseConfig, &moleculer.Config{
+				DiscoverNodeID: func() string { return "VisualBroker" },
+			})
+			vjService := moleculer.ServiceSchema{
+				Name:         "vj",
+				Dependencies: []string{"music", "dj"},
+				Events: []moleculer.Event{
+					moleculer.Event{
+						Name: "music.verse",
+						Handler: func(ctx moleculer.Context, verse moleculer.Payload) {
+							ctx.Logger().Debug("VJ music.verse --> ", verse.String())
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.verse")
+						},
+					},
+					moleculer.Event{
+						Name: "music.chorus",
+						Handler: func(ctx moleculer.Context, chorus moleculer.Payload) {
+							ctx.Logger().Debug("VJ  music.chorus --> ", chorus.String())
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.chorus")
+						},
+					},
+					moleculer.Event{
+						Name: "music.tone",
+						Handler: func(ctx moleculer.Context, ring moleculer.Payload) {
+							ctx.Logger().Debug("VJ  music.tone ring --> ", ring.String())
+							counters.Inc(ctx.(*context.Context).BrokerDelegates().LocalNode().GetID(), "vj.music.tone")
+						},
+					},
+				},
+			}
+			visualBroker.Publish(vjService)
+			visualBroker.Publish(moleculer.ServiceSchema{
+				Name:         "visualBrokerService",
+				Dependencies: []string{"music"},
+			})
+			visualBroker.Start()
+			visualBroker.WaitForNodes("SoundsBroker")
+			Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+
+			counters.Clear()
+			time.Sleep(time.Millisecond)
+			//Scenario: same action music.start as before, but now we added a new broker and new service.
+			visualBroker.Call("music.start", verse)
+
+			Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
+
+			<-visualBroker.Call("music.end", chorus)
+
+			Expect(counters.Check("music.end", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
+
+			//add a second instance of the vj service, but only one should receive emit events.
+			aquaBroker := New(baseConfig, &moleculer.Config{
+				DiscoverNodeID: func() string { return "AquaBroker" },
+			})
+			aquaBroker.Publish(vjService)
+			aquaBroker.Publish(moleculer.ServiceSchema{
+				Name:         "aquaBrokerService",
+				Dependencies: []string{"music", "dj"},
+			})
+			aquaBroker.Start()
+			for {
+				if len(aquaBroker.registry.KnownNodes()) == 3 {
+					break
+				}
+				time.Sleep(time.Microsecond)
+			}
+			Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+			for {
+				if len(aquaBroker.registry.KnownEventListeners(true)) == 11 {
+					break
+				}
+				time.Sleep(time.Microsecond)
+			}
+			Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
+
+			counters.Clear()
+
+			aquaBroker.Call("music.start", chorus)
+
+			Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred()) //failed here
+			Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
+
+			<-visualBroker.Call("music.end", chorus)
+
+			Expect(counters.Check("music.end", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
+
+			//add a second instance of the dj service
+			stormBroker := New(baseConfig, &moleculer.Config{
+				DiscoverNodeID: func() string { return "StormBroker" },
+			})
+			stormBroker.Publish(djService)
+			stormBroker.Start()
+			for {
+				if len(stormBroker.registry.KnownNodes()) == 4 {
+					break
+				}
+				time.Sleep(time.Microsecond)
+			}
+			Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+			for {
+				if len(stormBroker.registry.KnownEventListeners(true)) == 14 {
+					break
+				}
+				time.Sleep(time.Microsecond)
+			}
+			Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
+
+			counters.Clear()
+
+			stormBroker.Call("music.start", verse)
+
+			Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 2)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 2)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.chorus", 2)).ShouldNot(HaveOccurred())
+
+			<-stormBroker.Call("music.end", chorus)
+
+			Expect(counters.Check("music.end", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.verse", 1)).ShouldNot(HaveOccurred())
+
+			Expect(counters.Check("music.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("dj.music.chorus", 3)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.chorus", 3)).ShouldNot(HaveOccurred())
+
+			counters.Clear()
+
+			//now broadcast and every music.tone event listener should receive it.
+			stormBroker.Broadcast("music.tone", "broad< storm >cast")
+
+			Expect(counters.Check("dj.music.tone", 2)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
+
+			counters.Clear()
+
+			//emit and only 2 shuold be accounted
+			stormBroker.Emit("music.tone", "Emit< storm >cast")
+
+			Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.tone", 1)).ShouldNot(HaveOccurred())
+
+			//remove one dj service
+			stormBroker.Stop()
+			counters.Clear()
+
+			Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+			Expect(snap.SnapshotMulti("stormBroker-stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+			Expect(snap.SnapshotMulti("stormBroker-stopped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+
+			aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
+
+			Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
+
+			//remove the other dj service
+			soundsBroker.Stop()
+			counters.Clear()
+
+			Expect(snap.SnapshotMulti("soundsBroker-Stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+			Expect(snap.SnapshotMulti("soundsBroker-Stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+
+			aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
+
+			Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
+
+			counters.Clear()
+			aquaBroker.Emit("music.tone", "Emit< aqua >cast")
+
+			Expect(counters.Check("dj.music.tone", 0)).ShouldNot(HaveOccurred())
+			Expect(counters.Check("vj.music.tone", 1)).ShouldNot(HaveOccurred())
+
+			visualBroker.Stop()
+			aquaBroker.Stop()
+
+		})
 	})
 
 	//TODO: MCalls current implementation works ?most of the time" :( ... enought to continue
 	//the dev of other features that need it.. but it need to be refactored so the tests pass everytime.. or maybe the issue is with the testing.
-	XDescribe("Broker.MCall", func() {
+	Describe("Broker.MCall", func() {
 
 		It("MCall on $node service actions with all params false", func() {
 			MCallTimeout := 20 * time.Second
@@ -439,10 +439,16 @@ var _ = Describe("Broker Internals", func() {
 			}
 
 			mcallResults := <-bkr2.MCall(mParams)
-			Expect(snap.SnapshotMulti("bkr2-results", mcallResults)).Should(Succeed())
+			Expect(hasKey(mcallResults, "music-start")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "music-end")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-dinner")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-lunch")).Should(BeTrue())
 
 			mcallResults = <-bkr1.MCall(mParams)
-			Expect(snap.SnapshotMulti("bkr1-results", mcallResults)).Should(Succeed())
+			Expect(hasKey(mcallResults, "music-start")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "music-end")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-dinner")).Should(BeTrue())
+			Expect(hasKey(mcallResults, "food-lunch")).Should(BeTrue())
 
 			bkr1.Stop()
 			bkr2.Stop()

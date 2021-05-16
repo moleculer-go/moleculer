@@ -71,9 +71,9 @@ func findBy(field, value string, list []moleculer.Payload) []map[string]interfac
 
 var _ = Describe("nodeService", func() {
 	Describe("Local Service $node", func() {
-		harness := func(action string, scenario string, params map[string]interface{}, transformer func(interface{}) interface{}) func(done Done) {
+		harness := func(action string, scenario string, params map[string]interface{}, transformer func(interface{}) interface{}) func() {
 			label := fmt.Sprint(scenario, "-", action)
-			return func(done Done) {
+			return func() {
 				mem := &memory.SharedMemory{}
 
 				printerBroker := createPrinterBroker(mem)
@@ -101,8 +101,6 @@ var _ = Describe("nodeService", func() {
 				result = <-cpuBroker.Call(action, params)
 				Expect(result.Exists()).Should(BeTrue())
 				Expect(snap.SnapshotMulti(fmt.Sprint(label, "cpuBroker"), transformer(result))).Should(Succeed()) //failed here perdeu o node priunter
-
-				close(done)
 			}
 		}
 

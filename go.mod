@@ -8,7 +8,6 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
-	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/raft v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -21,8 +20,8 @@ require (
 	github.com/nats-io/nats-streaming-server v0.14.1 // indirect
 	github.com/nats-io/nkeys v0.0.2 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/onsi/ginkgo v1.8.0
-	github.com/onsi/gomega v1.5.0
+	github.com/onsi/ginkgo v1.16.2
+	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/procfs v0.0.0-20190503130316-740c07785007 // indirect
 	github.com/sirupsen/logrus v1.4.1
@@ -35,5 +34,7 @@ require (
 	github.com/tidwall/sjson v1.0.4
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.mongodb.org/mongo-driver v1.0.1
+	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
+	golang.org/x/tools v0.1.0 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 )

@@ -3,6 +3,7 @@ package payload
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,7 +25,8 @@ func (p *RawPayload) Exists() bool {
 
 func (p *RawPayload) IsError() bool {
 	_, isError := p.source.(error)
-	return isError
+	_, isPError := p.source.(payloadError)
+	return isError || isPError
 }
 
 func (p *RawPayload) Error() error {
@@ -215,6 +217,17 @@ func (p *RawPayload) First() moleculer.Payload {
 	return New(nil)
 }
 
+//At returns the item at the given index
+func (p *RawPayload) At(index int) moleculer.Payload {
+	if transformer := ArrayTransformer(&p.source); transformer != nil {
+		l := transformer.InterfaceArray(&p.source)
+		if index >= 0 && index < len(l) {
+			return New(l[index])
+		}
+	}
+	return nil
+}
+
 func (p *RawPayload) Array() []moleculer.Payload {
 	if transformer := ArrayTransformer(&p.source); transformer != nil {
 		source := transformer.InterfaceArray(&p.source)
@@ -225,6 +238,18 @@ func (p *RawPayload) Array() []moleculer.Payload {
 		return array
 	}
 	return nil
+}
+
+func (p *RawPayload) MapOver(transform func(in moleculer.Payload) moleculer.Payload) moleculer.Payload {
+	if p.IsArray() {
+		list := []moleculer.Payload{}
+		for _, value := range p.Array() {
+			list = append(list, transform(value))
+		}
+		return New(list)
+	} else {
+		return Error("payload.MapOver can only deal with array payloads.")
+	}
 }
 
 func (p *RawPayload) ForEach(iterator func(key interface{}, value moleculer.Payload) bool) {
@@ -426,7 +451,65 @@ func (p *RawPayload) mapGet(path string) (interface{}, bool) {
 	return nil, false
 }
 
-func (p *RawPayload) Get(path string, defaultValue ...interface{}) moleculer.Payload {
+func isPath(s string) bool {
+	return strings.Contains(s, ".")
+}
+
+var indexedKey = regexp.MustCompile(`^(\w+)\[(\d+)\]$`)
+
+//isIndexed checks if key is indexed e.g. stage[0]
+func isIndexed(s string) bool {
+	return indexedKey.MatchString(s)
+}
+
+func splitIndex(s string) (key string, index int) {
+	parts := indexedKey.FindStringSubmatch(s)
+	key = parts[1]
+	index, _ = strconv.Atoi(parts[2])
+	return key, index
+}
+
+func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payload {
+	//check if is a path of key
+	if isPath(s) {
+		if defaultValue != nil {
+			return p.getPath(s, defaultValue...)
+		}
+		return p.getPath(s)
+	}
+	if isIndexed(s) {
+		k, index := splitIndex(s)
+		var v moleculer.Payload
+		if defaultValue != nil {
+			v = p.getKey(k, defaultValue...)
+		} else {
+			v = p.getKey(k)
+		}
+		return v.At(index)
+	}
+	if defaultValue != nil {
+		return p.getKey(s, defaultValue...)
+	}
+	return p.getKey(s)
+}
+
+//getPath get a value using a path expression e.g. address.country.code
+// it also accepts indexed lists like address.options[0].label
+func (p *RawPayload) getPath(path string, defaultValue ...interface{}) moleculer.Payload {
+	parts := strings.Split(path, ".")
+	k := parts[0]
+	v := p.Get(k, defaultValue...)
+	for i := 1; i < len(parts); i++ {
+		if v == nil {
+			return New(nil)
+		}
+		k = parts[i]
+		v = v.Get(k, defaultValue...)
+	}
+	return v
+}
+
+func (p *RawPayload) getKey(path string, defaultValue ...interface{}) moleculer.Payload {
 	if value, ok := p.mapGet(path); ok {
 		return New(value)
 	}
@@ -551,6 +634,27 @@ func (p *RawPayload) AddMany(toAdd map[string]interface{}) moleculer.Payload {
 
 func Error(msgs ...interface{}) moleculer.Payload {
 	return New(errors.New(fmt.Sprint(msgs...)))
+}
+
+type payloadError struct {
+	err     string
+	payload moleculer.Payload
+}
+
+func (e payloadError) Error() string {
+	return e.err
+}
+
+func PayloadError(msg string, p moleculer.Payload) moleculer.Payload {
+	return &RawPayload{source: payloadError{msg, p}}
+}
+
+func (p *RawPayload) ErrorPayload() moleculer.Payload {
+	pError, ok := p.source.(payloadError)
+	if ok {
+		return pError.payload
+	}
+	return nil
 }
 
 func EmptyList() moleculer.Payload {

@@ -69,7 +69,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		})
 
-		It("should make a remote call from profile broker a to user broker", func(done Done) {
+		It("should make a remote call from profile broker a to user broker", func() {
 			userBroker.Start()
 			profileBroker.Start()
 			profileBroker.WaitFor("user")
@@ -79,10 +79,9 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 			userBroker.Stop()
 			profileBroker.Stop()
-			close(done)
-		}, 3)
+		})
 
-		It("should fail after brokers are stopped", func(done Done) {
+		It("should fail after brokers are stopped", func() {
 			userBroker.Start()
 			profileBroker.Start()
 
@@ -93,8 +92,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
 
 			profileBroker.Stop()
-			close(done)
-		}, 3)
+		})
 	})
 
 	Describe("Start / Stop Cycles.", func() {

@@ -148,13 +148,10 @@ func hasNode(list []moleculer.Payload, nodeID string) bool {
 var _ = Describe("Registry", func() {
 
 	Describe("Auto discovery", func() {
-
-		It("3 brokers should auto discovery and perform local and remote Calls", func(done Done) {
-
+		//failed with timeout
+		It("3 brokers should auto discovery and perform local and remote Calls", func() {
 			mem := &memory.SharedMemory{}
-
 			printerBroker := createPrinterBroker(mem)
-
 			var serviceAdded, serviceRemoved []moleculer.Payload
 			events := bus.Construct()
 			addedMutex := &sync.Mutex{}
@@ -208,8 +205,6 @@ var _ = Describe("Registry", func() {
 			scanResult := <-printerBroker.Call("scanner.scan", printText)
 			Expect(scanResult.IsError()).Should(BeTrue())
 
-			scannerBroker.Start()
-
 			step := make(chan bool)
 			onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
 				if hasNode(serviceAdded, "node_scannerBroker") {
@@ -217,6 +212,7 @@ var _ = Describe("Registry", func() {
 					step <- true
 				}
 			})
+			scannerBroker.Start()
 			<-step
 
 			scanResult = <-scannerBroker.Call("scanner.scan", scanText)
@@ -227,8 +223,6 @@ var _ = Describe("Registry", func() {
 			Expect(scanResult.IsError()).ShouldNot(Equal(true))
 			Expect(scanResult.Value()).Should(Equal(scanText))
 
-			cpuBroker.Start()
-
 			serviceAdded = []moleculer.Payload{}
 			step = make(chan bool)
 			onEvent("$registry.service.added", func(list []moleculer.Payload, cancel func()) {
@@ -237,7 +231,9 @@ var _ = Describe("Registry", func() {
 					step <- true
 				}
 			})
+			cpuBroker.Start()
 			<-step
+
 			cpuBroker.WaitForActions("scanner.scan", "printer.print")
 			time.Sleep(time.Millisecond)
 
@@ -246,9 +242,6 @@ var _ = Describe("Registry", func() {
 			Expect(computeResult.Error()).Should(Succeed())
 			Expect(computeResult.Value()).Should(Equal(contentToCompute))
 
-			//stopping broker B
-			scannerBroker.Stop()
-
 			step = make(chan bool)
 			onEvent("$registry.service.removed", func(list []moleculer.Payload, cancel func()) {
 				if hasNode(serviceRemoved, "node_scannerBroker") {
@@ -256,13 +249,136 @@ var _ = Describe("Registry", func() {
 					step <- true
 				}
 			})
+
+			//stopping broker B
+			scannerBroker.Stop()
+
+			//wait services from node node_scannerBroker to be removed
 			<-step
 
 			Expect(func() {
 				<-scannerBroker.Call("scanner.scan", scanText)
 			}).Should(Panic()) //broker B is stopped ... so it should panic
 
-			close(done)
-		}, 3)
+		})
+	})
+
+	Describe("Namespace", func() {
+
+		It("Services across namespaces cannos see each other", func() {
+
+			mem := &memory.SharedMemory{}
+
+			devBroker := broker.New(&moleculer.Config{
+				DiscoverNodeID: func() string { return "node1_devBroker" },
+				LogLevel:       logLevel,
+				Namespace:      "dev",
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+
+			stageBroker := broker.New(&moleculer.Config{
+				DiscoverNodeID: func() string { return "node1_stageBroker" },
+				LogLevel:       logLevel,
+				Namespace:      "stage",
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+
+			stage2Broker := broker.New(&moleculer.Config{
+				DiscoverNodeID: func() string { return "node1_stage2Broker" },
+				LogLevel:       logLevel,
+				Namespace:      "stage",
+				TransporterFactory: func() interface{} {
+					transport := memory.Create(log.WithField("transport", "memory"), mem)
+					return &transport
+				},
+			})
+
+			//alarm service - prints the alarm and return the namespace :)
+			alarmService := func(namemspace string) moleculer.ServiceSchema {
+				return moleculer.ServiceSchema{
+					Name: "alarm",
+					Actions: []moleculer.Action{
+						{
+							Name: "bell",
+							Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+								context.Logger().Info("alarm.bell ringing !!! namemspace: ", namemspace)
+								return namemspace
+							},
+						},
+					},
+				}
+			}
+
+			//available in the dev namespace only
+			devOnlyService := moleculer.ServiceSchema{
+				Name: "devOnly",
+				Actions: []moleculer.Action{
+					{
+						Name: "code",
+						Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+							return "🧠"
+						},
+					},
+				},
+			}
+
+			devBroker.Publish(alarmService("dev"))
+			devBroker.Publish(devOnlyService)
+			devBroker.Start()
+
+			stageBroker.Start()
+			stage2Broker.Publish(moleculer.ServiceSchema{
+				Name: "stage2",
+				Actions: []moleculer.Action{
+					{
+						Name: "where",
+						Handler: func(context moleculer.Context, params moleculer.Payload) interface{} {
+							return "🌏"
+						},
+					},
+				},
+			})
+			stage2Broker.Start()
+
+			devAlarm := <-devBroker.Call("alarm.bell", nil)
+			Expect(devAlarm.IsError()).Should(BeFalse())
+			Expect(devAlarm.String()).Should(Equal("dev"))
+
+			code := <-devBroker.Call("devOnly.code", nil)
+			Expect(code.IsError()).Should(BeFalse())
+			Expect(code.String()).Should(Equal("🧠"))
+
+			time.Sleep(time.Millisecond)
+
+			//alarm.bell should not be accessible to the stage broker
+			stageAlarm := <-stageBroker.Call("alarm.bell", nil)
+			Expect(stageAlarm.IsError()).Should(BeTrue())
+			Expect(stageAlarm.Error().Error()).Should(Equal("Registry - endpoint not found for actionName: alarm.bell namespace: stage"))
+
+			stageBroker.Publish(alarmService("stage"))
+			stageAlarm = <-stageBroker.Call("alarm.bell", nil)
+			Expect(stageAlarm.IsError()).Should(BeFalse())
+			Expect(stageAlarm.String()).Should(Equal("stage"))
+
+			code = <-stageBroker.Call("good.code", nil)
+			Expect(code.IsError()).Should(BeTrue())
+			Expect(code.Error().Error()).Should(Equal("Registry - endpoint not found for actionName: good.code namespace: stage"))
+
+			//make sure 2 brokers on the same namespace can talk to each other
+			msg := <-stageBroker.Call("stage2.where", nil)
+			Expect(msg.IsError()).Should(BeFalse())
+			Expect(msg.String()).Should(Equal("🌏"))
+
+			devBroker.Stop()
+			stageBroker.Stop()
+			stage2Broker.Stop()
+
+		})
 	})
 })
