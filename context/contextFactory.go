@@ -26,6 +26,7 @@ type Context struct {
 	meta         moleculer.Payload
 	timeout      int
 	level        int
+	caller       string
 }
 
 func BrokerContext(broker *moleculer.BrokerDelegates) moleculer.BrokerContext {
@@ -46,7 +47,7 @@ func (context *Context) ChildEventContext(eventName string, params moleculer.Pay
 	parentContext := context
 	meta := parentContext.meta
 	if context.broker.Config.Metrics {
-		meta = meta.Add("metrics", true)
+		meta = meta.Add("tracing", true)
 	}
 	id := util.RandomString(12)
 	var requestID string
@@ -54,6 +55,10 @@ func (context *Context) ChildEventContext(eventName string, params moleculer.Pay
 		requestID = parentContext.requestID
 	} else {
 		requestID = id
+	}
+	caller := parentContext.actionName
+	if parentContext.eventName != "" {
+		caller = parentContext.eventName
 	}
 	eventContext := Context{
 		id:        id,
@@ -66,6 +71,7 @@ func (context *Context) ChildEventContext(eventName string, params moleculer.Pay
 		level:     parentContext.level + 1,
 		meta:      meta,
 		parentID:  parentContext.id,
+		caller:    caller,
 	}
 	return &eventContext
 }
@@ -80,7 +86,7 @@ func (context *Context) ChildActionContext(actionName string, params moleculer.P
 	parentContext := context
 	meta := parentContext.meta
 	if context.broker.Config.Metrics {
-		meta = meta.Add("metrics", true)
+		meta = meta.Add("tracing", true)
 	}
 	if len(opts) > 0 && opts[0].Meta != nil && opts[0].Meta.Len() > 0 {
 		meta = meta.AddMany(opts[0].Meta.RawMap())
@@ -92,6 +98,10 @@ func (context *Context) ChildActionContext(actionName string, params moleculer.P
 	} else {
 		requestID = id
 	}
+	caller := parentContext.actionName
+	if parentContext.eventName != "" {
+		caller = parentContext.eventName
+	}
 	actionContext := Context{
 		id:         id,
 		requestID:  requestID,
@@ -101,13 +111,9 @@ func (context *Context) ChildActionContext(actionName string, params moleculer.P
 		level:      parentContext.level + 1,
 		meta:       meta,
 		parentID:   parentContext.id,
+		caller:     caller,
 	}
 	return &actionContext
-}
-
-// Max calling level check to avoid calling loops
-func checkMaxCalls(context *Context) {
-
 }
 
 // ActionContext create an action context for remote call.
@@ -130,6 +136,10 @@ func ActionContext(broker *moleculer.BrokerDelegates, values map[string]interfac
 			parentID = s
 		}
 	}
+	// params := payload.Empty()
+	// if values["params"] != nil {
+	// 	params = payload.New(values["params"])
+	// }
 	params := payload.New(values["params"])
 
 	if values["timeout"] != nil {
@@ -210,20 +220,22 @@ func (context *Context) RequestID() string {
 func (context *Context) AsMap() map[string]interface{} {
 	mapResult := make(map[string]interface{})
 
-	var metrics bool
-	if context.meta.Get("metrics").Exists() {
-		metrics = context.meta.Get("metrics").Bool()
+	var tracing bool
+	if context.meta.Get("tracing").Exists() {
+		tracing = context.meta.Get("tracing").Bool()
 	}
 
 	mapResult["id"] = context.id
 	mapResult["requestID"] = context.requestID
 
 	mapResult["level"] = context.level
+	mapResult["meta"] = context.meta.RawMap()
+	mapResult["caller"] = context.caller
+	mapResult["tracing"] = tracing
+	mapResult["parentID"] = context.parentID
+
 	if context.actionName != "" {
 		mapResult["action"] = context.actionName
-		mapResult["metrics"] = metrics
-		mapResult["parentID"] = context.parentID
-		mapResult["meta"] = context.meta.RawMap()
 		mapResult["timeout"] = context.timeout
 		mapResult["params"] = context.params.Value()
 	}
@@ -232,11 +244,12 @@ func (context *Context) AsMap() map[string]interface{} {
 		mapResult["groups"] = context.groups
 		mapResult["broadcast"] = context.broadcast
 		mapResult["data"] = context.params.Value()
-		mapResult["meta"] = context.meta.RawMap()
+		mapResult["level"] = context.level
 	}
 
-	//TODO : check how to support streaming params in go
+	//streaming not supported yet
 	mapResult["stream"] = false
+	//mapResult["seq"] = 0 // for stream payloads
 
 	return mapResult
 }
@@ -322,4 +335,8 @@ func (context *Context) Logger() *log.Entry {
 		return context.broker.Logger("event", context.eventName)
 	}
 	return context.broker.Logger("context", "<root>")
+}
+
+func (context *Context) Caller() string {
+	return context.caller
 }

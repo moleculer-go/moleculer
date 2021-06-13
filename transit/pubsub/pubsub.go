@@ -40,6 +40,11 @@ type PubSub struct {
 	brokerStarted     bool
 }
 
+const DATATYPE_UNDEFINED = 0
+const DATATYPE_NULL = 1
+const DATATYPE_JSON = 2
+const DATATYPE_BUFFER = 3
+
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 	if pubsub.isConnected && pubsub.brokerStarted {
 		localNodeID := pubsub.broker.LocalNode().GetID()
@@ -303,6 +308,11 @@ func (pubsub *PubSub) Emit(context moleculer.BrokerContext) {
 	payload := context.AsMap()
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
 	payload["ver"] = version.MoleculerProtocol()
+	if context.Payload().Exists() {
+		payload["dataType"] = DATATYPE_JSON
+	} else {
+		payload["dataType"] = DATATYPE_NULL
+	}
 
 	pubsub.logger.Trace("Emit() targetNodeID: ", targetNodeID, " payload: ", payload)
 
@@ -323,6 +333,11 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 	payload := context.AsMap()
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
 	payload["ver"] = version.MoleculerProtocol()
+	if context.Payload().Exists() {
+		payload["paramsType"] = DATATYPE_JSON
+	} else {
+		payload["paramsType"] = DATATYPE_NULL
+	}
 
 	pubsub.logger.Trace("Request() targetNodeID: ", targetNodeID, " payload: ", payload)
 
@@ -446,6 +461,12 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	values["id"] = context.ID()
 	values["meta"] = context.Meta()
 
+	if response.Exists() {
+		values["dataType"] = DATATYPE_JSON
+	} else {
+		values["dataType"] = DATATYPE_NULL
+	}
+
 	if response.IsError() {
 		var errMap map[string]string
 		actionError, isActionError := response.Value().(ActionError)
@@ -484,12 +505,28 @@ type ActionError interface {
 	Stack() string
 }
 
+func parseParamsType(value moleculer.Payload) string {
+	if !value.Exists() {
+		return "1" //default : null
+	}
+	return value.String()
+}
+
 // requestHandler : handles when a request arrives on this node.
 // 1: create a moleculer.Context from the message, the moleculer.Context contains the target action
 // 2: invoke the action
 // 3: send a response
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
+		paramsType := parseParamsType(message.Get("paramsType"))
+		if paramsType != "1" && paramsType != "2" {
+			errMsg := "Expecting paramsType == 2 (JSON) or 1 (Null) - received: " + paramsType
+			pubsub.logger.Error(errMsg)
+			//currently there is only one serializer implementation.
+			//once more serializers are added, pubsub.serializer must change and be dinamic based on paramsType
+			pubsub.sendResponse(context.ActionContext(pubsub.broker, nil), payload.Error(errMsg))
+			return
+		}
 		values := pubsub.serializer.PayloadToContextMap(message)
 		context := context.ActionContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)

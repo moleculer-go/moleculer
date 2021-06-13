@@ -89,14 +89,16 @@ var _ = Describe("NATS Streaming Transit", func() {
 			p := (<-profileBroker.Call("user.update", longList))
 			Expect(p.Error()).Should(Succeed())
 			userBroker.Stop()
-			Expect((<-profileBroker.Call("user.update", longList)).IsError()).Should(BeTrue())
+
+			r := <-profileBroker.Call("user.update", longList)
+			Expect(r.IsError()).Should(BeTrue())
 
 			profileBroker.Stop()
 		})
 	})
 
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "fatal"
+		logLevel := "error"
 		numberOfLoops := 5
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {

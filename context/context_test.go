@@ -33,7 +33,7 @@ var _ = g.Describe("Context", func() {
 			"meta":     map[string]interface{}{},
 		})
 		Expect(actionContext).ShouldNot(BeNil())
-		Expect(len(actionContext.AsMap())).Should(Equal(10))
+		Expect(len(actionContext.AsMap())).Should(Equal(11))
 		Expect(actionContext.ActionName()).Should(Equal("action"))
 		Expect(actionContext.Payload()).Should(Equal(payload.Empty()))
 		Expect(actionContext.ID()).Should(Equal("id"))
@@ -47,7 +47,26 @@ var _ = g.Describe("Context", func() {
 				"parentID": "parentID",
 				"params":   map[string]interface{}{},
 			})
-		}).Should(Panic())
+		}).Should(Panic()) //no action
+	})
+
+	g.It("Should create an action context with no params", func() {
+		delegates := test.DelegatesWithIdAndConfig("x", moleculer.Config{})
+		actionContext := ActionContext(delegates, map[string]interface{}{
+			"sender":   "test",
+			"id":       "id",
+			"action":   "action",
+			"level":    2,
+			"timeout":  20,
+			"parentID": "parentID",
+			"meta":     map[string]interface{}{},
+		})
+		Expect(actionContext).ShouldNot(BeNil())
+		Expect(len(actionContext.AsMap())).Should(Equal(11))
+		Expect(actionContext.ActionName()).Should(Equal("action"))
+		Expect(actionContext.Payload()).Should(Equal(payload.New(nil)))
+		Expect(actionContext.ID()).Should(Equal("id"))
+		Expect(actionContext.Logger()).ShouldNot(BeNil())
 	})
 
 	g.It("Should call SetTargetNodeID", func() {
@@ -81,7 +100,7 @@ var _ = g.Describe("Context", func() {
 		})
 		Expect(eventContext).ShouldNot(BeNil())
 		Expect(eventContext.IsBroadcast()).Should(BeTrue())
-		Expect(len(eventContext.AsMap())).Should(Equal(9))
+		Expect(len(eventContext.AsMap())).Should(Equal(12))
 		Expect(eventContext.EventName()).Should(Equal("event"))
 		Expect(eventContext.Groups()).Should(Equal([]string{"a", "b"}))
 		Expect(eventContext.Payload()).Should(Equal(payload.Empty()))
@@ -96,7 +115,7 @@ var _ = g.Describe("Context", func() {
 		}).Should(Panic())
 	})
 
-	g.It("Should create a child context with metrics on", func() {
+	g.It("Should create a child context with tracing on", func() {
 
 		config := moleculer.Config{
 			Metrics: true,
@@ -104,12 +123,12 @@ var _ = g.Describe("Context", func() {
 		brokerContext := BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))
 		actionContext := brokerContext.ChildActionContext("actionx", nil)
 		Expect(actionContext.Meta()).ShouldNot(BeNil())
-		Expect(actionContext.Meta().Get("metrics").Bool()).Should(BeTrue())
+		Expect(actionContext.Meta().Get("tracing").Bool()).Should(BeTrue())
 
 		eventContext := brokerContext.ChildEventContext("eventx", nil, nil, false)
 		Expect(eventContext.Meta()).ShouldNot(BeNil())
 		Expect(eventContext.RequestID()).ShouldNot(Equal(""))
-		Expect(actionContext.Meta().Get("metrics").Bool()).Should(BeTrue())
+		Expect(actionContext.Meta().Get("tracing").Bool()).Should(BeTrue())
 
 		config = moleculer.Config{
 			Metrics: false,
@@ -117,11 +136,11 @@ var _ = g.Describe("Context", func() {
 		brokerContext = BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))
 		actionContext = brokerContext.ChildActionContext("actionx", nil)
 		Expect(actionContext.Meta()).ShouldNot(BeNil())
-		Expect(actionContext.Meta().Get("metrics").Exists()).Should(BeFalse())
+		Expect(actionContext.Meta().Get("tracing").Exists()).Should(BeFalse())
 
 		eventContext = brokerContext.ChildEventContext("eventx", nil, nil, false)
 		Expect(eventContext.Meta()).ShouldNot(BeNil())
-		Expect(actionContext.Meta().Get("metrics").Exists()).Should(BeFalse())
+		Expect(actionContext.Meta().Get("tracing").Exists()).Should(BeFalse())
 
 	})
 
@@ -186,6 +205,20 @@ var _ = g.Describe("Context", func() {
 		rawContext := BrokerContext(delegates)
 		rawContext.Publish(moleculer.ServiceSchema{})
 		Expect(called).Should(BeTrue())
+	})
+
+	g.It("Should create a child context with proper caller setting", func() {
+
+		config := moleculer.Config{
+			Metrics: true,
+		}
+		brokerContext := BrokerContext(test.DelegatesWithIdAndConfig("nodex", config))
+
+		actionAContext := brokerContext.ChildActionContext("servicex.action_a", nil)
+
+		actionBContext := actionAContext.ChildActionContext("servicex.action_b", nil)
+
+		Expect(actionBContext.Caller()).Should(Equal("servicex.action_a"))
 	})
 
 })

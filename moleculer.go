@@ -171,7 +171,7 @@ var DefaultConfig = Config{
 	RetryPolicy: RetryPolicy{
 		Enabled: false,
 	},
-	RequestTimeout:            1 * time.Minute,
+	RequestTimeout:            3 * time.Second,
 	MCallTimeout:              5 * time.Second,
 	WaitForNeighboursInterval: 200 * time.Millisecond,
 }
@@ -262,6 +262,7 @@ type BrokerContext interface {
 	Payload() Payload
 	Groups() []string
 	IsBroadcast() bool
+	Caller() string
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}
