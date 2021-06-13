@@ -64,7 +64,7 @@ func metricsPayload(brokerContext moleculer.BrokerContext) map[string]interface{
 func createShouldMetric(Config moleculer.Config) func(context moleculer.BrokerContext) bool {
 	var callsCount float32 = 0
 	return func(context moleculer.BrokerContext) bool {
-		if context.Meta().Get("metrics").Bool() {
+		if context.Meta().Get("tracing").Bool() {
 			callsCount++
 			if callsCount*Config.MetricsRate >= 1.0 {
 

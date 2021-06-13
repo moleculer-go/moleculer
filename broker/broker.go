@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-uuid"
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/cache"
@@ -114,6 +115,8 @@ type ServiceBroker struct {
 	delegates *moleculer.BrokerDelegates
 
 	id string
+
+	instanceID string
 
 	localNode moleculer.Node
 }
@@ -566,6 +569,13 @@ func (broker *ServiceBroker) init() {
 
 	broker.config = broker.middlewares.CallHandlers("Config", broker.config).(moleculer.Config)
 
+	instanceID, err := uuid.GenerateUUID()
+	if err != nil {
+		broker.logger.Error("Could not create an instance id -  error ", err)
+		instanceID = "error creating instance id"
+	}
+	broker.instanceID = instanceID
+
 	broker.delegates = broker.createDelegates()
 	broker.registry = registry.CreateRegistry(broker.id, broker.delegates)
 	broker.localNode = broker.registry.LocalNode()
@@ -580,6 +590,9 @@ func (broker *ServiceBroker) createDelegates() *moleculer.BrokerDelegates {
 		Bus:       broker.LocalBus,
 		IsStarted: broker.IsStarted,
 		Config:    broker.config,
+		InstanceID: func() string {
+			return broker.instanceID
+		},
 		ActionDelegate: func(context moleculer.BrokerContext, opts ...moleculer.Options) chan moleculer.Payload {
 			return broker.registry.LoadBalanceCall(context, opts...)
 		},

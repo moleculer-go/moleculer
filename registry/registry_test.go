@@ -277,6 +277,7 @@ var _ = Describe("Registry", func() {
 					transport := memory.Create(log.WithField("transport", "memory"), mem)
 					return &transport
 				},
+				RequestTimeout: 1 * time.Second,
 			})
 
 			stageBroker := broker.New(&moleculer.Config{
@@ -287,6 +288,7 @@ var _ = Describe("Registry", func() {
 					transport := memory.Create(log.WithField("transport", "memory"), mem)
 					return &transport
 				},
+				RequestTimeout: 1 * time.Second,
 			})
 
 			stage2Broker := broker.New(&moleculer.Config{
@@ -297,6 +299,7 @@ var _ = Describe("Registry", func() {
 					transport := memory.Create(log.WithField("transport", "memory"), mem)
 					return &transport
 				},
+				RequestTimeout: 1 * time.Second,
 			})
 
 			//alarm service - prints the alarm and return the namespace :)
