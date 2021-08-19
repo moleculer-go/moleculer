@@ -6,7 +6,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
-	github.com/hashicorp/go-uuid v1.0.2 // indirect
+	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/raft v1.0.1 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/moleculer-go/cupaloy/v2 v2.5.2
@@ -25,9 +25,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
-	github.com/tidwall/gjson v1.2.1
-	github.com/tidwall/match v1.0.1 // indirect
-	github.com/tidwall/pretty v1.1.0 // indirect
+	github.com/tidwall/gjson v1.8.1
 	github.com/tidwall/sjson v1.0.4
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
