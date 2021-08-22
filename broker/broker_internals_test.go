@@ -183,6 +183,7 @@ var _ = Describe("Broker Internals", func() {
 			//Scenario: same action music.start as before, but now we added a new broker and new service.
 			visualBroker.Call("music.start", verse)
 
+			time.Sleep(time.Millisecond)
 			Expect(counters.Check("music.start", 1)).ShouldNot(HaveOccurred())
 			Expect(counters.Check("music.music.verse", 1)).ShouldNot(HaveOccurred())
 			Expect(counters.Check("dj.music.verse", 1)).ShouldNot(HaveOccurred())
