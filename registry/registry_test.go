@@ -357,8 +357,6 @@ var _ = Describe("Registry", func() {
 			Expect(code.IsError()).Should(BeFalse())
 			Expect(code.String()).Should(Equal("🧠"))
 
-			time.Sleep(time.Millisecond)
-
 			//alarm.bell should not be accessible to the stage broker
 			stageAlarm := <-stageBroker.Call("alarm.bell", nil)
 			Expect(stageAlarm.IsError()).Should(BeTrue())
@@ -373,6 +371,7 @@ var _ = Describe("Registry", func() {
 			Expect(code.IsError()).Should(BeTrue())
 			Expect(code.Error().Error()).Should(Equal("Registry - endpoint not found for actionName: good.code namespace: stage"))
 
+			time.Sleep(time.Second)
 			//make sure 2 brokers on the same namespace can talk to each other
 			msg := <-stageBroker.Call("stage2.where", nil)
 			Expect(msg.String()).Should(Equal("🌏"))
