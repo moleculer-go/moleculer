@@ -1,5 +1,9 @@
 kind: pipeline
 name: default
+type: kubernetes
+
+platform:
+  os: linux
 
 services:
   - name: nats-streaming
