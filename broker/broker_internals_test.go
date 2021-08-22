@@ -317,6 +317,7 @@ var _ = Describe("Broker Internals", func() {
 			//remove one dj service
 			stormBroker.Stop()
 			counters.Clear()
+			time.Sleep(time.Millisecond)
 
 			Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
 			Expect(snap.SnapshotMulti("stormBroker-stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
