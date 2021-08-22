@@ -2,7 +2,7 @@ kind: pipeline
 name: default
 
 platform:
-  os: linux
+  arch: arm64
 
 services:
   - name: nats-streaming
