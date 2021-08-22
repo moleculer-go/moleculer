@@ -1,9 +1,6 @@
 kind: pipeline
 name: default
 
-platform:
-  arch: arm64
-
 services:
   - name: nats-streaming
     image: nats-streaming
