@@ -323,6 +323,7 @@ var _ = Describe("Broker Internals", func() {
 
 			aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
+			time.Sleep(time.Millisecond)
 			Expect(counters.Check("dj.music.tone", 1)).ShouldNot(HaveOccurred())
 			Expect(counters.Check("vj.music.tone", 2)).ShouldNot(HaveOccurred())
 

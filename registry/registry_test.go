@@ -375,7 +375,6 @@ var _ = Describe("Registry", func() {
 
 			//make sure 2 brokers on the same namespace can talk to each other
 			msg := <-stageBroker.Call("stage2.where", nil)
-			Expect(msg.IsError()).Should(BeFalse())
 			Expect(msg.String()).Should(Equal("🌏"))
 
 			devBroker.Stop()
