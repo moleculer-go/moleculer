@@ -2,16 +2,16 @@ kind: pipeline
 name: default
 type: kubernetes
 
-# platform:
-#   os: linux
-#   arch: amd64
-
 steps:
 - name: greeting
   image: alpine
   commands:
   - echo helloUUUU
   - echo world
+
+# platform:
+#   os: linux
+#   arch: amd64
 
 # services:
 #   - name: nats-streaming
