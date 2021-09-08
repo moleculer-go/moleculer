@@ -15,6 +15,7 @@ import (
 
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/transit"
+	"github.com/moleculer-go/moleculer/transit/kafka"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	"github.com/moleculer-go/moleculer/transit/nats"
 	"github.com/moleculer-go/moleculer/util"
@@ -155,6 +156,10 @@ func isNats(v string) bool {
 	return strings.Index(v, "nats://") > -1
 }
 
+func isKafka(v string) bool {
+	return strings.Contains(v, "kafka://")
+}
+
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
 func (pubsub *PubSub) createTransport() transit.Transport {
@@ -168,7 +173,9 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 	} else if isNats(pubsub.broker.Config.Transporter) {
 		pubsub.logger.Info("Transporter: NatsTransporter")
 		transport = pubsub.createNatsTransporter()
-
+	} else if isKafka(pubsub.broker.Config.Transporter) {
+		pubsub.logger.Info("Transporter: KafkaTransporter")
+		transport = pubsub.createKafkaTransporter()
 	} else {
 		pubsub.logger.Info("Transporter: Memory")
 		transport = pubsub.createMemoryTransporter()
@@ -191,6 +198,17 @@ func (pubsub *PubSub) createMemoryTransporter() transit.Transport {
 	logger := pubsub.logger.WithField("transport", "memory")
 	mem := memory.Create(logger, &memory.SharedMemory{})
 	return &mem
+}
+
+func (pubsub *PubSub) createKafkaTransporter() transit.Transport {
+	pubsub.logger.Debug("createKafkaTransporter()")
+
+	return kafka.CreateKafkaTransporter(kafka.KafkaOptions{
+		Url:        pubsub.broker.Config.Transporter,
+		Name:       pubsub.broker.LocalNode().GetID(),
+		Logger:     pubsub.logger.WithField("transport", "kafka"),
+		Serializer: pubsub.serializer,
+	})
 }
 
 func (pubsub *PubSub) createNatsTransporter() transit.Transport {
