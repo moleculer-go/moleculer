@@ -117,7 +117,7 @@ func (actionCatalog *ActionCatalog) Add(action service.Action, serv *service.Ser
 	name := action.FullName()
 	ver := serv.Version()
 	if ver != "" && !strings.HasPrefix(name, ver) {
-		name = service.JoinVersionToName(name, ver)
+		name = service.JoinVersionToName(name, "v"+ver)
 	}
 	list, exists := actionCatalog.actions.Load(name)
 	if !exists {
