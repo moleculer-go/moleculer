@@ -36,7 +36,7 @@ steps:
       - go get github.com/onsi/ginkgo/ginkgo@v1.16.2
       - go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
       - go build
-      - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace -skipPackage=amqp
+      - go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace -skipPackage=amqp,kafka
       # - curl -sL https://deb.nodesource.com/setup_12.x | bash -
       # - apt-get update
       # - apt-get install -y nodejs
