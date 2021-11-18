@@ -32,7 +32,7 @@ steps:
       - export KAFKA_HOST="kafka"
       - apt-get update
       - apt-get install -y kafkacat
-      - while ! kcat -b kafka:9092 -L ; do sleep 1; done
+      - while ! kafkacat -b kafka:9092 -L ; do sleep 1; done
       - go get github.com/onsi/ginkgo/ginkgo@v1.16.2
       - go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
       - go build
