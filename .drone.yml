@@ -12,6 +12,10 @@ services:
     image: rabbitmq
     ports:
       - 5672
+  - name: kafka
+    image: quay.io/ukhomeofficedigital/kafkazoo
+    ports:
+      - 9092
 
 steps:
   - name: tests
@@ -25,6 +29,7 @@ steps:
       - export STAN_HOST="nats-streaming"
       - export NATS_HOST="nats-streaming"
       - export AMQP_HOST="guest:guest@rabbitmq"
+      - export KAFKA_HOST="kafka"
       - go get github.com/onsi/ginkgo/ginkgo@v1.16.2
       - go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
       - go build
