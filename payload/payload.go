@@ -470,6 +470,13 @@ func splitIndex(s string) (key string, index int) {
 }
 
 func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payload {
+	if _, ok := p.mapGet(s); ok {
+		if defaultValue != nil {
+			return p.getKey(s, defaultValue...)
+		}
+		return p.getKey(s)
+	}
+
 	//check if is a path of key
 	if isPath(s) {
 		if defaultValue != nil {

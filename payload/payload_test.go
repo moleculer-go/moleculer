@@ -395,4 +395,11 @@ var _ = Describe("Payload", func() {
 
 		Expect(p.Get("address.options[10].label").Exists()).Should(BeFalse())
 	})
+
+	It("should deal field paths name.subname...", func() {
+		p := New(M{
+			"address.street": "jonny ave",
+		})
+		Expect(p.Get("address.street").String()).Should(Equal("jonny ave"))
+	})
 })
