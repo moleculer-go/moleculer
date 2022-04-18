@@ -6,7 +6,7 @@ func Moleculer() string {
 }
 
 func MoleculerProtocol() string {
-	return "3"
+	return "4"
 }
 
 func Go() string {

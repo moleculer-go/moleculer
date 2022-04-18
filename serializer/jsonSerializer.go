@@ -31,8 +31,8 @@ func CreateJSONSerializer(logger *log.Entry) JSONSerializer {
 	return JSONSerializer{logger}
 }
 
-// mapToContext make sure all value types are compatible with the context fields.
-func (serializer JSONSerializer) contextMap(values map[string]interface{}) map[string]interface{} {
+// cleanContextMap make sure all value types are compatible with the context fields.
+func (serializer JSONSerializer) cleanContextMap(values map[string]interface{}) map[string]interface{} {
 	if values["level"] != nil {
 		values["level"] = int(values["level"].(float64))
 	}
@@ -249,7 +249,7 @@ func (serializer JSONSerializer) MapToPayload(mapValue *map[string]interface{}) 
 }
 
 func (serializer JSONSerializer) PayloadToContextMap(message moleculer.Payload) map[string]interface{} {
-	return serializer.contextMap(message.RawMap())
+	return serializer.cleanContextMap(message.RawMap())
 }
 
 func (jp JSONPayload) Get(path string, defaultValue ...interface{}) moleculer.Payload {

@@ -171,7 +171,7 @@ var DefaultConfig = Config{
 	RetryPolicy: RetryPolicy{
 		Enabled: false,
 	},
-	RequestTimeout:            1 * time.Minute,
+	RequestTimeout:            3 * time.Second,
 	MCallTimeout:              5 * time.Second,
 	WaitForNeighboursInterval: 200 * time.Millisecond,
 }
@@ -203,6 +203,7 @@ type LoggerFunc func(name string, value string) *log.Entry
 type BusFunc func() *bus.Emitter
 type isStartedFunc func() bool
 type LocalNodeFunc func() Node
+type InstanceIDFunc func() string
 type ActionDelegateFunc func(context BrokerContext, opts ...Options) chan Payload
 type EmitEventFunc func(context BrokerContext)
 type ServiceForActionFunc func(string) []*ServiceSchema
@@ -261,6 +262,7 @@ type BrokerContext interface {
 	Payload() Payload
 	Groups() []string
 	IsBroadcast() bool
+	Caller() string
 
 	//export context info in a map[string]
 	AsMap() map[string]interface{}
@@ -280,6 +282,7 @@ type BrokerContext interface {
 
 //Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
 type BrokerDelegates struct {
+	InstanceID         InstanceIDFunc
 	LocalNode          LocalNodeFunc
 	Logger             LoggerFunc
 	Bus                BusFunc

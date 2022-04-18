@@ -39,6 +39,9 @@ var _ = Describe("PubSub Internals", func() {
 				LocalNode: func() moleculer.Node {
 					return &localNode
 				},
+				InstanceID: func() string {
+					return "instance-id"
+				},
 			},
 			transport:     mockT,
 			brokerStarted: true,
@@ -76,6 +79,9 @@ var _ = Describe("PubSub Internals", func() {
 			broker: &moleculer.BrokerDelegates{
 				LocalNode: func() moleculer.Node {
 					return &localNode
+				},
+				InstanceID: func() string {
+					return "instance-id"
 				},
 			},
 			transport: mockT,

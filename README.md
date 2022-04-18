@@ -19,8 +19,6 @@ Simple, fast, light and fun to develop with. Also easy, very easy to test ;)
 
 - [http://gomicro.services (Official site and Documentation)](http://gomicro.services)
 - [Database examples](https://moleculer-go-site.herokuapp.com/docs/0.1/store.html)
-- [WhatsApp App](https://github.com/moleculer-go/example-whatsapp)
-- [Benchmark](https://github.com/moleculer-go/benchmark)
 
 ## Example
 
@@ -65,11 +63,7 @@ func main() {
 
 # Roadmap
 
-![Timeline](https://moleculer-go-site.herokuapp.com/images/timeline.png)
-
 ## v0.1.0 (MVP)
-
-Development is `complete` - Documentation is `in-progress` and benchmark is also `in-progress`.
 
 **Contents:**
 
@@ -99,7 +93,7 @@ Development is `complete` - Documentation is `in-progress` and benchmark is also
 ## v0.3.0 (Beta)
 
 - Performance and Optimization
-- More DB Adaptors (SQLLite, Firebase, MySQL)
+- More DB Adaptors (Firebase, MySQL)
 - CLI for Project Seed Generation
 
 ## v0.4.0 (Alpha)

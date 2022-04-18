@@ -154,6 +154,8 @@ func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap["cpu"] = node.cpu
 	resultMap["cpuSeq"] = node.cpuSequence
 	resultMap["available"] = node.IsAvailable()
+	resultMap["metadata"] = make(map[string]interface{})
+
 	return resultMap
 }
 

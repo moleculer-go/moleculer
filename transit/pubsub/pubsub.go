@@ -17,6 +17,7 @@ import (
 	"github.com/moleculer-go/moleculer/transit"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	"github.com/moleculer-go/moleculer/transit/nats"
+	"github.com/moleculer-go/moleculer/util"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/serializer"
@@ -38,6 +39,11 @@ type PubSub struct {
 	neighboursMutex   *sync.Mutex
 	brokerStarted     bool
 }
+
+const DATATYPE_UNDEFINED = 0
+const DATATYPE_NULL = 1
+const DATATYPE_JSON = 2
+const DATATYPE_BUFFER = 3
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
 	if pubsub.isConnected && pubsub.brokerStarted {
@@ -302,6 +308,11 @@ func (pubsub *PubSub) Emit(context moleculer.BrokerContext) {
 	payload := context.AsMap()
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
 	payload["ver"] = version.MoleculerProtocol()
+	if context.Payload().Exists() {
+		payload["dataType"] = DATATYPE_JSON
+	} else {
+		payload["dataType"] = DATATYPE_NULL
+	}
 
 	pubsub.logger.Trace("Emit() targetNodeID: ", targetNodeID, " payload: ", payload)
 
@@ -322,6 +333,11 @@ func (pubsub *PubSub) Request(context moleculer.BrokerContext) chan moleculer.Pa
 	payload := context.AsMap()
 	payload["sender"] = pubsub.broker.LocalNode().GetID()
 	payload["ver"] = version.MoleculerProtocol()
+	if context.Payload().Exists() {
+		payload["paramsType"] = DATATYPE_JSON
+	} else {
+		payload["paramsType"] = DATATYPE_NULL
+	}
 
 	pubsub.logger.Trace("Request() targetNodeID: ", targetNodeID, " payload: ", payload)
 
@@ -445,6 +461,12 @@ func (pubsub *PubSub) sendResponse(context moleculer.BrokerContext, response mol
 	values["id"] = context.ID()
 	values["meta"] = context.Meta()
 
+	if response.Exists() {
+		values["dataType"] = DATATYPE_JSON
+	} else {
+		values["dataType"] = DATATYPE_NULL
+	}
+
 	if response.IsError() {
 		var errMap map[string]string
 		actionError, isActionError := response.Value().(ActionError)
@@ -483,12 +505,28 @@ type ActionError interface {
 	Stack() string
 }
 
+func parseParamsType(value moleculer.Payload) string {
+	if !value.Exists() {
+		return "1" //default : null
+	}
+	return value.String()
+}
+
 // requestHandler : handles when a request arrives on this node.
 // 1: create a moleculer.Context from the message, the moleculer.Context contains the target action
 // 2: invoke the action
 // 3: send a response
 func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
+		paramsType := parseParamsType(message.Get("paramsType"))
+		if paramsType != "1" && paramsType != "2" {
+			errMsg := "Expecting paramsType == 2 (JSON) or 1 (Null) - received: " + paramsType
+			pubsub.logger.Error(errMsg)
+			//currently there is only one serializer implementation.
+			//once more serializers are added, pubsub.serializer must change and be dinamic based on paramsType
+			pubsub.sendResponse(context.ActionContext(pubsub.broker, nil), payload.Error(errMsg))
+			return
+		}
 		values := pubsub.serializer.PayloadToContextMap(message)
 		context := context.ActionContext(pubsub.broker, values)
 		result := <-pubsub.broker.ActionDelegate(context)
@@ -526,12 +564,23 @@ func (pubsub *PubSub) neighbours() int64 {
 	return int64(len(pubsub.knownNeighbours))
 }
 
+func configToMap(config moleculer.Config) map[string]string {
+	m := make(map[string]string)
+	m["logLevel"] = config.LogLevel
+	m["transporter"] = config.Transporter
+	m["namespace"] = config.Namespace
+	m["requestTimeout"] = config.RequestTimeout.String()
+	return m
+}
+
 // broadcastNodeInfo send the local node info to the target node, if empty to all nodes.
 func (pubsub *PubSub) broadcastNodeInfo(targetNodeID string) {
 	payload := pubsub.broker.LocalNode().ExportAsMap()
 	payload["sender"] = payload["id"]
 	payload["neighbours"] = pubsub.neighbours()
 	payload["ver"] = version.MoleculerProtocol()
+	payload["config"] = configToMap(pubsub.broker.Config)
+	payload["instanceID"] = pubsub.broker.InstanceID()
 
 	message, _ := pubsub.serializer.MapToPayload(&payload)
 	pubsub.transport.Publish("INFO", targetNodeID, message)
@@ -563,6 +612,7 @@ func (pubsub *PubSub) SendPing() {
 	ping["sender"] = sender
 	ping["ver"] = version.MoleculerProtocol()
 	ping["time"] = time.Now().Unix()
+	ping["id"] = util.RandomString(12)
 	pingMessage, _ := pubsub.serializer.MapToPayload(&ping)
 	pubsub.transport.Publish("PING", sender, pingMessage)
 
@@ -576,6 +626,7 @@ func (pubsub *PubSub) pingHandler() transit.TransportHandler {
 		pong["ver"] = version.MoleculerProtocol()
 		pong["time"] = message.Get("time").Int()
 		pong["arrived"] = time.Now().Unix()
+		pong["id"] = util.RandomString(12)
 
 		pongMessage, _ := pubsub.serializer.MapToPayload(&pong)
 		pubsub.transport.Publish("PONG", sender, pongMessage)
@@ -594,6 +645,7 @@ func (pubsub *PubSub) pongHandler() transit.TransportHandler {
 		mapValue["nodeID"] = message.Get("sender").String()
 		mapValue["elapsedTime"] = elapsed
 		mapValue["timeDiff"] = timeDiff
+		mapValue["id"] = message.Get("id").String()
 
 		pubsub.broker.Bus().EmitAsync("$node.pong", []interface{}{mapValue})
 	}
