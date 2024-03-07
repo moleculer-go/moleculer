@@ -1,0 +1,50 @@
+([][]map[string]interface {}) (len=4) {
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=6) {
+      (string) (len=4) "name": (string) (len=3) "cpu",
+      (string) (len=7) "version": (string) "",
+      (string) (len=8) "hasLocal": (bool) true,
+      (string) (len=8) "metadata": (map[string]interface {}) {
+      },
+      (string) (len=8) "settings": (map[string]interface {}) {
+      },
+      (string) (len=9) "available": (bool) true
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=6) {
+      (string) (len=4) "name": (string) (len=5) "$node",
+      (string) (len=7) "version": (string) "",
+      (string) (len=8) "hasLocal": (bool) true,
+      (string) (len=8) "metadata": (map[string]interface {}) {
+      },
+      (string) (len=8) "settings": (map[string]interface {}) {
+      },
+      (string) (len=9) "available": (bool) true
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=6) {
+      (string) (len=4) "name": (string) (len=7) "printer",
+      (string) (len=7) "version": (string) "",
+      (string) (len=8) "hasLocal": (bool) true,
+      (string) (len=8) "metadata": (map[string]interface {}) {
+      },
+      (string) (len=8) "settings": (map[string]interface {}) {
+      },
+      (string) (len=9) "available": (bool) true
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=6) {
+      (string) (len=4) "name": (string) (len=7) "scanner",
+      (string) (len=7) "version": (string) "",
+      (string) (len=8) "hasLocal": (bool) false,
+      (string) (len=8) "metadata": (map[string]interface {}) {
+      },
+      (string) (len=8) "settings": (map[string]interface {}) {
+      },
+      (string) (len=9) "available": (bool) true
+    }
+  }
+}

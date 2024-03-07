@@ -1,0 +1,38 @@
+([][]map[string]interface {}) (len=4) {
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=7) {
+      (string) (len=4) "name": (string) (len=5) "$node",
+      (string) (len=6) "events": (map[string]map[string]interface {}) {
+      },
+      (string) (len=7) "version": (string) "",
+      (string) (len=8) "hasLocal": (bool) true,
+      (string) (len=8) "metadata": (map[string]interface {}) {
+      },
+      (string) (len=8) "settings": (map[string]interface {}) {
+      },
+      (string) (len=9) "available": (bool) true
+    }
+  },
+  ([]map[string]interface {}) (len=1) {
+    (map[string]interface {}) (len=7) {
+      (string) (len=4) "name": (string) (len=7) "printer",
+      (string) (len=6) "events": (map[string]map[string]interface {}) (len=1) {
+        (string) (len=7) "printed": (map[string]interface {}) (len=2) {
+          (string) (len=4) "name": (string) (len=7) "printed",
+          (string) (len=5) "group": (string) (len=7) "printer"
+        }
+      },
+      (string) (len=7) "version": (string) "",
+      (string) (len=8) "hasLocal": (bool) true,
+      (string) (len=8) "metadata": (map[string]interface {}) {
+      },
+      (string) (len=8) "settings": (map[string]interface {}) {
+      },
+      (string) (len=9) "available": (bool) true
+    }
+  },
+  ([]map[string]interface {}) {
+  },
+  ([]map[string]interface {}) {
+  }
+}

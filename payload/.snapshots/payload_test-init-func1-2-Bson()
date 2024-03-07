@@ -1,0 +1,6 @@
+(primitive.M) (len=4) {
+  (string) (len=4) "name": (string) (len=4) "John",
+  (string) (len=6) "Winter": (string) (len=10) "is coming!",
+  (string) (len=7) "faction": (string) (len=5) "Stark",
+  (string) (len=8) "lastname": (string) (len=4) "Snow"
+}

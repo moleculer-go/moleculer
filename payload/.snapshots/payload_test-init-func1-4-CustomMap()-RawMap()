@@ -1,0 +1,16 @@
+(map[string]interface {}) (len=3) {
+  (string) (len=3) "sub": (payload_test.customMap) (len=3) {
+    (string) (len=3) "sub": (payload_test.customMap) (len=1) {
+      (string) (len=5) "level": (int) 2
+    },
+    (string) (len=5) "level": (int) 1,
+    (string) (len=7) "subList": (payload_test.customArray) (len=1) {
+      (map[string]interface {}) (len=2) {
+        (string) (len=4) "name": (string) (len=28) "sub item inside custom array",
+        (string) (len=5) "level": (int) 3
+      }
+    }
+  },
+  (string) (len=4) "name": (string) (len=4) "John",
+  (string) (len=8) "lastname": (string) (len=4) "Snow"
+}

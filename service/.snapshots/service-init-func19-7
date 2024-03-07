@@ -1,0 +1,16 @@
+([]moleculer.Action) (len=2) {
+  (moleculer.Action) {
+    Name: (string) (len=4) "tide",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  },
+  (moleculer.Action) {
+    Name: (string) (len=6) "rotate",
+    Handler: (moleculer.ActionHandler) <moleculer.ActionHandler Value>,
+    Schema: (moleculer.ActionSchema) <nil>,
+    Settings: (map[string]interface {}) <nil>,
+    Description: (string) ""
+  }
+}
