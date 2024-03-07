@@ -13,8 +13,8 @@ type NodeMock struct {
 	PublishCalls          int
 }
 
-func (node *NodeMock) Update(id string, info map[string]interface{}) bool {
-	return node.UpdateResult
+func (node *NodeMock) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
+	return node.UpdateResult, []map[string]interface{}{}
 }
 
 func (node *NodeMock) Unavailable() {

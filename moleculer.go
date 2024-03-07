@@ -226,7 +226,7 @@ type Node interface {
 	Available()
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
-	Update(id string, info map[string]interface{}) bool
+	Update(id string, info map[string]interface{}) (bool, []map[string]interface{})
 
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
@@ -280,7 +280,7 @@ type BrokerContext interface {
 	WaitFor(services ...string) error
 }
 
-//Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
+// Needs Refactoring..2 broker interfaces.. one for regiwstry.. and for for all others.
 type BrokerDelegates struct {
 	InstanceID         InstanceIDFunc
 	LocalNode          LocalNodeFunc

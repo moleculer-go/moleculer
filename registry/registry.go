@@ -419,9 +419,12 @@ func compatibility(info map[string]interface{}) map[string]interface{} {
 func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
 	registry.nodeReceivedMutex.Lock()
 	defer registry.nodeReceivedMutex.Unlock()
+
+	msgMap := message.RawMap()
 	nodeID := message.Get("sender").String()
 	services := message.Get("services").MapArray()
-	exists, reconnected := registry.nodes.Info(message.RawMap())
+	exists, reconnected, removedServices := registry.nodes.Info(msgMap)
+
 	for _, serviceInfo := range services {
 		serviceInfo = compatibility(serviceInfo)
 		svc, newService, updatedActions, newActions, deletedActions, updatedEvents, newEvents, deletedEvents := registry.services.updateRemote(nodeID, serviceInfo)
@@ -470,6 +473,11 @@ func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payloa
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.added",
 				[]interface{}{svc.Summary()})
+		}
+
+		for _, removedService := range removedServices {
+			name := removedService["name"].(string)
+			registry.services.Remove(nodeID, name)
 		}
 	}
 

@@ -221,7 +221,11 @@ func (broker *ServiceBroker) createBrokerLogger() *log.Entry {
 	if strings.ToUpper(broker.config.LogFormat) == "JSON" {
 		log.SetFormatter(&log.JSONFormatter{})
 	} else {
-		log.SetFormatter(&log.TextFormatter{})
+		log.SetFormatter(&log.TextFormatter{
+			DisableColors:             false,
+			ForceColors:               true,
+			EnvironmentOverrideColors: true,
+		})
 	}
 
 	if strings.ToUpper(broker.config.LogLevel) == "WARN" {
@@ -308,7 +312,7 @@ func (broker *ServiceBroker) KnowAction(action string) bool {
 	return broker.registry.KnowAction(action)
 }
 
-//WaitForActions : wait for all actions to be available
+// WaitForActions : wait for all actions to be available
 func (broker *ServiceBroker) WaitForActions(actions ...string) error {
 	for _, action := range actions {
 		if err := broker.waitAction(action); err != nil {
@@ -318,7 +322,7 @@ func (broker *ServiceBroker) WaitForActions(actions ...string) error {
 	return nil
 }
 
-//waitForService wait for a service to be available
+// waitForService wait for a service to be available
 func (broker *ServiceBroker) waitForService(service string) error {
 	start := time.Now()
 	for {
@@ -335,7 +339,7 @@ func (broker *ServiceBroker) waitForService(service string) error {
 	return nil
 }
 
-//waitAction wait for an action to be available
+// waitAction wait for an action to be available
 func (broker *ServiceBroker) waitAction(action string) error {
 	start := time.Now()
 	for {
@@ -352,7 +356,7 @@ func (broker *ServiceBroker) waitAction(action string) error {
 	return nil
 }
 
-//waitForNode wait for a node to be available
+// waitForNode wait for a node to be available
 func (broker *ServiceBroker) waitForNode(nodeID string) error {
 	start := time.Now()
 	for {

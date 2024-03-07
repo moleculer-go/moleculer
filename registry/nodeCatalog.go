@@ -75,16 +75,17 @@ func (catalog *NodeCatalog) Add(node moleculer.Node) {
 }
 
 // Info : process info received about a NODE. It can be new, update to existing
-func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool) {
+func (catalog *NodeCatalog) Info(info map[string]interface{}) (bool, bool, []map[string]interface{}) {
 	sender := info["sender"].(string)
 	node, exists := catalog.findNode(sender)
 	var reconnected bool
+	removedServices := []map[string]interface{}{}
 	if exists {
-		reconnected = node.Update(sender, info)
+		reconnected, removedServices = node.Update(sender, info)
 	} else {
 		node := CreateNode(sender, false, catalog.logger.WithField("remote-node", sender))
 		node.Update(sender, info)
 		catalog.Add(node)
 	}
-	return exists, reconnected
+	return exists, reconnected, removedServices
 }

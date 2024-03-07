@@ -127,6 +127,29 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []*service.Ser
 	return removed
 }
 
+// Remove service for the given nodeID and service name.
+func (serviceCatalog *ServiceCatalog) Remove(nodeID string, name string) []*service.Service {
+	var removed []*service.Service
+	serviceCatalog.logger.Debug("Remove() params -> nodeID:", nodeID, " name:", name)
+	var keysRemove []string
+
+	serviceCatalog.services.Range(func(key, value interface{}) bool {
+		service := value.(ServiceEntry)
+		serviceCatalog.logger.Debug("service.nodeID:", service.nodeID, " service.service.Name():", service.service.Name())
+		if service.nodeID == nodeID && service.service.Name() == name {
+			service := value.(ServiceEntry)
+			removed = append(removed, service.service)
+			keysRemove = append(keysRemove, key.(string))
+		}
+		return true
+	})
+	serviceCatalog.logger.Debug("keysRemove: ", keysRemove)
+	for _, key := range keysRemove {
+		serviceCatalog.services.Delete(key)
+	}
+	return removed
+}
+
 // Add : add a service to the catalog.
 func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 	nodeID := service.NodeID()

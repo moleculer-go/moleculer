@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/util"
 	"github.com/moleculer-go/moleculer/version"
 	log "github.com/sirupsen/logrus"
 )
@@ -79,11 +80,13 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 	return result
 }
 
-func (node *Node) Update(id string, info map[string]interface{}) bool {
+func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
 	if id != node.id {
 		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
 	}
-	node.logger.Debug("node.Update() info: ", info)
+	node.logger.Debug("node.Update() - info:")
+	node.logger.Debug(util.PrettyPrintMap(info))
+
 	reconnected := !node.isAvailable
 
 	node.isAvailable = true
@@ -94,31 +97,53 @@ func (node *Node) Update(id string, info map[string]interface{}) bool {
 	node.hostname = info["hostname"].(string)
 	node.client = info["client"].(map[string]interface{})
 
-	node.services = filterServices(info)
-	node.logger.Debug("node.Update() node.services: ", node.services)
+	services, removedServices := FilterServices(node.services, info)
+	node.logger.Debug("removedServices:", util.PrettyPrintMap(removedServices))
 
+	node.services = services
 	node.sequence = int64Field(info, "seq", 0)
 	node.cpu = int64Field(info, "cpu", 0)
 	node.cpuSequence = int64Field(info, "cpuSeq", 0)
 
-	return reconnected
+	return reconnected, removedServices
 }
 
-// filterServices return all services excluding local services (example: $node)
-func filterServices(info map[string]interface{}) []map[string]interface{} {
+// FilterServices return all services excluding local services (example: $node) and return all removed services, services that existed in the currentServices list but
+// no longer exist in th new list coming from the info package
+func FilterServices(currentServices []map[string]interface{}, info map[string]interface{}) ([]map[string]interface{}, []map[string]interface{}) {
 	item, ok := info["services"]
-	var items []interface{}
+	var incomingServices []interface{}
 	if ok {
-		items = item.([]interface{})
+		incomingServices = item.([]interface{})
 	}
-	services := make([]map[string]interface{}, len(items))
-	for index, item := range items {
-		m := item.(map[string]interface{})
-		if strings.Index(m["name"].(string), "$") == -1 {
-			services[index] = m
+	//get current services
+	services := []map[string]interface{}{}
+	for _, item := range incomingServices {
+		incomingService := item.(map[string]interface{})
+		incomingName := incomingService["name"].(string)
+		if strings.Index(incomingName, "$") == 0 {
+			//ignore services prefixed with $ (e.g. $node)
+			continue
+		}
+		services = append(services, incomingService)
+	}
+	//check for removed services
+	removedServices := []map[string]interface{}{}
+	for _, currentService := range currentServices {
+		currentName := currentService["name"].(string)
+
+		removed := true
+		for _, service := range services {
+			if currentName == service["name"].(string) {
+				removed = false
+				break
+			}
+		}
+		if removed {
+			removedServices = append(removedServices, currentService)
 		}
 	}
-	return services
+	return services, removedServices
 }
 
 func int64Field(values map[string]interface{}, field string, def int64) int64 {
@@ -188,12 +213,12 @@ func (node *Node) IsAvailable() bool {
 	return node.isLocal || node.isAvailable
 }
 
-//Unavailable mark the node as unavailable
+// Unavailable mark the node as unavailable
 func (node *Node) Unavailable() {
 	node.isAvailable = false
 }
 
-//Unavailable mark the node as available
+// Unavailable mark the node as available
 func (node *Node) Available() {
 	node.isAvailable = true
 }

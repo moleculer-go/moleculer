@@ -143,7 +143,7 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 				Name:        "services",
 				Description: "Find and return a list of services in the registry of this service broker.",
 				Schema: moleculer.ObjectSchema{
-					struct {
+					Source: struct {
 						withActions   bool
 						withEndpoints bool
 						withEvents    bool `required:"true"`
