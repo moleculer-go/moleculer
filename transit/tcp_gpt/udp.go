@@ -44,8 +44,10 @@ func (u *UdpServer) Bind() error {
 	}
 	u.conn = conn
 
+	//fiund our the internface (from interfaces, err := net.Interfaces() ) that corresponds to the addr ip address.
+
 	if u.opts.Multicast != "" {
-		err := u.joinMulticastGroup()
+		err := u.joinMulticastGroup()//sewndxnthe interface used bny the ser here (where is listening the UDP)
 		if err != nil {
 			u.logger.Println("Error joining multicast group:", err)
 			// Handle non-fatal error, as we can continue in broadcast mode
@@ -68,8 +70,9 @@ func (u *UdpServer) handleIncomingMessages() {
 			continue
 		}
 		message := string(buffer[:n])
-		u.logger.Printf("Received message from %s: %s", addr.String(), message)
+		u.logger.Debug("Received message from %s: %s", addr.String(), message)
 		// Process message here
+
 	}
 }
 
@@ -109,7 +112,29 @@ func (u *UdpServer) joinMulticastGroup() error {
 	if multicastAddr == nil {
 		return fmt.Errorf("invalid multicast address: %s", u.opts.Multicast)
 	}
-	iface, err := net.InterfaceByName("eth0") // Specify the appropriate interface, or iterate over all if needed
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return fmt.Errorf("failed to get interfaces: %v", err)
+	}
+
+	p := ipv4.NewPacketConn(u.conn)
+
+	for _, iface := range interfaces {
+		if err := p.JoinGroup(&iface, &net.UDPAddr{IP: multicastAddr}); err != nil {
+			u.logger.Printf("failed to join multicast group on interface %s: %v", iface.Name, err)
+			continue
+		}
+		if err := p.SetMulticastLoopback(true); err != nil {
+			u.logger.Printf("failed to set multicast loopback on interface %s: %v", iface.Name, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+	iface, err := net.InterfaceByName("eth0")
 	if err != nil {
 		return fmt.Errorf("failed to get interface: %v", err)
 	}

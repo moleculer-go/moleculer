@@ -18,6 +18,7 @@ import (
 	"github.com/moleculer-go/moleculer/transit/kafka"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	"github.com/moleculer-go/moleculer/transit/nats"
+	"github.com/moleculer-go/moleculer/transit/tcp"
 	"github.com/moleculer-go/moleculer/util"
 
 	"github.com/moleculer-go/moleculer"
@@ -170,6 +171,9 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 	} else if pubsub.broker.Config.Transporter == "STAN" {
 		pubsub.logger.Info("Transporter: NatsStreamingTransporter")
 		transport = pubsub.createStanTransporter()
+	} else if pubsub.broker.Config.Transporter == "TCP" {
+		pubsub.logger.Info("Transporter: TCP")
+		transport = pubsub.createTCPTransporter()
 	} else if isNats(pubsub.broker.Config.Transporter) {
 		pubsub.logger.Info("Transporter: NatsTransporter")
 		transport = pubsub.createNatsTransporter()
@@ -213,7 +217,6 @@ func (pubsub *PubSub) createKafkaTransporter() transit.Transport {
 
 func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 	pubsub.logger.Debug("createNatsTransporter()")
-
 	return nats.CreateNatsTransporter(nats.NATSOptions{
 		URL:            pubsub.broker.Config.Transporter,
 		Name:           pubsub.broker.LocalNode().GetID(),
@@ -223,6 +226,51 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 		ReconnectWait:  time.Second * 2,
 		MaxReconnect:   -1,
 	})
+}
+
+func (pubsub *PubSub) createTCPTransporter() transit.Transport {
+	pubsub.logger.Debug("createTCPTransporter()")
+	tcpTransporter := tcp.CreateTCPTransporter(tcp.TCPOptions{
+		// Enable UDP discovery
+		UdpDiscovery: true,
+		// Reusing UDP server socket
+		UdpReuseAddr: true,
+
+		// UDP port
+		UdpPort: 4445,
+		// UDP bind address (if null, bind on all interfaces)
+		UdpBindAddress: "",
+		// UDP sending period (seconds)
+		UdpPeriod: 30,
+
+		// Multicast address.
+		UdpMulticast: "239.0.0.0",
+		// Multicast TTL setting
+		UdpMulticastTTL: 1,
+
+		// Send broadcast (Boolean, String, Array<String>)
+		UdpBroadcast: false,
+
+		// TCP server port.  0 means random port
+		Port: 0,
+		// Static remote nodes address list (when UDP discovery is not available)
+		Urls: []string{},
+		// Use hostname as preffered connection address
+		UseHostname: true,
+
+		// Gossip sending period in seconds
+		GossipPeriod: 2,
+		// Maximum enabled outgoing connections. If reach, close the old connections
+		MaxConnections: 32,
+		// Maximum TCP packet size
+		MaxPacketSize: 1 * 1024 * 1024,
+
+		NodeId:     pubsub.broker.LocalNode().GetID(),
+		Logger:     pubsub.logger.WithField("transport", "tcp"),
+		Serializer: pubsub.serializer,
+	})
+	var transport transit.Transport = &tcpTransporter
+	return transport
 }
 
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
@@ -285,7 +333,7 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 	}
 }
 
-//DiscoverNodes will check if there are neighbours and return true if any are found ;).
+// DiscoverNodes will check if there are neighbours and return true if any are found ;).
 func (pubsub *PubSub) DiscoverNodes() chan bool {
 	result := make(chan bool)
 	go func() {
@@ -552,7 +600,7 @@ func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	}
 }
 
-//eventHandler handles when a event msg is sent to this broker
+// eventHandler handles when a event msg is sent to this broker
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
