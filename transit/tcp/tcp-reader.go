@@ -109,13 +109,13 @@ func (r *TcpReader) readMessage(conn net.Conn) (msgType int, msg []byte, err err
 
 		// If the buffer is larger than the max packet size, return an error
 		if r.maxPacketSize > 0 && len(buf) > r.maxPacketSize {
-			return 0, nil, fmt.Errorf("Incoming packet is larger than the 'maxPacketSize' limit (%d > %d)!", len(buf), r.maxPacketSize)
+			return 0, nil, fmt.Errorf("incoming packet is larger than the 'maxPacketSize' limit (%d > %d)", len(buf), r.maxPacketSize)
 		}
 
 		// Check the CRC
 		crc := buf[1] ^ buf[2] ^ buf[3] ^ buf[4] ^ buf[5]
 		if crc != buf[0] {
-			return 0, nil, fmt.Errorf("Invalid packet CRC! %d", crc)
+			return 0, nil, fmt.Errorf("invalid packet CRC %d", crc)
 		}
 
 		length := int(binary.BigEndian.Uint32(buf[1:]))

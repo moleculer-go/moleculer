@@ -11,6 +11,7 @@ import (
 type TCPTransporter struct {
 	options   TCPOptions
 	tcpReader *TcpReader
+	tcpWriter *TcpWriter
 	gossip    *Gossip
 
 	validateMsg transit.ValidateMsgFunc
@@ -149,6 +150,7 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 
 func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.options.Logger)
+	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.options.Logger)
 }
 
 func (transporter *TCPTransporter) startUDPServer() {
