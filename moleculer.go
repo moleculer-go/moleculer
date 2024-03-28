@@ -223,6 +223,7 @@ type Node interface {
 	GetID() string
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
+	GetIpList() []string
 	Available()
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
@@ -248,6 +249,11 @@ type Context interface {
 
 	Payload() Payload
 	Meta() Payload
+}
+
+type Registry interface {
+	GetNodeByID(nodeID string) Node
+	AddOfflineNode(nodeID, address string, port int) Node
 }
 
 type BrokerContext interface {

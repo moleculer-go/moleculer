@@ -1,6 +1,8 @@
 package tcp
 
 import (
+	"time"
+
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
@@ -12,7 +14,11 @@ type TCPTransporter struct {
 	options   TCPOptions
 	tcpReader *TcpReader
 	tcpWriter *TcpWriter
+	udpServer *UdpServer
 	gossip    *Gossip
+	registry  moleculer.Registry
+
+	logger *log.Entry
 
 	validateMsg transit.ValidateMsgFunc
 	serializer  serializer.Serializer
@@ -31,7 +37,9 @@ type TCPOptions struct {
 	// UDP bind address (if null, bind on all interfaces)
 	UdpBindAddress string
 	// UDP sending period (seconds)
-	UdpPeriod int
+	UdpPeriod time.Duration
+
+	UdpMaxDiscovery int
 
 	// Multicast address.
 	UdpMulticast string
@@ -39,8 +47,8 @@ type TCPOptions struct {
 	UdpMulticastTTL int
 
 	// Send broadcast (Boolean, String, Array<String>)
-	UdpBroadcast bool
-
+	UdpBroadcast      []string
+	UdpBroadcastAddrs []string
 	// TCP server port. Null or 0 means random port
 	Port int
 	// Static remote nodes address list (when UDP discovery is not available)
@@ -63,12 +71,13 @@ type TCPOptions struct {
 }
 
 func CreateTCPTransporter(options TCPOptions) TCPTransporter {
-	transport := TCPTransporter{options: options}
+	transport := TCPTransporter{options: options, logger: options.Logger}
 	return transport
 }
 
-func (transporter *TCPTransporter) Connect() chan error {
-	transporter.options.Logger.Info("TCP Transported Connect()")
+func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan error {
+	transporter.registry = registry
+	transporter.logger.Info("TCP Transported Connect()")
 	endChan := make(chan error)
 	go func() {
 		transporter.startTcpServer()
@@ -149,12 +158,70 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 }
 
 func (transporter *TCPTransporter) startTcpServer() {
-	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.options.Logger)
-	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.options.Logger)
+	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.logger.WithFields(log.Fields{
+		"TCPTransporter": "TCPReader",
+	}))
+	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
+		"TCPTransporter": "TCPWriter",
+	}))
 }
 
 func (transporter *TCPTransporter) startUDPServer() {
 
+	transporter.udpServer = NewUdpServer(UdpServerOptions{
+		Port:           transporter.options.UdpPort,
+		BindAddress:    transporter.options.UdpBindAddress,
+		Multicast:      transporter.options.UdpMulticast,
+		MulticastTTL:   transporter.options.UdpMulticastTTL,
+		BroadcastAddrs: transporter.options.UdpBroadcast,
+		DiscoverPeriod: transporter.options.UdpPeriod,
+		MaxDiscovery:   transporter.options.UdpMaxDiscovery,
+		Discovery:      transporter.options.UdpDiscovery,
+	}, transporter.logger.WithFields(log.Fields{
+		"TCPTransporter": "UdpServer",
+	}))
+
+	err := transporter.udpServer.Start()
+	if err != nil {
+		transporter.logger.Error("Error starting UDP server:", err)
+	}
+
+}
+
+func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int) {
+	if nodeID != "" && nodeID != transporter.options.NodeId {
+		transporter.logger.Debug(`UDP discovery received from ${address} on ${nodeID}.`)
+
+		node := transporter.registry.GetNodeByID(nodeID)
+		if node == nil {
+			// Unknown node. Register as offline node
+			node = transporter.registry.AddOfflineNode(nodeID, address, port)
+		} else if !node.IsAvailable() {
+			ipList := node.GetIpList()
+			found := false
+			for i, ip := range ipList {
+				if ip == address {
+					// Move the address to the front of the list
+					ipList = append([]string{address}, append(ipList[:i], ipList[i+1:]...)...)
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				// If the address is not in the list, add it to the front
+				ipList = append([]string{address}, ipList...)
+			}
+			node.Update(nodeID, map[string]interface{}{
+				"hostname": address,
+				"port":     port,
+				"ipList":   ipList,
+			})
+		}
+		node.Update(nodeID, map[string]interface{}{
+			"udpAddress": address,
+		})
+	}
 }
 
 func (transporter *TCPTransporter) startGossip() {

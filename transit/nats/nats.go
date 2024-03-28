@@ -57,7 +57,7 @@ func CreateNatsTransporter(options NATSOptions) transit.Transport {
 	}
 }
 
-func (t *NatsTransporter) Connect() chan error {
+func (t *NatsTransporter) Connect(registry moleculer.Registry) chan error {
 	endChan := make(chan error)
 	go func() {
 		t.logger.Debug("NATS Connect() - url: ", t.opts.Url, " Name: ", t.opts.Name)

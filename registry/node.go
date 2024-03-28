@@ -19,6 +19,8 @@ type Node struct {
 	sequence          int64
 	ipList            []string
 	hostname          string
+	udpAddress        string
+	port              int
 	client            map[string]interface{}
 	services          []map[string]interface{}
 	isAvailable       bool
@@ -80,6 +82,10 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 	return result
 }
 
+func (node *Node) GetIpList() []string {
+	return node.ipList
+}
+
 func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
 	if id != node.id {
 		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
@@ -95,6 +101,19 @@ func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[st
 
 	node.ipList = interfaceToString(info["ipList"].([]interface{}))
 	node.hostname = info["hostname"].(string)
+
+	if port, ok := info["port"]; ok {
+		node.port = port.(int)
+	}
+
+	if ipList, ok := info["ipList"]; ok {
+		node.ipList = ipList.([]string)
+	}
+
+	if udpAddress, ok := info["udpAddress"]; ok {
+		node.udpAddress = udpAddress.(string)
+	}
+
 	node.client = info["client"].(map[string]interface{})
 
 	services, removedServices := FilterServices(node.services, info)
@@ -174,6 +193,7 @@ func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap["services"] = node.services // node.removeInternalServices(node.services)
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname
+	resultMap["port"] = node.port
 	resultMap["client"] = node.client
 	resultMap["seq"] = node.sequence
 	resultMap["cpu"] = node.cpu

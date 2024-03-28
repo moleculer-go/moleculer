@@ -147,11 +147,16 @@ func (registry *ServiceRegistry) LocalServices() []*service.Service {
 	return []*service.Service{createNodeService(registry)}
 }
 
+func (registry *ServiceRegistry) GetNodeByID(nodeID string) moleculer.Node {
+	node, _ := registry.nodes.findNode(nodeID)
+	return node
+}
+
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
 	registry.stopping = false
-	err := <-registry.transit.Connect()
+	err := <-registry.transit.Connect(registry)
 	if err != nil {
 		panic(errors.New(fmt.Sprint("Could not connect to the transit. err: ", err)))
 	}
