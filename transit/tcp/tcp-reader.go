@@ -16,7 +16,7 @@ const (
 	CLOSED
 )
 
-type OnMessageFunc func(msgType int, msgBytes *[]byte)
+type OnMessageFunc func(fromAddrss string, msgType int, msgBytes *[]byte)
 
 type TcpReader struct {
 	port          int
@@ -77,7 +77,7 @@ func (r *TcpReader) handleConnection(conn net.Conn) {
 			r.logger.Errorf("Error reading message from '%s': %s", address, err)
 			break
 		}
-		r.onMessage(msgType, &msgBytes)
+		r.onMessage(address, msgType, &msgBytes)
 	}
 
 	r.closeSocket(conn)

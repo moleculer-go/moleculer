@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	payloadPkg "github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
 
@@ -15,7 +16,6 @@ type TCPTransporter struct {
 	tcpReader *TcpReader
 	tcpWriter *TcpWriter
 	udpServer *UdpServer
-	gossip    *Gossip
 	registry  moleculer.Registry
 
 	logger *log.Entry
@@ -101,20 +101,169 @@ const (
 	PACKET_GOSSIP_HELLO = 8
 )
 
-func (transporter *TCPTransporter) onTcpMessage(msgType int, msgBytes *[]byte) {
+func (transporter *TCPTransporter) onTcpMessage(fromAddrss string, msgType int, msgBytes *[]byte) {
 	switch msgType {
 	case PACKET_GOSSIP_HELLO:
-		transporter.gossip.processHello(msgBytes)
+		transporter.onGossipHello(fromAddrss, msgBytes)
 	case PACKET_GOSSIP_REQ:
-		transporter.gossip.processRequest(msgBytes)
+		transporter.onGossipRequest(msgBytes)
 	case PACKET_GOSSIP_RES:
-		transporter.gossip.processResponse(msgBytes)
+		transporter.onGossipResponse(msgBytes)
 	default:
 		transporter.incomingMessage(msgType, msgBytes)
 	}
 }
 
-func (transporter *TCPTransporter) msgTypeToCommand(msgType int) string {
+func (transporter *TCPTransporter) onGossipHello(fromAddrss string, msgBytes *[]byte) {
+	packet := transporter.serializer.BytesToPayload(msgBytes)
+	payload := packet.Get("payload")
+	nodeID := payload.Get("sender").String()
+
+	node := transporter.registry.GetNodeByID(nodeID)
+	if node == nil {
+		// Unknown node. Register as offline node
+		node = transporter.registry.AddOfflineNode(nodeID, payload.Get("host").String(), payload.Get("port").Int())
+	}
+	if node.GetUdpAddress() == "" {
+		node.UpdateInfo(nodeID, map[string]interface{}{
+			"udpAddress": fromAddrss,
+		})
+	}
+}
+
+// processRequest
+func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
+	packet := transporter.serializer.BytesToPayload(msgBytes)
+	payload := packet.Get("payload")
+
+	onlineResponse := map[string]interface{}{}
+	offlineResponse := map[string]interface{}{}
+
+	transporter.registry.ForEachNode(func(node moleculer.Node) bool {
+
+		onlineMap := payload.Get("online")
+		offlineMap := payload.Get("offline")
+		var seq int64 = 0
+		var cpuSeq int64 = 0
+		var cpu int64 = 0
+		var offline moleculer.Payload
+		var online moleculer.Payload
+
+		if offlineMap.Exists() {
+			offline = offlineMap.Get(node.GetID())
+			if offline.Exists() {
+				transporter.logger.Debug("received seq for " + node.GetID())
+				seq = offline.Int64()
+			}
+		}
+		if onlineMap.Exists() {
+			online = onlineMap.Get(node.GetID())
+			if online.Exists() {
+				transporter.logger.Debug("received seq, cpuSeq, cpu for " + node.GetID())
+				seq = online.Get("seq").Int64()
+				cpuSeq = online.Get("cpuSeq").Int64()
+				cpu = online.Get("cpu").Int64()
+			}
+		}
+
+		if seq != 0 && seq < node.GetSequence() {
+			transporter.logger.Debug("We have newer info or requester doesn't know it")
+			if node.IsAvailable() {
+				info := node.ExportAsMap()
+				onlineResponse[node.GetID()] = []interface{}{info, node.GetCpuSequence(), node.GetCpu()}
+				transporter.logger.Debug("Node is available - send back the node info and cpu, cpuSed to " + node.GetID())
+			} else {
+				offlineResponse[node.GetID()] = node.GetSequence()
+				transporter.logger.Debug("Node is offline - send back the seq to " + node.GetID())
+			}
+			return true
+		}
+
+		if offline != nil && offline.Exists() {
+			transporter.logger.Debug("Requester said it is OFFLINE")
+			if !node.IsAvailable() {
+				transporter.logger.Debug("We also know it as offline - update the seq")
+				if seq > node.GetSequence() {
+					node.UpdateInfo(node.GetID(), map[string]interface{}{
+						"seq": seq,
+					})
+				}
+				return true
+			}
+
+			if !node.IsLocal() {
+				transporter.logger.Debug("our current state for it is online - change it to offline and update seq - nodeID:", node.GetID(), "seq:", seq)
+				// We know it is online, so we change it to offline
+				transporter.registry.DisconnectNode(node.GetID())
+
+				// Update the 'seq' to the received value
+				node.UpdateInfo(node.GetID(), map[string]interface{}{
+					"seq": seq,
+				})
+				return true
+			}
+
+			if node.IsLocal() {
+				transporter.logger.Debug("msg is about the Local node - update the seq and send back info, cpu and cpuSeq")
+				// Update the 'seq' to the received value
+				node.UpdateInfo(node.GetID(), map[string]interface{}{
+					"seq": seq + 1,
+				})
+				onlineResponse[node.GetID()] = []interface{}{node.ExportAsMap(), node.GetCpuSequence(), node.GetCpu()}
+
+				return true
+			}
+
+		}
+
+		if online != nil && online.Exists() {
+			// Requester said it is ONLINE
+			if node.IsAvailable() {
+				if cpuSeq > node.GetCpuSequence() {
+					// We update CPU info
+					node.UpdateInfo(node.GetID(), map[string]interface{}{
+						"cpu":    cpu,
+						"cpuSeq": cpuSeq,
+					})
+					transporter.logger.Debug("CPU info updated for " + node.GetID())
+				} else if cpuSeq < node.GetCpuSequence() {
+					// We have newer info, send back
+					//TODO check where we process this to see if we handle this array correctly
+					onlineResponse[node.GetID()] = []interface{}{node.GetCpuSequence(), node.GetCpu()}
+					transporter.logger.Debug("CPU info sent back to " + node.GetID())
+				}
+			} else {
+				// We know it as offline. We do nothing, because we'll request it and we'll receive its INFO.
+				return true
+			}
+		}
+
+		return true
+	})
+
+	if len(onlineResponse) > 0 || len(offlineResponse) > 0 {
+		// Send back the Gossip response to the sender
+		sender := payload.Get("sender").String()
+
+		// Send back the Gossip response to the sender
+		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_RES), sender, payloadPkg.Empty().Add("online", onlineResponse).Add("offline", offlineResponse))
+
+		transporter.logger.Debug("Gossip response sent to " + sender)
+	} else {
+		transporter.logger.Debug("No response sent to " + payload.Get("sender").String())
+	}
+
+}
+
+// processResponse
+func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
+}
+
+func isGossipMessage(msgType byte) bool {
+	return msgType == PACKET_GOSSIP_REQ || msgType == PACKET_GOSSIP_RES || msgType == PACKET_GOSSIP_HELLO
+}
+
+func msgTypeToCommand(msgType int) string {
 	switch msgType {
 	case PACKET_EVENT:
 		return "EVENT"
@@ -146,7 +295,7 @@ func (transporter *TCPTransporter) msgTypeToCommand(msgType int) string {
 }
 
 func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte) {
-	command := transporter.msgTypeToCommand(msgType)
+	command := msgTypeToCommand(msgType)
 	message := transporter.serializer.BytesToPayload(msgBytes)
 	if transporter.validateMsg(message) {
 		if handlers, ok := transporter.handlers[command]; ok {
@@ -205,9 +354,11 @@ func addIpToList(ipList []string, address string) []string {
 	return ipList
 }
 
+// TODO - check full lifecycle - this message creates or updates a node with ip address and port to connect to directly
+// need to find where the TCP connection step happens.. is not happening here - where is this node info used ?
 func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
-		transporter.logger.Debug(`UDP discovery received from ${address} on ${nodeID}.`)
+		transporter.logger.Debug("UDP discovery received from " + address + " nodeId: " + nodeID + " port: " + string(port))
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
 			// Unknown node. Register as offline node

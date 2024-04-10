@@ -136,6 +136,26 @@ func (node *Node) UpdateInfo(id string, info map[string]interface{}) []map[strin
 	return []map[string]interface{}{}
 }
 
+func (node *Node) GetSequence() int64 {
+	return node.sequence
+}
+
+func (node *Node) GetCpuSequence() int64 {
+	return node.cpuSequence
+}
+
+func (node *Node) GetCpu() int64 {
+	return node.cpu
+}
+
+func (node *Node) IsLocal() bool {
+	return node.isLocal
+}
+
+func (node *Node) GetUdpAddress() string {
+	return node.udpAddress
+}
+
 func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
 	if id != node.id {
 		node.logger.Error(fmt.Sprintf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
@@ -208,6 +228,10 @@ func interfaceToString(list []interface{}) []string {
 	return result
 }
 
+func (node *Node) Disconnected(isUnexpected bool) {
+
+}
+
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {
@@ -264,10 +288,6 @@ func (node *Node) Unavailable() {
 // Unavailable mark the node as available
 func (node *Node) Available() {
 	node.isAvailable = true
-}
-
-func (node *Node) IsLocal() bool {
-	return node.isLocal
 }
 
 func (node *Node) IncreaseSequence() {

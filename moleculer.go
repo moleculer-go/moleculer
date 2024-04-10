@@ -232,6 +232,12 @@ type Node interface {
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
 	Publish(service map[string]interface{})
+	GetUdpAddress() string
+	GetSequence() int64
+	GetCpuSequence() int64
+	GetCpu() int64
+	IsLocal() bool
+	Disconnected(isUnexpected bool)
 }
 
 type Options struct {
@@ -251,9 +257,12 @@ type Context interface {
 	Meta() Payload
 }
 
+type ForEachNodeFunc func(node Node) bool
 type Registry interface {
 	GetNodeByID(nodeID string) Node
 	AddOfflineNode(nodeID, address string, port int) Node
+	ForEachNode(ForEachNodeFunc)
+	DisconnectNode(nodeID string)
 }
 
 type BrokerContext interface {

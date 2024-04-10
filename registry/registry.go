@@ -351,8 +351,8 @@ func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
 	registry.events.RemoveByNode(nodeID)
 }
 
-// disconnectNode remove node info (actions, events) from local registry.
-func (registry *ServiceRegistry) disconnectNode(nodeID string) {
+// DisconnectNode remove node info (actions, events) from local registry.
+func (registry *ServiceRegistry) DisconnectNode(nodeID string) {
 	node, exists := registry.nodes.findNode(nodeID)
 	if !exists {
 		return
@@ -366,7 +366,7 @@ func (registry *ServiceRegistry) disconnectNode(nodeID string) {
 func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 	expiredNodes := registry.nodes.expiredNodes(registry.heartbeatTimeout)
 	for _, node := range expiredNodes {
-		registry.disconnectNode(node.GetID())
+		registry.DisconnectNode(node.GetID())
 	}
 }
 
@@ -420,7 +420,7 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 	node, exists := registry.nodes.findNode(sender)
 	registry.logger.Debug("disconnectMessageReceived() sender: ", sender, " exists: ", exists)
 	if exists {
-		registry.disconnectNode(node.GetID())
+		registry.DisconnectNode(node.GetID())
 	}
 }
 
