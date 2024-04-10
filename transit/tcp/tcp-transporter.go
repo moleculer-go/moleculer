@@ -167,7 +167,6 @@ func (transporter *TCPTransporter) startTcpServer() {
 }
 
 func (transporter *TCPTransporter) startUDPServer() {
-
 	transporter.udpServer = NewUdpServer(UdpServerOptions{
 		Port:           transporter.options.UdpPort,
 		BindAddress:    transporter.options.UdpBindAddress,
@@ -177,7 +176,8 @@ func (transporter *TCPTransporter) startUDPServer() {
 		DiscoverPeriod: transporter.options.UdpPeriod,
 		MaxDiscovery:   transporter.options.UdpMaxDiscovery,
 		Discovery:      transporter.options.UdpDiscovery,
-	}, transporter.logger.WithFields(log.Fields{
+		// Namespace:      transporter.options.Namespace, TODO
+	}, transporter.onUdpMessage, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "UdpServer",
 	}))
 

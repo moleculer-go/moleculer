@@ -238,7 +238,7 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 
 		// UDP port
 		UdpPort: 4445,
-		// UDP bind address (if null, bind on all interfaces)
+		// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
 		UdpBindAddress: "",
 		// UDP sending period (seconds)
 		UdpPeriod: 30,
@@ -249,7 +249,7 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 		UdpMulticastTTL: 1,
 
 		// Send broadcast (Boolean, String, Array<String>)
-		UdpBroadcast: false,
+		UdpBroadcast: []string{},
 
 		// TCP server port.  0 means random port
 		Port: 0,
