@@ -263,6 +263,7 @@ type Registry interface {
 	AddOfflineNode(nodeID, address string, port int) Node
 	ForEachNode(ForEachNodeFunc)
 	DisconnectNode(nodeID string)
+	RemoteNodeInfoReceived(message Payload)
 }
 
 type BrokerContext interface {

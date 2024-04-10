@@ -129,7 +129,7 @@ func (registry *ServiceRegistry) setupMessageHandlers() {
 	messageHandler := map[string]messageHandlerFunc{
 		"HEARTBEAT":  registry.filterMessages(registry.heartbeatMessageReceived),
 		"DISCONNECT": registry.filterMessages(registry.disconnectMessageReceived),
-		"INFO":       registry.filterMessages(registry.remoteNodeInfoReceived),
+		"INFO":       registry.filterMessages(registry.RemoteNodeInfoReceived),
 	}
 	registry.broker.Bus().On("$registry.transit.message", func(args ...interface{}) {
 		registry.logger.Trace("Registry -> $registry.transit.message event - args: ", args)
@@ -433,7 +433,7 @@ func compatibility(info map[string]interface{}) map[string]interface{} {
 }
 
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
-func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
+func (registry *ServiceRegistry) RemoteNodeInfoReceived(message moleculer.Payload) {
 	registry.nodeReceivedMutex.Lock()
 	defer registry.nodeReceivedMutex.Unlock()
 

@@ -131,7 +131,6 @@ func (transporter *TCPTransporter) onGossipHello(fromAddrss string, msgBytes *[]
 	}
 }
 
-// processRequest
 func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 	packet := transporter.serializer.BytesToPayload(msgBytes)
 	payload := packet.Get("payload")
@@ -210,10 +209,8 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 					"seq": seq + 1,
 				})
 				onlineResponse[node.GetID()] = []interface{}{node.ExportAsMap(), node.GetCpuSequence(), node.GetCpu()}
-
 				return true
 			}
-
 		}
 
 		if online != nil && online.Exists() {
@@ -237,17 +234,12 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 				return true
 			}
 		}
-
 		return true
 	})
 
 	if len(onlineResponse) > 0 || len(offlineResponse) > 0 {
-		// Send back the Gossip response to the sender
 		sender := payload.Get("sender").String()
-
-		// Send back the Gossip response to the sender
 		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_RES), sender, payloadPkg.Empty().Add("online", onlineResponse).Add("offline", offlineResponse))
-
 		transporter.logger.Debug("Gossip response sent to " + sender)
 	} else {
 		transporter.logger.Debug("No response sent to " + payload.Get("sender").String())
@@ -255,8 +247,95 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 
 }
 
-// processResponse
 func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
+	packet := transporter.serializer.BytesToPayload(msgBytes)
+	payload := packet.Get("payload")
+	sender := payload.Get("sender").String()
+
+	online := payload.Get("online")
+	offline := payload.Get("offline")
+
+	if online.Exists() {
+		transporter.logger.Debug("Received online info from nodeID: " + sender)
+		online.ForEach(func(key interface{}, value moleculer.Payload) bool {
+			nodeID, ok := key.(string)
+			if !ok {
+				transporter.logger.Error("Error parsing online nodeID")
+				return true
+			}
+			node := transporter.registry.GetNodeByID(nodeID)
+			if node != nil && node.IsLocal() {
+				transporter.logger.Debug("Received info about the local node - ignore it")
+				return true
+			}
+			row := online.Get(nodeID).Array()
+			info, cpu, cpuSeq := parseGossipResponse(row)
+
+			if info != nil && (node != nil || node.GetSequence() < info["seq"].(int64)) {
+				transporter.logger.Debug("If we don't know it, or know, but has smaller seq, update 'info'")
+				info["sender"] = sender
+				transporter.registry.RemoteNodeInfoReceived(payloadPkg.New(info))
+			}
+			if node != nil && cpuSeq > node.GetCpuSequence() {
+				transporter.logger.Debug("If we know it and has smaller cpuSeq, update 'cpu'")
+				node.HeartBeat(map[string]interface{}{
+					"cpu":    cpu,
+					"cpuSeq": cpuSeq,
+				})
+			}
+			return true
+		})
+	}
+
+	if offline.Exists() {
+		transporter.logger.Debug("Received offline info from nodeID: " + sender)
+		offline.ForEach(func(key interface{}, value moleculer.Payload) bool {
+			nodeID, ok := key.(string)
+			if !ok {
+				transporter.logger.Error("Error parsing offline nodeID")
+				return true
+			}
+			node := transporter.registry.GetNodeByID(nodeID)
+			if node != nil && node.IsLocal() {
+				transporter.logger.Debug("Received info about the local node - ignore it")
+				return true
+			}
+			if node == nil {
+				return true
+			}
+
+			seq := offline.Get(nodeID).Int64()
+
+			if node.GetSequence() < seq {
+				if node.IsAvailable() {
+					transporter.logger.Debug("Node is online, will change it to offline")
+					transporter.registry.DisconnectNode(nodeID)
+				}
+				node.UpdateInfo(nodeID, map[string]interface{}{
+					"seq": seq,
+				})
+			}
+			return true
+		})
+	}
+}
+
+func parseGossipResponse(row []moleculer.Payload) (info map[string]interface{}, cpu int64, cpuSeq int64) {
+	cpuSeq = -1
+	cpu = -1
+	if len(row) == 1 {
+		info = row[0].RawMap()
+	}
+	if len(row) == 2 {
+		cpuSeq = row[0].Int64()
+		cpu = row[1].Int64()
+	}
+	if len(row) == 3 {
+		info = row[0].RawMap()
+		cpuSeq = row[1].Int64()
+		cpu = row[2].Int64()
+	}
+	return info, cpu, cpuSeq
 }
 
 func isGossipMessage(msgType byte) bool {
