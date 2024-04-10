@@ -208,7 +208,6 @@ func addIpToList(ipList []string, address string) []string {
 func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
 		transporter.logger.Debug(`UDP discovery received from ${address} on ${nodeID}.`)
-
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
 			// Unknown node. Register as offline node
