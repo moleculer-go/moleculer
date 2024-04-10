@@ -188,6 +188,23 @@ func (transporter *TCPTransporter) startUDPServer() {
 
 }
 
+func addIpToList(ipList []string, address string) []string {
+	found := false
+	for i, ip := range ipList {
+		if ip == address {
+			// Move the address to the front of the list
+			ipList = append([]string{address}, append(ipList[:i], ipList[i+1:]...)...)
+			found = true
+			break
+		}
+	}
+	if !found {
+		// If the address is not in the list, add it to the front
+		ipList = append([]string{address}, ipList...)
+	}
+	return ipList
+}
+
 func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
 		transporter.logger.Debug(`UDP discovery received from ${address} on ${nodeID}.`)
@@ -197,28 +214,14 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int
 			// Unknown node. Register as offline node
 			node = transporter.registry.AddOfflineNode(nodeID, address, port)
 		} else if !node.IsAvailable() {
-			ipList := node.GetIpList()
-			found := false
-			for i, ip := range ipList {
-				if ip == address {
-					// Move the address to the front of the list
-					ipList = append([]string{address}, append(ipList[:i], ipList[i+1:]...)...)
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				// If the address is not in the list, add it to the front
-				ipList = append([]string{address}, ipList...)
-			}
-			node.Update(nodeID, map[string]interface{}{
+			ipList := addIpToList(node.GetIpList(), address)
+			node.UpdateInfo(nodeID, map[string]interface{}{
 				"hostname": address,
 				"port":     port,
 				"ipList":   ipList,
 			})
 		}
-		node.Update(nodeID, map[string]interface{}{
+		node.UpdateInfo(nodeID, map[string]interface{}{
 			"udpAddress": address,
 		})
 	}

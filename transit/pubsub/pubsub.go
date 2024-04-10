@@ -759,7 +759,7 @@ func (pubsub *PubSub) Disconnect() chan error {
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
-func (pubsub *PubSub) Connect() chan error {
+func (pubsub *PubSub) Connect(registry moleculer.Registry) chan error {
 	endChan := make(chan error)
 	if pubsub.isConnected {
 		endChan <- nil
@@ -768,7 +768,7 @@ func (pubsub *PubSub) Connect() chan error {
 	pubsub.logger.Debug("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport()
 	go func() {
-		err := <-pubsub.transport.Connect()
+		err := <-pubsub.transport.Connect(registry)
 		if err == nil {
 			pubsub.isConnected = true
 			pubsub.logger.Debug("PubSub - Transport Connected!")

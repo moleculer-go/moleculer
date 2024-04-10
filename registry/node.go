@@ -61,8 +61,6 @@ func discoverHostname() string {
 }
 
 func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
-	ipList := discoverIpList()
-	hostname := discoverHostname()
 	services := make([]map[string]interface{}, 0)
 	node := Node{
 		id: id,
@@ -71,12 +69,17 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 			"version":     version.Moleculer(),
 			"langVersion": version.Go(),
 		},
-		ipList:   ipList,
-		hostname: hostname,
 		services: services,
 		logger:   logger,
-		isLocal:  local,
 		sequence: 1,
+	}
+	if local {
+		node.isLocal = true
+		node.ipList = discoverIpList()
+		node.hostname = discoverHostname()
+		if node.hostname == "unknown" && len(node.ipList) > 0 {
+			node.hostname = node.ipList[0]
+		}
 	}
 	var result moleculer.Node = &node
 	return result
@@ -86,44 +89,64 @@ func (node *Node) GetIpList() []string {
 	return node.ipList
 }
 
-func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
+func (node *Node) UpdateInfo(id string, info map[string]interface{}) []map[string]interface{} {
 	if id != node.id {
-		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
+		node.logger.Error(fmt.Sprintf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
+		return []map[string]interface{}{}
 	}
-	node.logger.Debug("node.Update() - info:")
+	node.logger.Debug("node.UpdateInfo() - info:")
 	node.logger.Debug(util.PrettyPrintMap(info))
 
-	reconnected := !node.isAvailable
+	if ipListArray, ok := info["ipList"].([]interface{}); ok {
+		node.ipList = interfaceToString(ipListArray)
+	}
+	if ipList, ok := info["ipList"].([]string); ok {
+		node.ipList = ipList
+	}
+	if hostname, ok := info["hostname"].(string); ok {
+		node.hostname = hostname
+	}
+	if local, ok := info["local"].(bool); ok {
+		node.isLocal = local
+	}
+	if port, ok := info["port"].(int); ok {
+		node.port = port
+	}
+	if udpAddress, ok := info["udpAddress"].(string); ok {
+		node.udpAddress = udpAddress
+	}
+	if client, ok := info["client"].(map[string]interface{}); ok {
+		node.client = client
+	}
+	if _, ok := info["seq"]; !ok {
+		node.sequence = int64Field(info, "seq", 0)
+	}
+	if _, ok := info["cpu"]; !ok {
+		node.cpu = int64Field(info, "cpu", 0)
+	}
+	if _, ok := info["cpuSeq"]; !ok {
+		node.cpuSequence = int64Field(info, "cpuSeq", 0)
+	}
+	if _, ok := info["services"].([]interface{}); ok {
+		services, removedServices := FilterServices(node.services, info)
+		node.logger.Debug("removedServices:", util.PrettyPrintMap(removedServices))
+		node.services = services
+		return removedServices
+	}
+	return []map[string]interface{}{}
+}
 
+func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
+	if id != node.id {
+		node.logger.Error(fmt.Sprintf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
+		return false, nil
+	}
+	node.logger.Debug("node.Update()")
+	removedServices := node.UpdateInfo(id, info)
+	reconnected := !node.isAvailable
 	node.isAvailable = true
 	node.lastHeartBeatTime = time.Now().Unix()
 	node.offlineSince = 0
-
-	node.ipList = interfaceToString(info["ipList"].([]interface{}))
-	node.hostname = info["hostname"].(string)
-
-	if port, ok := info["port"]; ok {
-		node.port = port.(int)
-	}
-
-	if ipList, ok := info["ipList"]; ok {
-		node.ipList = ipList.([]string)
-	}
-
-	if udpAddress, ok := info["udpAddress"]; ok {
-		node.udpAddress = udpAddress.(string)
-	}
-
-	node.client = info["client"].(map[string]interface{})
-
-	services, removedServices := FilterServices(node.services, info)
-	node.logger.Debug("removedServices:", util.PrettyPrintMap(removedServices))
-
-	node.services = services
-	node.sequence = int64Field(info, "seq", 0)
-	node.cpu = int64Field(info, "cpu", 0)
-	node.cpuSequence = int64Field(info, "cpuSeq", 0)
-
 	return reconnected, removedServices
 }
 
