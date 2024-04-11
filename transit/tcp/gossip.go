@@ -67,21 +67,24 @@ func (transporter *TCPTransporter) sendGossipToRandomEndpoint(packet moleculer.P
 		return
 	}
 	node := nodes[rand.Intn(len(nodes))]
-	transporter.logger.Debug("Sending gossip request to " + node.GetID())
-	transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), packet)
+	if !node.IsLocal() {
+		transporter.logger.Debug("Sending gossip request to " + node.GetID())
+		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), packet)
+	}
 }
 
 func (transporter *TCPTransporter) onGossipHello(fromAddrss string, msgBytes *[]byte) {
-	packet := transporter.serializer.BytesToPayload(msgBytes)
-	payload := packet.Get("payload")
+	payload := transporter.serializer.BytesToPayload(msgBytes)
 	sender := payload.Get("sender").String()
+	port := payload.Get("port").Int()
+	hostname := payload.Get("host").String()
 
-	transporter.logger.Debug("Received gossip hello from " + sender)
+	transporter.logger.Debug("Received gossip hello from sender: ", sender, "ipAddress: ", fromAddrss, " hostname: ", hostname)
 
 	node := transporter.registry.GetNodeByID(sender)
 	if node == nil {
-		// Unknown node. Register as offline node
-		node = transporter.registry.AddOfflineNode(sender, payload.Get("host").String(), payload.Get("port").Int())
+		transporter.logger.Debug("Unknown node. Register as offline node - sender: ", sender)
+		node = transporter.registry.AddOfflineNode(sender, hostname, fromAddrss, port)
 	}
 	if node.GetUdpAddress() == "" {
 		node.UpdateInfo(map[string]interface{}{

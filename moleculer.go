@@ -265,7 +265,7 @@ type Context interface {
 type ForEachNodeFunc func(node Node) bool
 type Registry interface {
 	GetNodeByID(nodeID string) Node
-	AddOfflineNode(nodeID, address string, port int) Node
+	AddOfflineNode(nodeID, hostname, ipAddress string, port int) Node
 	ForEachNode(ForEachNodeFunc)
 	DisconnectNode(nodeID string)
 	RemoteNodeInfoReceived(message Payload)

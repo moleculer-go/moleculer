@@ -116,12 +116,12 @@ func (registry *ServiceRegistry) LocalNode() moleculer.Node {
 }
 
 // Register a node as offline because we don't know all information about it
-func (registry *ServiceRegistry) AddOfflineNode(nodeID string, address string, port int) moleculer.Node {
+func (registry *ServiceRegistry) AddOfflineNode(nodeID string, hostname, ipAddress string, port int) moleculer.Node {
 	node := CreateNode(nodeID, false, registry.logger.WithField("Node", nodeID))
 	node.UpdateInfo(map[string]interface{}{
-		"hostname": address,
+		"hostname": hostname,
 		"port":     port,
-		"ipList":   []string{address},
+		"ipList":   []string{ipAddress},
 	})
 	registry.nodes.Add(node)
 	return node
