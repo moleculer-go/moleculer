@@ -83,8 +83,12 @@ func (r *TcpReader) Listen() (int, error) {
 
 func (r *TcpReader) handleConnection(conn net.Conn) {
 	address := conn.RemoteAddr().String()
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		r.logger.Error("Failed to split host and port - address:", address)
+	}
+
 	r.logger.Debugf("New TCP client connected from '%s'\n", address)
-	var err error
 	for err == nil {
 		msgType, msgBytes, e := r.readMessage(conn)
 		err = e
@@ -92,8 +96,8 @@ func (r *TcpReader) handleConnection(conn net.Conn) {
 			r.logger.Errorf("Error reading message from '%s': %s", address, err)
 			break
 		}
-		r.logger.Debug("handleConnection() message read from socket  - msgType: ", msgType, "message:", string(msgBytes))
-		r.onMessage(address, msgType, &msgBytes)
+		r.logger.Trace("handleConnection() message read from socket  - msgType: ", msgType, "message:", string(msgBytes))
+		r.onMessage(host, msgType, &msgBytes)
 	}
 	r.closeSocket(conn)
 }

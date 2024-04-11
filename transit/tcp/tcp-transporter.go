@@ -255,14 +255,14 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int
 		transporter.logger.Debug("UDP discovery received from " + address + " nodeId: " + nodeID + " port: " + string(port))
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
-			// Unknown node. Register as offline node
-			node = transporter.registry.AddOfflineNode(nodeID, address, port)
+			transporter.logger.Debug("Unknown node. Register as offline node")
+			node = transporter.registry.AddOfflineNode(nodeID, address, address, port)
 		} else if !node.IsAvailable() {
 			ipList := addIpToList(node.GetIpList(), address)
 			node.UpdateInfo(map[string]interface{}{
-				"hostname": address,
-				"port":     port,
-				"ipList":   ipList,
+				// "hostname": address,
+				"port":   port,
+				"ipList": ipList,
 			})
 		}
 		node.UpdateInfo(map[string]interface{}{

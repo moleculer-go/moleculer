@@ -41,8 +41,7 @@ func (transporter *TCPTransporter) sendGossipRequest() {
 	})
 
 	payload := payloadPkg.Empty()
-	packet := payloadPkg.Empty()
-	packet.Add("payload", payload)
+	payload.Add("sender", node.GetID())
 	if len(onlineResponse) > 0 {
 		payload.Add("online", onlineResponse)
 	}
@@ -51,25 +50,25 @@ func (transporter *TCPTransporter) sendGossipRequest() {
 	}
 
 	if len(onlineResponse) > 0 {
-		transporter.sendGossipToRandomEndpoint(packet, onlineNodes)
+		transporter.sendGossipToRandomEndpoint(payload, onlineNodes)
 	}
 
 	if len(offlineNodes) > 0 {
 		ratio := float64(len(offlineNodes)) / float64(len(onlineNodes)+1)
 		if ratio >= 1 || rand.Float64() < ratio {
-			transporter.sendGossipToRandomEndpoint(packet, offlineNodes)
+			transporter.sendGossipToRandomEndpoint(payload, offlineNodes)
 		}
 	}
 }
 
-func (transporter *TCPTransporter) sendGossipToRandomEndpoint(packet moleculer.Payload, nodes []moleculer.Node) {
+func (transporter *TCPTransporter) sendGossipToRandomEndpoint(payload moleculer.Payload, nodes []moleculer.Node) {
 	if len(nodes) == 0 {
 		return
 	}
 	node := nodes[rand.Intn(len(nodes))]
 	if !node.IsLocal() {
 		transporter.logger.Debug("Sending gossip request to " + node.GetID())
-		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), packet)
+		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
 	}
 }
 
@@ -94,8 +93,7 @@ func (transporter *TCPTransporter) onGossipHello(fromAddrss string, msgBytes *[]
 }
 
 func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
-	packet := transporter.serializer.BytesToPayload(msgBytes)
-	payload := packet.Get("payload")
+	payload := transporter.serializer.BytesToPayload(msgBytes)
 	sender := payload.Get("sender").String()
 
 	transporter.logger.Debug("Received gossip request from " + sender)
@@ -212,8 +210,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 }
 
 func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
-	packet := transporter.serializer.BytesToPayload(msgBytes)
-	payload := packet.Get("payload")
+	payload := transporter.serializer.BytesToPayload(msgBytes)
 	sender := payload.Get("sender").String()
 
 	transporter.logger.Debug("Received gossip response from " + sender)

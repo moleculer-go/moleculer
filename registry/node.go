@@ -102,8 +102,7 @@ func (node *Node) GetPort() int {
 }
 
 func (node *Node) UpdateInfo(info map[string]interface{}) []map[string]interface{} {
-	node.logger.Debug("node.UpdateInfo() - info:")
-	node.logger.Debug(util.PrettyPrintMap(info))
+	node.logger.Trace("node.UpdateInfo() - info:", util.PrettyPrintMap(info))
 
 	if ipListArray, ok := info["ipList"].([]interface{}); ok {
 		node.ipList = interfaceToString(ipListArray)
