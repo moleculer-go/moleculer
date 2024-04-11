@@ -123,6 +123,7 @@ type Config struct {
 	Transporter                string
 	TransporterFactory         TransporterFactoryFunc
 	StrategyFactory            StrategyFactoryFunc
+	UpdateNodeMetricsFrequency time.Duration
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
 	OfflineCheckFrequency      time.Duration
@@ -153,6 +154,7 @@ var DefaultConfig = Config{
 	LogFormat:                  "TEXT",
 	DiscoverNodeID:             discoverNodeID,
 	Transporter:                "MEMORY",
+	UpdateNodeMetricsFrequency: 5 * time.Second,
 	HeartbeatFrequency:         5 * time.Second,
 	HeartbeatTimeout:           15 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
@@ -238,6 +240,7 @@ type Node interface {
 	GetCpu() int64
 	IsLocal() bool
 	Disconnected(isUnexpected bool)
+	UpdateMetrics()
 }
 
 type Options struct {
@@ -264,6 +267,7 @@ type Registry interface {
 	ForEachNode(ForEachNodeFunc)
 	DisconnectNode(nodeID string)
 	RemoteNodeInfoReceived(message Payload)
+	GetLocalNode() Node
 }
 
 type BrokerContext interface {

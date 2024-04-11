@@ -170,6 +170,15 @@ func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[st
 	return reconnected, removedServices
 }
 
+func (node *Node) UpdateMetrics() {
+	cpu, err := util.GetCpuUsage()
+	if err != nil {
+		node.logger.Error("Error getting cpu usage:", err)
+		return
+	}
+	node.cpu = int64(cpu)
+}
+
 // FilterServices return all services excluding local services (example: $node) and return all removed services, services that existed in the currentServices list but
 // no longer exist in th new list coming from the info package
 func FilterServices(currentServices []map[string]interface{}, info map[string]interface{}) ([]map[string]interface{}, []map[string]interface{}) {

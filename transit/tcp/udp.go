@@ -20,7 +20,7 @@ type UdpServerEntry struct {
 type OnUdpMessage func(nodeID, ip string, port int)
 
 type UdpServer struct {
-	state            string
+	state            State
 	opts             UdpServerOptions
 	discoveryCounter int
 	logger           *log.Entry
@@ -205,7 +205,7 @@ func (u *UdpServer) Start() error {
 		return u.startServer(u.opts.BindAddress, u.opts.Port, "", 0, broadcastAddrss)
 	}
 
-	u.state = "started"
+	u.state = STARTED
 
 	go u.firstDiscoveryMessage()
 
@@ -257,7 +257,7 @@ func (u *UdpServer) firstDiscoveryMessage() {
 
 func (u *UdpServer) handleIncomingMessagesForServer(server *UdpServerEntry) {
 	buffer := make([]byte, 2048)
-	for u.state == "started" {
+	for u.state == STARTED {
 		n, addr, err := server.conn.ReadFromUDP(buffer)
 		if err != nil {
 			u.logger.Errorln("Error reading from UDP:", err)
@@ -295,6 +295,10 @@ func (u *UdpServer) handleIncomingMessagesForServer(server *UdpServerEntry) {
 func (u *UdpServer) startDiscovering() {
 	if u.opts.Discovery == false {
 		u.logger.Info("UDP Discovery is disabled.")
+		return
+	}
+	if u.discoverTimer != nil {
+		u.logger.Warn("Discovery already started.")
 		return
 	}
 	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod)
@@ -335,12 +339,11 @@ func (u *UdpServer) StopDiscovering() {
 		u.discoverTimer.Stop()
 		u.discoverTimer = nil
 	}
-	u.state = "stopped"
 }
 
 func (u *UdpServer) Close() {
 	u.logger.Info("Closing UDP Server.")
-	u.state = "stopped"
+	u.state = STOPPED
 	u.StopDiscovering()
 	for _, server := range u.servers {
 		if server.conn != nil {

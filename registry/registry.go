@@ -24,22 +24,23 @@ import (
 type messageHandlerFunc func(message moleculer.Payload)
 
 type ServiceRegistry struct {
-	logger                *log.Entry
-	transit               transit.Transit
-	localNode             moleculer.Node
-	nodes                 *NodeCatalog
-	services              *ServiceCatalog
-	actions               *ActionCatalog
-	events                *EventCatalog
-	broker                *moleculer.BrokerDelegates
-	strategy              strategy.Strategy
-	stopping              bool
-	heartbeatFrequency    time.Duration
-	heartbeatTimeout      time.Duration
-	offlineCheckFrequency time.Duration
-	offlineTimeout        time.Duration
-	nodeReceivedMutex     *sync.Mutex
-	namespace             string
+	logger                     *log.Entry
+	transit                    transit.Transit
+	localNode                  moleculer.Node
+	nodes                      *NodeCatalog
+	services                   *ServiceCatalog
+	actions                    *ActionCatalog
+	events                     *EventCatalog
+	broker                     *moleculer.BrokerDelegates
+	strategy                   strategy.Strategy
+	stopping                   bool
+	updateNodeMetricsFrequency time.Duration
+	heartbeatFrequency         time.Duration
+	heartbeatTimeout           time.Duration
+	offlineCheckFrequency      time.Duration
+	offlineTimeout             time.Duration
+	nodeReceivedMutex          *sync.Mutex
+	namespace                  string
 }
 
 // createTransit create a transit instance based on the config.
@@ -66,22 +67,23 @@ func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRe
 	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
 	localNode.Unavailable()
 	registry := &ServiceRegistry{
-		broker:                broker,
-		transit:               transit,
-		strategy:              strategy,
-		logger:                logger,
-		localNode:             localNode,
-		actions:               CreateActionCatalog(logger.WithField("catalog", "Actions")),
-		events:                CreateEventCatalog(logger.WithField("catalog", "Events")),
-		services:              CreateServiceCatalog(logger.WithField("catalog", "Services")),
-		nodes:                 CreateNodesCatalog(logger.WithField("catalog", "Nodes")),
-		heartbeatFrequency:    config.HeartbeatFrequency,
-		heartbeatTimeout:      config.HeartbeatTimeout,
-		offlineCheckFrequency: config.OfflineCheckFrequency,
-		offlineTimeout:        config.OfflineTimeout,
-		stopping:              false,
-		nodeReceivedMutex:     &sync.Mutex{},
-		namespace:             config.Namespace,
+		broker:                     broker,
+		transit:                    transit,
+		strategy:                   strategy,
+		logger:                     logger,
+		localNode:                  localNode,
+		actions:                    CreateActionCatalog(logger.WithField("catalog", "Actions")),
+		events:                     CreateEventCatalog(logger.WithField("catalog", "Events")),
+		services:                   CreateServiceCatalog(logger.WithField("catalog", "Services")),
+		nodes:                      CreateNodesCatalog(logger.WithField("catalog", "Nodes")),
+		updateNodeMetricsFrequency: config.UpdateNodeMetricsFrequency,
+		heartbeatFrequency:         config.HeartbeatFrequency,
+		heartbeatTimeout:           config.HeartbeatTimeout,
+		offlineCheckFrequency:      config.OfflineCheckFrequency,
+		offlineTimeout:             config.OfflineTimeout,
+		stopping:                   false,
+		nodeReceivedMutex:          &sync.Mutex{},
+		namespace:                  config.Namespace,
 	}
 
 	registry.logger.Debug("Service Registry created for broker: ", nodeID)
@@ -164,6 +166,11 @@ func (registry *ServiceRegistry) GetNodeByID(nodeID string) moleculer.Node {
 	return node
 }
 
+func (registry *ServiceRegistry) heartbeat() {
+	registry.localNode.UpdateMetrics()
+	registry.transit.SendHeartbeat()
+}
+
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
@@ -177,7 +184,7 @@ func (registry *ServiceRegistry) Start() {
 	registry.nodes.Add(registry.localNode)
 
 	if registry.heartbeatFrequency > 0 {
-		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.transit.SendHeartbeat)
+		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.heartbeat)
 	}
 	if registry.heartbeatTimeout > 0 {
 		go registry.loopWhileAlive(registry.heartbeatTimeout, registry.checkExpiredRemoteNodes)
@@ -430,6 +437,14 @@ func compatibility(info map[string]interface{}) map[string]interface{} {
 		info["version"] = ""
 	}
 	return info
+}
+
+func (registry *ServiceRegistry) ForEachNode(forEAchFunc moleculer.ForEachNodeFunc) {
+	registry.nodes.ForEachNode(forEAchFunc)
+}
+
+func (registry *ServiceRegistry) GetLocalNode() moleculer.Node {
+	return registry.localNode
 }
 
 // remoteNodeInfoReceived process the remote node info message and add to local registry.

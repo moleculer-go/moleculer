@@ -12,8 +12,8 @@ import (
 type State int
 
 const (
-	LISTENING State = iota
-	CLOSED
+	STARTED State = iota
+	STOPPED
 )
 
 type OnMessageFunc func(fromAddrss string, msgType int, msgBytes *[]byte)
@@ -47,9 +47,9 @@ func (r *TcpReader) Listen() {
 
 	r.logger.Infof("TCP server is listening on port %d", r.port)
 
-	r.state = LISTENING
+	r.state = STARTED
 	go func() {
-		for r.state == LISTENING {
+		for r.state == STARTED {
 			conn, err := r.listener.Accept()
 			if err != nil {
 				r.logger.Error("Error accepting connection: ", err)
@@ -139,7 +139,7 @@ func (r *TcpReader) closeSocket(conn net.Conn) {
 }
 
 func (r *TcpReader) Close() {
-	r.state = CLOSED
+	r.state = STOPPED
 	r.listener.Close()
 	for conn := range r.sockets {
 		r.closeSocket(conn)

@@ -31,6 +31,12 @@ func (catalog *NodeCatalog) HeartBeat(heartbeat map[string]interface{}) bool {
 	return false
 }
 
+func (catalog *NodeCatalog) ForEachNode(forEAchFunc moleculer.ForEachNodeFunc) {
+	catalog.nodes.Range(func(key, value interface{}) bool {
+		return forEAchFunc(value.(moleculer.Node))
+	})
+}
+
 func (catalog *NodeCatalog) list() []moleculer.Node {
 	var result []moleculer.Node
 	catalog.nodes.Range(func(key, value interface{}) bool {

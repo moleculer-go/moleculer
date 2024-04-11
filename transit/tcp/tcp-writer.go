@@ -68,7 +68,7 @@ func (w *TcpWriter) Connect(nodeID, host string, port int) (*net.TCPConn, error)
 func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
 	socket, exists := w.sockets[nodeID]
 	if !exists || socket == nil {
-		return errors.New("connection does not exist")
+		return errors.New("connection does not exist for nodeID: " + nodeID)
 	}
 	header := make([]byte, HEADER_SIZE)
 	binary.BigEndian.PutUint32(header[1:], uint32(len(msgBytes)+len(header)))

@@ -352,9 +352,11 @@ func (pubsub *PubSub) SendHeartbeat() {
 		"ver":    version.MoleculerProtocol(),
 	}
 	message, err := pubsub.serializer.MapToPayload(&payload)
-	if err == nil {
-		pubsub.transport.Publish("HEARTBEAT", "", message)
+	if err != nil {
+		pubsub.logger.Error("SendHeartbeat() Error serializing the payload: ", payload, " error: ", err)
+		return
 	}
+	pubsub.transport.Publish("HEARTBEAT", "", message)
 }
 
 func (pubsub *PubSub) DiscoverNode(nodeID string) {
@@ -363,9 +365,12 @@ func (pubsub *PubSub) DiscoverNode(nodeID string) {
 		"ver":    version.MoleculerProtocol(),
 	}
 	message, err := pubsub.serializer.MapToPayload(&payload)
-	if err == nil {
-		pubsub.transport.Publish("DISCOVER", nodeID, message)
+	if err != nil {
+		pubsub.logger.Error("DiscoverNode() Error serializing the payload: ", payload, " error: ", err)
+		return
 	}
+	pubsub.transport.Publish("DISCOVER", nodeID, message)
+
 }
 
 // Emit emit an event to all services that listens to this event.
