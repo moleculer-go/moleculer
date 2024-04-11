@@ -171,7 +171,7 @@ func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[st
 }
 
 func (node *Node) UpdateMetrics() {
-	cpu, err := util.GetCpuUsage()
+	cpu, err := util.GetCpuUsage(100 * time.Millisecond)
 	if err != nil {
 		node.logger.Error("Error getting cpu usage:", err)
 		return

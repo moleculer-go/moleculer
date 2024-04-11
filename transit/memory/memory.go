@@ -52,7 +52,7 @@ func (transporter *MemoryTransporter) SetSerializer(serializer serializer.Serial
 
 }
 
-func (transporter *MemoryTransporter) Connect() chan error {
+func (transporter *MemoryTransporter) Connect(registry moleculer.Registry) chan error {
 	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Connecting() ...")
 	endChan := make(chan error)
 	go func() {
