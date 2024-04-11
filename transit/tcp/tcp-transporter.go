@@ -180,13 +180,13 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 		return
 	}
 	message := transporter.serializer.BytesToPayload(msgBytes)
-	if transporter.validateMsg(message) {
-		if handlers, ok := transporter.handlers[command]; ok {
-			for _, handler := range handlers {
-				handler(message)
-			}
+	// if transporter.validateMsg(message) {
+	if handlers, ok := transporter.handlers[command]; ok {
+		for _, handler := range handlers {
+			handler(message)
 		}
 	}
+	// }
 }
 
 func (transporter *TCPTransporter) startTcpServer() {

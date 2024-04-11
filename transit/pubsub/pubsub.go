@@ -48,22 +48,20 @@ const DATATYPE_JSON = 2
 const DATATYPE_BUFFER = 3
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
-	if pubsub.isConnected && pubsub.brokerStarted {
-		localNodeID := pubsub.broker.LocalNode().GetID()
-
-		// Checking that was added local service
-		isLocalServiceAdded := false
-		for _, value := range values {
-			if value.(map[string]string)["nodeID"] == localNodeID {
-				isLocalServiceAdded = true
-				break
-			}
+	localNodeID := pubsub.broker.LocalNode().GetID()
+	// Checking that was added local service
+	isLocalServiceAdded := false
+	for _, value := range values {
+		if value.(map[string]string)["nodeID"] == localNodeID {
+			isLocalServiceAdded = true
+			break
 		}
-
-		if isLocalServiceAdded {
-			pubsub.broker.LocalNode().IncreaseSequence()
-			pubsub.broadcastNodeInfo("")
-		}
+	}
+	if isLocalServiceAdded {
+		pubsub.broker.LocalNode().IncreaseSequence()
+	}
+	if isLocalServiceAdded && pubsub.isConnected && pubsub.brokerStarted {
+		pubsub.broadcastNodeInfo("")
 	}
 }
 

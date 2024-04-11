@@ -6,6 +6,7 @@ import (
 
 	"github.com/moleculer-go/moleculer"
 	payloadPkg "github.com/moleculer-go/moleculer/payload"
+	"github.com/moleculer-go/moleculer/util"
 )
 
 func (transporter *TCPTransporter) startGossipTimer() {
@@ -19,7 +20,7 @@ func (transporter *TCPTransporter) startGossipTimer() {
 
 func (transporter *TCPTransporter) sendGossipRequest() {
 
-	transporter.logger.Debug("Sending gossip request")
+	transporter.logger.Trace("Sending gossip request")
 
 	node := transporter.registry.GetLocalNode()
 	node.UpdateMetrics()
@@ -67,7 +68,7 @@ func (transporter *TCPTransporter) sendGossipToRandomEndpoint(payload moleculer.
 	}
 	node := nodes[rand.Intn(len(nodes))]
 	if !node.IsLocal() {
-		transporter.logger.Debug("Sending gossip request to " + node.GetID())
+		transporter.logger.Trace("Sending gossip request to "+node.GetID(), "payload:", payload)
 		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
 	}
 }
@@ -121,11 +122,21 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 		if onlineMap.Exists() {
 			online = onlineMap.Get(node.GetID())
 			if online.Exists() {
-				transporter.logger.Debug("received seq, cpuSeq, cpu for " + node.GetID())
+				transporter.logger.Debug("received for: "+node.GetID(), " seq: ", seq, " cpuSeq: ", cpuSeq, " cpu: ", cpu)
 				seq = online.Get("seq").Int64()
 				cpuSeq = online.Get("cpuSeq").Int64()
 				cpu = online.Get("cpu").Int64()
 			}
+		}
+
+		if node.IsLocal() {
+			node.UpdateMetrics()
+			info := node.ExportAsMap()
+			seq = node.GetSequence()
+			cpu = node.GetCpu()
+			cpuSeq = node.GetCpuSequence()
+			onlineResponse[node.GetID()] = []interface{}{info, node.GetCpuSequence(), node.GetCpu()}
+			// transporter.logger.Debug("Node is local - send back the node info and cpu, cpuSed to "+node.GetID(), " seq: ", seq, " cpuSeq: ", cpuSeq, " cpu: ", cpu, " info: ", util.PrettyPrintMap(info))
 		}
 
 		if seq != 0 && seq < node.GetSequence() {
@@ -133,7 +144,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 			if node.IsAvailable() {
 				info := node.ExportAsMap()
 				onlineResponse[node.GetID()] = []interface{}{info, node.GetCpuSequence(), node.GetCpu()}
-				transporter.logger.Debug("Node is available - send back the node info and cpu, cpuSed to " + node.GetID())
+				transporter.logger.Debug("Node is available - send back the node info and cpu, cpuSed to "+node.GetID(), " seq: ", seq, " cpuSeq: ", cpuSeq, " cpu: ", cpu, " info: ", util.PrettyPrintMap(info))
 			} else {
 				offlineResponse[node.GetID()] = node.GetSequence()
 				transporter.logger.Debug("Node is offline - send back the seq to " + node.GetID())
@@ -193,6 +204,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 				}
 			} else {
 				// We know it as offline. We do nothing, because we'll request it and we'll receive its INFO.
+
 				return true
 			}
 		}
@@ -201,10 +213,15 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 
 	if len(onlineResponse) > 0 || len(offlineResponse) > 0 {
 		sender := payload.Get("sender").String()
-		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_RES), sender, payloadPkg.Empty().Add("online", onlineResponse).Add("offline", offlineResponse))
-		transporter.logger.Debug("Gossip response sent to " + sender)
+		responsePayload := payloadPkg.
+			Empty().
+			Add("online", onlineResponse).
+			Add("offline", offlineResponse).
+			Add("sender", transporter.registry.GetLocalNode().GetID())
+		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_RES), sender, responsePayload)
+		transporter.logger.Trace("Gossip response sent to " + sender)
 	} else {
-		transporter.logger.Debug("No response sent to " + payload.Get("sender").String())
+		transporter.logger.Trace("No response sent to " + sender)
 	}
 
 }
@@ -234,10 +251,10 @@ func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
 			row := online.Get(nodeID).Array()
 			info, cpu, cpuSeq := parseGossipResponse(row)
 
-			if info != nil && (node != nil || node.GetSequence() < info["seq"].(int64)) {
+			if info != nil && (node != nil && node.GetSequence() < info.Get("seq").Int64()) {
 				transporter.logger.Debug("If we don't know it, or know, but has smaller seq, update 'info'")
-				info["sender"] = sender
-				transporter.registry.RemoteNodeInfoReceived(payloadPkg.New(info))
+				info = info.Add("sender", sender)
+				transporter.registry.RemoteNodeInfoReceived(info)
 			}
 			if node != nil && cpuSeq > node.GetCpuSequence() {
 				transporter.logger.Debug("If we know it and has smaller cpuSeq, update 'cpu'")
@@ -283,18 +300,18 @@ func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
 	}
 }
 
-func parseGossipResponse(row []moleculer.Payload) (info map[string]interface{}, cpu int64, cpuSeq int64) {
+func parseGossipResponse(row []moleculer.Payload) (info moleculer.Payload, cpu int64, cpuSeq int64) {
 	cpuSeq = -1
 	cpu = -1
 	if len(row) == 1 {
-		info = row[0].RawMap()
+		info = row[0]
 	}
 	if len(row) == 2 {
 		cpuSeq = row[0].Int64()
 		cpu = row[1].Int64()
 	}
 	if len(row) == 3 {
-		info = row[0].RawMap()
+		info = row[0]
 		cpuSeq = row[1].Int64()
 		cpu = row[2].Int64()
 	}

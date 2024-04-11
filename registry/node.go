@@ -304,4 +304,5 @@ func (node *Node) Available() {
 
 func (node *Node) IncreaseSequence() {
 	node.sequence++
+	node.logger.Debug("node.IncreaseSequence() nodeID:", node.id, "sequence:", node.sequence)
 }
