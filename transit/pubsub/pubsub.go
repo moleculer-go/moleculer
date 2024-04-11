@@ -266,6 +266,7 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 		// Maximum TCP packet size
 		MaxPacketSize: 1 * 1024 * 1024,
 
+		Namespace:  pubsub.broker.Config.Namespace,
 		NodeId:     pubsub.broker.LocalNode().GetID(),
 		Logger:     pubsub.logger.WithField("transport", "tcp"),
 		Serializer: pubsub.serializer,

@@ -65,8 +65,42 @@ func (w *TcpWriter) Connect(nodeID, host string, port int) (*net.TCPConn, error)
 	return conn, nil
 }
 
+func (w *TcpWriter) IsConnected(nodeID string) bool {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	_, exists := w.sockets[nodeID]
+	return exists
+}
+
+func (w *TcpWriter) Broadcast(msgType byte, msgBytes []byte) error {
+	w.lock.Lock()
+	nodeIDs := make([]string, 0, len(w.sockets))
+	for nodeID, _ := range w.sockets {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	w.lock.Unlock()
+
+	var lastError error
+	errorCount := 0
+	for _, nodeID := range nodeIDs {
+		err := w.Send(nodeID, msgType, msgBytes)
+		if err != nil {
+			w.logger.Errorf("Error sending message to node %s: %s", nodeID, err)
+			lastError = err
+			errorCount++
+		}
+	}
+	if errorCount > 0 {
+		w.logger.Errorf("Failed to send message to %d nodes last error: %s", errorCount, lastError)
+		return errors.New("Failed to send message to " + fmt.Sprint(errorCount) + " nodes last error: " + lastError.Error())
+	}
+	return nil
+}
+
 func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
+	w.lock.Lock()
 	socket, exists := w.sockets[nodeID]
+	w.lock.Unlock()
 	if !exists || socket == nil {
 		return errors.New("connection does not exist for nodeID: " + nodeID)
 	}

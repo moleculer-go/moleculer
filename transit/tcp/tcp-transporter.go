@@ -1,6 +1,8 @@
 package tcp
 
 import (
+	"errors"
+	"strconv"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -65,6 +67,7 @@ type TCPOptions struct {
 
 	Prefix      string
 	NodeId      string
+	Namespace   string
 	Logger      *log.Entry
 	Serializer  serializer.Serializer
 	ValidateMsg transit.ValidateMsgFunc
@@ -72,6 +75,9 @@ type TCPOptions struct {
 
 func CreateTCPTransporter(options TCPOptions) TCPTransporter {
 	transport := TCPTransporter{options: options, logger: options.Logger}
+	transport.handlers = make(map[string][]transit.TransportHandler)
+	transport.serializer = options.Serializer
+	transport.validateMsg = options.ValidateMsg
 	return transport
 }
 
@@ -187,6 +193,7 @@ func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
 	}))
+	transporter.tcpReader.Listen()
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPWriter",
 	}))
@@ -202,7 +209,8 @@ func (transporter *TCPTransporter) startUDPServer() {
 		DiscoverPeriod: transporter.options.UdpPeriod,
 		MaxDiscovery:   transporter.options.UdpMaxDiscovery,
 		Discovery:      transporter.options.UdpDiscovery,
-		// Namespace:      transporter.options.Namespace, TODO
+		NodeID:         transporter.options.NodeId,
+		Namespace:      transporter.options.Namespace,
 	}, transporter.onUdpMessage, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "UdpServer",
 	}))
@@ -269,27 +277,76 @@ func (transporter *TCPTransporter) Disconnect() chan error {
 }
 
 func (transporter *TCPTransporter) Subscribe(command, nodeID string, handler transit.TransportHandler) {
-	if commandToMsgType(command) == -1 {
-		transporter.logger.Error("TCPTransporter.Subscribe() Invalid command: " + command)
-		return
-	}
-
+	// if commandToMsgType(command) == -1 {
+	// 	transporter.logger.Error("TCPTransporter.Subscribe() Invalid command: " + command)
+	// 	return
+	// }
 	if _, ok := transporter.handlers[command]; !ok {
 		transporter.handlers[command] = make([]transit.TransportHandler, 0)
 	}
 	transporter.handlers[command] = append(transporter.handlers[command], handler)
 }
 
+func (transporter *TCPTransporter) getNodeAddress(node moleculer.Node) string {
+	if node.GetUdpAddress() != "" {
+		return node.GetUdpAddress()
+	}
+	if transporter.options.UseHostname && node.GetHostname() != "" {
+		return node.GetHostname()
+	}
+	if len(node.GetIpList()) > 0 {
+		return node.GetIpList()[0]
+	}
+	return ""
+}
+
+func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
+	node := transporter.registry.GetNodeByID(nodeID)
+	if node == nil {
+		transporter.logger.Error("TCPTransporter.tryToConnect() Unknown nodeID: " + nodeID)
+		return errors.New("Unknown nodeID: " + nodeID)
+	}
+	nodeAddress := transporter.getNodeAddress(node)
+	if nodeAddress == "" {
+		transporter.logger.Error("TCPTransporter.tryToConnect() No address found for nodeID: " + nodeID)
+		return errors.New("No address found for nodeID: " + nodeID)
+	}
+	_, err := transporter.tcpWriter.Connect(nodeID, nodeAddress, node.GetPort())
+	if err != nil {
+		transporter.logger.Error("TCPTransporter.tryToConnect() Error connecting to nodeID: "+nodeID+" node address:"+nodeAddress+" port: "+strconv.Itoa(node.GetPort())+" error: ", err)
+		return err
+	}
+	transporter.logger.Info("TCPTransporter.tryToConnect() Connected to nodeID: " + nodeID + " node address:" + nodeAddress + " port: " + strconv.Itoa(node.GetPort()))
+	return nil
+}
+
 func (transporter *TCPTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	msgType := commandToMsgType(command)
 	if msgType == -1 {
-		transporter.logger.Error("TCPTransporter.Publish() Invalid command: " + command)
+		transporter.logger.Error("TCPTransporter.Publish() Invalid command: " + command + " nodeID: " + nodeID)
 		return
 	}
+
 	msgBts := transporter.serializer.PayloadToBytes(message)
+
+	if nodeID == "" {
+		err := transporter.tcpWriter.Broadcast(byte(msgType), msgBts)
+		if err != nil {
+			transporter.logger.Error("TCPTransporter.Publish() Error broadcasting message command:"+command+" error: ", err)
+		}
+		return
+	}
+
+	if !transporter.tcpWriter.IsConnected(nodeID) {
+		err := transporter.tryToConnect(nodeID)
+		if err != nil {
+			transporter.logger.Error("TCPTransporter.Publish() Error connecting to nodeID: "+nodeID+" error: ", err)
+			return
+		}
+	}
 	err := transporter.tcpWriter.Send(nodeID, byte(msgType), msgBts)
 	if err != nil {
-		transporter.logger.Error("TCPTransporter.Publish() Error sending message: ", err)
+		transporter.logger.Error("TCPTransporter.Publish() Error sending message command:"+command+" error: ", err)
 	}
 }
 

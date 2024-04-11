@@ -89,6 +89,18 @@ func (node *Node) GetIpList() []string {
 	return node.ipList
 }
 
+func (node *Node) GetUdpAddress() string {
+	return node.udpAddress
+}
+
+func (node *Node) GetHostname() string {
+	return node.hostname
+}
+
+func (node *Node) GetPort() int {
+	return node.port
+}
+
 func (node *Node) UpdateInfo(id string, info map[string]interface{}) []map[string]interface{} {
 	if id != node.id {
 		node.logger.Error(fmt.Sprintf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
@@ -150,10 +162,6 @@ func (node *Node) GetCpu() int64 {
 
 func (node *Node) IsLocal() bool {
 	return node.isLocal
-}
-
-func (node *Node) GetUdpAddress() string {
-	return node.udpAddress
 }
 
 func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {

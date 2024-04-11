@@ -14,6 +14,7 @@ import (
 
 type UdpServerEntry struct {
 	conn             *net.UDPConn
+	packetConn       *ipv4.PacketConn
 	discoveryTargets []string
 }
 
@@ -62,10 +63,10 @@ func (u *UdpServer) startServer(ip string, port int, multicast string, multicast
 		u.logger.Warnf("Unable to listen on UDP address: %s\n", err)
 		return err
 	}
-
+	var packetConn *ipv4.PacketConn
 	if multicast != "" {
 		u.logger.Infof("UDP Multicast Server is listening on %s:%d. Membership:  %s \n", ip, port, multicast)
-		err := u.joinMulticastGroup(multicast, udpConn, multicastTTL, ip, port)
+		packetConn, err = u.joinMulticastGroup(multicast, udpConn, multicastTTL, ip, port)
 		if err != nil {
 			u.logger.Error("Error joining multicast group:", err)
 			return err
@@ -75,74 +76,38 @@ func (u *UdpServer) startServer(ip string, port int, multicast string, multicast
 		u.logger.Infof("UDP Broadcast Server is listening on %s:%d\n", ip, port)
 	}
 
-	// // Start a goroutine to handle incoming messages
-	// go func() {
-	// 	buf := make([]byte, 1024)
-	// 	for {
-	// 		n, addr, err := udpConn.ReadFromUDP(buf)
-	// 		if err != nil {
-	// 			u.logger.Warnf("Error reading from UDP: %s\n", err)
-	// 			break
-	// 		}
-
-	// 		// Handle the message
-	// 		u.onMessage(buf[:n], addr)
-	// 	}
-	// }()
-	// Add the connection to your list of servers
-	u.servers = append(u.servers, &UdpServerEntry{udpConn, discoveryTargets})
+	u.servers = append(u.servers, &UdpServerEntry{udpConn, packetConn, discoveryTargets})
 	return nil
 }
 
-// func (u *UdpServer) onMessage(buf []byte, addr *net.UDPAddr) {
-// 	msg := string(buf)
-// 	u.logger.Debugf("UDP message received from %s: %s\n", addr.String(), msg)
-
-// 	parts := strings.Split(msg, "|")
-// 	if len(parts) != 3 {
-// 		u.logger.Debugf("Malformed UDP packet received: %s\n", msg)
-// 		return
-// 	}
-
-// 	if parts[0] == u.namespace {
-// 		port, err := strconv.Atoi(parts[2])
-// 		if err != nil {
-// 			u.logger.Debugf("UDP packet process error: %s\n", err)
-// 			return
-// 		}
-
-// 		u.emit("message", parts[1], addr.IP.String(), port)
-// 	}
-// }
-
-func (u *UdpServer) joinMulticastGroup(multicast string, udpConn *net.UDPConn, multicastTTL int, ip string, port int) error {
-	groupAddr, err := net.ResolveUDPAddr("udp4", multicast)
+func (u *UdpServer) joinMulticastGroup(multicast string, udpConn *net.UDPConn, multicastTTL int, ip string, port int) (*ipv4.PacketConn, error) {
+	groupAddr, err := net.ResolveUDPAddr("udp4", multicast+":"+strconv.Itoa(port))
 	if err != nil {
 		u.logger.Warnf("Unable to resolve multicast address: %s\n", err)
-		return err
+		return nil, err
 	}
 
-	p := ipv4.NewPacketConn(udpConn)
+	packetConn := ipv4.NewPacketConn(udpConn)
 
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		u.logger.Warnf("Unable to get network interfaces: %s\n", err)
-		return err
+		return nil, err
 	}
 
 	for _, iface := range interfaces {
-		if err := p.JoinGroup(&iface, groupAddr); err != nil {
+		if err := packetConn.JoinGroup(&iface, groupAddr); err != nil {
 			u.logger.Warnf("Unable to join multicast group on interface %s: %s\n", iface.Name, err)
 		}
 	}
 
-	if err := p.SetMulticastTTL(multicastTTL); err != nil {
+	if err := packetConn.SetMulticastTTL(multicastTTL); err != nil {
 		u.logger.Warnf("Unable to set multicast TTL: %s\n", err)
-		return err
+		return nil, err
 	}
 
 	u.logger.Infof("UDP Multicast Server is listening on %s:%d. Membership: %s\n", ip, port, multicast)
-	return nil
+	return packetConn, nil
 }
 
 func (u *UdpServer) getAllIPs() []string {
@@ -169,11 +134,12 @@ func (u *UdpServer) getAllIPs() []string {
 				ip = v.IP
 			}
 
-			if ip == nil {
+			// Check if the IP is a valid IPv4 address
+			if ip == nil || ip.To4() == nil {
 				continue
 			}
 			ips = append(ips, ip.String())
-			u.logger.Debug("Interface: %v, IP Address: %v", i.Name, ip.String())
+			u.logger.Debugf("Interface: %v, IP Address: %v", i.Name, ip.String())
 		}
 	}
 	return ips
@@ -264,26 +230,26 @@ func (u *UdpServer) handleIncomingMessagesForServer(server *UdpServerEntry) {
 			continue
 		}
 		message := string(buffer[:n])
-		u.logger.Debug("Received message from %s: %s", addr.String(), message)
+		u.logger.Debugf("Received message from %s: %s", addr.String(), message)
 
 		// Parse the message
 		parts := strings.Split(message, "|")
 		if len(parts) != 3 {
-			u.logger.Debug("Malformed UDP packet received: %s", message)
+			u.logger.Debugf("Malformed UDP packet received: %s", message)
 			continue
 		}
 
 		namespace := parts[0]
 
 		if namespace != u.opts.Namespace {
-			u.logger.Debug("Message received for a different namespace: %s", namespace)
+			u.logger.Debugf("Message received for a different namespace: %s", namespace)
 			continue
 		}
 
 		nodeID := parts[1]
 		port, err := strconv.Atoi(parts[2])
 		if err != nil {
-			u.logger.Debug("Error parsing port number: %s", err)
+			u.logger.Debugf("Error parsing port number: %s", err)
 			continue
 		}
 
@@ -293,7 +259,7 @@ func (u *UdpServer) handleIncomingMessagesForServer(server *UdpServerEntry) {
 }
 
 func (u *UdpServer) startDiscovering() {
-	if u.opts.Discovery == false {
+	if !u.opts.Discovery {
 		u.logger.Info("UDP Discovery is disabled.")
 		return
 	}
@@ -301,7 +267,7 @@ func (u *UdpServer) startDiscovering() {
 		u.logger.Warn("Discovery already started.")
 		return
 	}
-	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod)
+	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod * time.Second)
 	go func() {
 		for range u.discoverTimer.C {
 			u.broadcastDiscoveryMessage()
@@ -319,7 +285,7 @@ func (u *UdpServer) broadcastDiscoveryMessage() {
 	u.discoveryCounter++
 	for _, server := range u.servers {
 		for _, target := range server.discoveryTargets {
-			destAddr, err := net.ResolveUDPAddr("udp4", target+":"+strconv.Itoa(u.opts.Port))
+			destAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", target, u.opts.Port))
 			if err != nil {
 				u.logger.Error("Error resolving UDP address:", err)
 				continue

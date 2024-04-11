@@ -226,6 +226,7 @@ type Node interface {
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
 	GetIpList() []string
+	GetPort() int
 	Available()
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
@@ -241,6 +242,7 @@ type Node interface {
 	IsLocal() bool
 	Disconnected(isUnexpected bool)
 	UpdateMetrics()
+	GetHostname() string
 }
 
 type Options struct {
