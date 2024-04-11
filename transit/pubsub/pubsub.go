@@ -164,6 +164,7 @@ func isKafka(v string) bool {
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
 func (pubsub *PubSub) createTransport() transit.Transport {
+	pubsub.logger.Debug("createTransport() Config.Transporter: " + pubsub.broker.Config.Transporter)
 	var transport transit.Transport
 	if pubsub.broker.Config.TransporterFactory != nil {
 		pubsub.logger.Info("Transporter: Custom factory")
