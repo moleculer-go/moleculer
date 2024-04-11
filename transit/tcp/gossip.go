@@ -84,7 +84,7 @@ func (transporter *TCPTransporter) onGossipHello(fromAddrss string, msgBytes *[]
 		node = transporter.registry.AddOfflineNode(sender, payload.Get("host").String(), payload.Get("port").Int())
 	}
 	if node.GetUdpAddress() == "" {
-		node.UpdateInfo(sender, map[string]interface{}{
+		node.UpdateInfo(map[string]interface{}{
 			"udpAddress": fromAddrss,
 		})
 	}
@@ -145,7 +145,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 			if !node.IsAvailable() {
 				transporter.logger.Debug("We also know it as offline - update the seq")
 				if seq > node.GetSequence() {
-					node.UpdateInfo(node.GetID(), map[string]interface{}{
+					node.UpdateInfo(map[string]interface{}{
 						"seq": seq,
 					})
 				}
@@ -158,7 +158,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 				transporter.registry.DisconnectNode(node.GetID())
 
 				// Update the 'seq' to the received value
-				node.UpdateInfo(node.GetID(), map[string]interface{}{
+				node.UpdateInfo(map[string]interface{}{
 					"seq": seq,
 				})
 				return true
@@ -167,7 +167,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 			if node.IsLocal() {
 				transporter.logger.Debug("msg is about the Local node - update the seq and send back info, cpu and cpuSeq")
 				// Update the 'seq' to the received value
-				node.UpdateInfo(node.GetID(), map[string]interface{}{
+				node.UpdateInfo(map[string]interface{}{
 					"seq": seq + 1,
 				})
 				onlineResponse[node.GetID()] = []interface{}{node.ExportAsMap(), node.GetCpuSequence(), node.GetCpu()}
@@ -180,7 +180,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 			if node.IsAvailable() {
 				if cpuSeq > node.GetCpuSequence() {
 					// We update CPU info
-					node.UpdateInfo(node.GetID(), map[string]interface{}{
+					node.UpdateInfo(map[string]interface{}{
 						"cpu":    cpu,
 						"cpuSeq": cpuSeq,
 					})
@@ -274,7 +274,7 @@ func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
 					transporter.logger.Debug("Node is online, will change it to offline")
 					transporter.registry.DisconnectNode(nodeID)
 				}
-				node.UpdateInfo(nodeID, map[string]interface{}{
+				node.UpdateInfo(map[string]interface{}{
 					"seq": seq,
 				})
 			}

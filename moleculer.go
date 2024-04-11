@@ -231,7 +231,7 @@ type Node interface {
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
 	Update(id string, info map[string]interface{}) (bool, []map[string]interface{})
-	UpdateInfo(id string, info map[string]interface{}) []map[string]interface{}
+	UpdateInfo(info map[string]interface{}) []map[string]interface{}
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
 	Publish(service map[string]interface{})

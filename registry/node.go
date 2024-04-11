@@ -101,11 +101,7 @@ func (node *Node) GetPort() int {
 	return node.port
 }
 
-func (node *Node) UpdateInfo(id string, info map[string]interface{}) []map[string]interface{} {
-	if id != node.id {
-		node.logger.Error(fmt.Sprintf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
-		return []map[string]interface{}{}
-	}
+func (node *Node) UpdateInfo(info map[string]interface{}) []map[string]interface{} {
 	node.logger.Debug("node.UpdateInfo() - info:")
 	node.logger.Debug(util.PrettyPrintMap(info))
 
@@ -170,7 +166,7 @@ func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[st
 		return false, nil
 	}
 	node.logger.Debug("node.Update()")
-	removedServices := node.UpdateInfo(id, info)
+	removedServices := node.UpdateInfo(info)
 	reconnected := !node.isAvailable
 	node.isAvailable = true
 	node.lastHeartBeatTime = time.Now().Unix()

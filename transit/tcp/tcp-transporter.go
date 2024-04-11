@@ -51,7 +51,7 @@ type TCPOptions struct {
 	// Send broadcast (Boolean, String, Array<String>)
 	UdpBroadcast      []string
 	UdpBroadcastAddrs []string
-	// TCP server port. Null or 0 means random port
+	// TCP server port. 0 means random port
 	Port int
 	// Static remote nodes address list (when UDP discovery is not available)
 	Urls []string
@@ -193,10 +193,19 @@ func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
 	}))
-	transporter.tcpReader.Listen()
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPWriter",
 	}))
+
+	port, err := transporter.tcpReader.Listen()
+	if err != nil {
+		transporter.logger.Error("Error trying to listen on tcp reader - error: ", err)
+		return
+	}
+	node := transporter.registry.GetLocalNode()
+	node.UpdateInfo(map[string]interface{}{
+		"port": port,
+	})
 }
 
 func (transporter *TCPTransporter) startUDPServer() {
@@ -211,7 +220,7 @@ func (transporter *TCPTransporter) startUDPServer() {
 		Discovery:      transporter.options.UdpDiscovery,
 		NodeID:         transporter.options.NodeId,
 		Namespace:      transporter.options.Namespace,
-	}, transporter.onUdpMessage, transporter.logger.WithFields(log.Fields{
+	}, transporter.registry, transporter.onUdpMessage, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "UdpServer",
 	}))
 
@@ -250,13 +259,13 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int
 			node = transporter.registry.AddOfflineNode(nodeID, address, port)
 		} else if !node.IsAvailable() {
 			ipList := addIpToList(node.GetIpList(), address)
-			node.UpdateInfo(nodeID, map[string]interface{}{
+			node.UpdateInfo(map[string]interface{}{
 				"hostname": address,
 				"port":     port,
 				"ipList":   ipList,
 			})
 		}
-		node.UpdateInfo(nodeID, map[string]interface{}{
+		node.UpdateInfo(map[string]interface{}{
 			"udpAddress": address,
 		})
 	}
@@ -321,12 +330,28 @@ func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
 }
 
 func (transporter *TCPTransporter) Publish(command, nodeID string, message moleculer.Payload) {
+	if command == "DISCOVER" {
+		if transporter.udpServer != nil {
+			transporter.udpServer.BroadcastDiscoveryMessage()
+		}
+		return
+	}
+	if command == "INFO" {
+		//how does the JS TCP transporter handle node info broadcast?
+		//prob done by the gossip protocol
+		return
+	}
+	if command == "HEARTBEAT" {
+		//how does the JS TCP transporter handle HEARTBEAT?
+		//prob done by the gossip protocol
+		return
+	}
+
 	msgType := commandToMsgType(command)
 	if msgType == -1 {
 		transporter.logger.Error("TCPTransporter.Publish() Invalid command: " + command + " nodeID: " + nodeID)
 		return
 	}
-
 	msgBts := transporter.serializer.PayloadToBytes(message)
 
 	if nodeID == "" {

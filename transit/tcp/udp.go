@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/net/ipv4"
 
+	"github.com/moleculer-go/moleculer"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -28,6 +29,7 @@ type UdpServer struct {
 	discoverTimer    *time.Ticker
 	servers          []*UdpServerEntry
 	onUdpMessage     OnUdpMessage
+	registry         moleculer.Registry
 }
 
 type UdpServerOptions struct {
@@ -43,10 +45,11 @@ type UdpServerOptions struct {
 	NodeID         string
 }
 
-func NewUdpServer(opts UdpServerOptions, onUdpMessage OnUdpMessage, logger *log.Entry) *UdpServer {
+func NewUdpServer(opts UdpServerOptions, registry moleculer.Registry, onUdpMessage OnUdpMessage, logger *log.Entry) *UdpServer {
 	return &UdpServer{
 		opts:         opts,
 		onUdpMessage: onUdpMessage,
+		registry:     registry,
 		logger:       logger,
 	}
 }
@@ -97,12 +100,12 @@ func (u *UdpServer) joinMulticastGroup(multicast string, udpConn *net.UDPConn, m
 
 	for _, iface := range interfaces {
 		if err := packetConn.JoinGroup(&iface, groupAddr); err != nil {
-			u.logger.Warnf("Unable to join multicast group on interface %s: %s\n", iface.Name, err)
+			u.logger.Tracef("Unable to join multicast group on interface %s: %s\n", iface.Name, err)
 		}
 	}
 
 	if err := packetConn.SetMulticastTTL(multicastTTL); err != nil {
-		u.logger.Warnf("Unable to set multicast TTL: %s\n", err)
+		u.logger.Tracef("Unable to set multicast TTL: %s\n", err)
 		return nil, err
 	}
 
@@ -218,7 +221,7 @@ func (u *UdpServer) getBroadcastAddresses() []string {
 func (u *UdpServer) firstDiscoveryMessage() {
 	//wait for 1 second before sending the first discovery message
 	time.Sleep(time.Second)
-	u.broadcastDiscoveryMessage()
+	u.BroadcastDiscoveryMessage()
 }
 
 func (u *UdpServer) handleIncomingMessagesForServer(server *UdpServerEntry) {
@@ -270,7 +273,7 @@ func (u *UdpServer) startDiscovering() {
 	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod * time.Second)
 	go func() {
 		for range u.discoverTimer.C {
-			u.broadcastDiscoveryMessage()
+			u.BroadcastDiscoveryMessage()
 			if u.opts.MaxDiscovery > 0 && u.discoveryCounter >= u.opts.MaxDiscovery {
 				u.logger.Info("Discovery limit reached, stopping UDP discovery")
 				u.StopDiscovering()
@@ -279,8 +282,9 @@ func (u *UdpServer) startDiscovering() {
 	}()
 }
 
-func (u *UdpServer) broadcastDiscoveryMessage() {
-	message := fmt.Sprintf("%s|%s|%d", u.opts.Namespace, u.opts.NodeID, u.opts.Port)
+func (u *UdpServer) BroadcastDiscoveryMessage() {
+	node := u.registry.GetLocalNode()
+	message := fmt.Sprintf("%s|%s|%d", u.opts.Namespace, node.GetID(), node.GetPort())
 	u.logger.Debug("Broadcasting discovery message:", message)
 	u.discoveryCounter++
 	for _, server := range u.servers {
