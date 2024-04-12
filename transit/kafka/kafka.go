@@ -89,7 +89,7 @@ func CreateKafkaTransporter(options KafkaOptions) transit.Transport {
 	}
 }
 
-func (t *KafkaTransporter) Connect() chan error {
+func (t *KafkaTransporter) Connect(registry moleculer.Registry) chan error {
 	endChan := make(chan error)
 	go func() {
 		t.logger.Debug("Kafka Connect() - url: ", t.opts.Url)

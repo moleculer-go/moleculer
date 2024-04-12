@@ -2,14 +2,15 @@ package amqp
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
-	"strings"
-	"time"
 )
 
 const (
@@ -129,7 +130,7 @@ func CreateAmqpTransporter(options AmqpOptions) transit.Transport {
 	}
 }
 
-func (t *AmqpTransporter) Connect() chan error {
+func (t *AmqpTransporter) Connect(registry moleculer.Registry) chan error {
 	endChan := make(chan error)
 
 	go func() {

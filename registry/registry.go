@@ -24,22 +24,23 @@ import (
 type messageHandlerFunc func(message moleculer.Payload)
 
 type ServiceRegistry struct {
-	logger                *log.Entry
-	transit               transit.Transit
-	localNode             moleculer.Node
-	nodes                 *NodeCatalog
-	services              *ServiceCatalog
-	actions               *ActionCatalog
-	events                *EventCatalog
-	broker                *moleculer.BrokerDelegates
-	strategy              strategy.Strategy
-	stopping              bool
-	heartbeatFrequency    time.Duration
-	heartbeatTimeout      time.Duration
-	offlineCheckFrequency time.Duration
-	offlineTimeout        time.Duration
-	nodeReceivedMutex     *sync.Mutex
-	namespace             string
+	logger                     *log.Entry
+	transit                    transit.Transit
+	localNode                  moleculer.Node
+	nodes                      *NodeCatalog
+	services                   *ServiceCatalog
+	actions                    *ActionCatalog
+	events                     *EventCatalog
+	broker                     *moleculer.BrokerDelegates
+	strategy                   strategy.Strategy
+	stopping                   bool
+	updateNodeMetricsFrequency time.Duration
+	heartbeatFrequency         time.Duration
+	heartbeatTimeout           time.Duration
+	offlineCheckFrequency      time.Duration
+	offlineTimeout             time.Duration
+	nodeReceivedMutex          *sync.Mutex
+	namespace                  string
 }
 
 // createTransit create a transit instance based on the config.
@@ -66,22 +67,23 @@ func CreateRegistry(nodeID string, broker *moleculer.BrokerDelegates) *ServiceRe
 	localNode := CreateNode(nodeID, true, logger.WithField("Node", nodeID))
 	localNode.Unavailable()
 	registry := &ServiceRegistry{
-		broker:                broker,
-		transit:               transit,
-		strategy:              strategy,
-		logger:                logger,
-		localNode:             localNode,
-		actions:               CreateActionCatalog(logger.WithField("catalog", "Actions")),
-		events:                CreateEventCatalog(logger.WithField("catalog", "Events")),
-		services:              CreateServiceCatalog(logger.WithField("catalog", "Services")),
-		nodes:                 CreateNodesCatalog(logger.WithField("catalog", "Nodes")),
-		heartbeatFrequency:    config.HeartbeatFrequency,
-		heartbeatTimeout:      config.HeartbeatTimeout,
-		offlineCheckFrequency: config.OfflineCheckFrequency,
-		offlineTimeout:        config.OfflineTimeout,
-		stopping:              false,
-		nodeReceivedMutex:     &sync.Mutex{},
-		namespace:             config.Namespace,
+		broker:                     broker,
+		transit:                    transit,
+		strategy:                   strategy,
+		logger:                     logger,
+		localNode:                  localNode,
+		actions:                    CreateActionCatalog(logger.WithField("catalog", "Actions")),
+		events:                     CreateEventCatalog(logger.WithField("catalog", "Events")),
+		services:                   CreateServiceCatalog(logger.WithField("catalog", "Services")),
+		nodes:                      CreateNodesCatalog(logger.WithField("catalog", "Nodes")),
+		updateNodeMetricsFrequency: config.UpdateNodeMetricsFrequency,
+		heartbeatFrequency:         config.HeartbeatFrequency,
+		heartbeatTimeout:           config.HeartbeatTimeout,
+		offlineCheckFrequency:      config.OfflineCheckFrequency,
+		offlineTimeout:             config.OfflineTimeout,
+		stopping:                   false,
+		nodeReceivedMutex:          &sync.Mutex{},
+		namespace:                  config.Namespace,
 	}
 
 	registry.logger.Debug("Service Registry created for broker: ", nodeID)
@@ -113,11 +115,23 @@ func (registry *ServiceRegistry) LocalNode() moleculer.Node {
 	return registry.localNode
 }
 
+// Register a node as offline because we don't know all information about it
+func (registry *ServiceRegistry) AddOfflineNode(nodeID string, hostname, ipAddress string, port int) moleculer.Node {
+	node := CreateNode(nodeID, false, registry.logger.WithField("Node", nodeID))
+	node.UpdateInfo(map[string]interface{}{
+		"hostname": hostname,
+		"port":     port,
+		"ipList":   []string{ipAddress},
+	})
+	registry.nodes.Add(node)
+	return node
+}
+
 func (registry *ServiceRegistry) setupMessageHandlers() {
 	messageHandler := map[string]messageHandlerFunc{
 		"HEARTBEAT":  registry.filterMessages(registry.heartbeatMessageReceived),
 		"DISCONNECT": registry.filterMessages(registry.disconnectMessageReceived),
-		"INFO":       registry.filterMessages(registry.remoteNodeInfoReceived),
+		"INFO":       registry.filterMessages(registry.RemoteNodeInfoReceived),
 	}
 	registry.broker.Bus().On("$registry.transit.message", func(args ...interface{}) {
 		registry.logger.Trace("Registry -> $registry.transit.message event - args: ", args)
@@ -147,11 +161,21 @@ func (registry *ServiceRegistry) LocalServices() []*service.Service {
 	return []*service.Service{createNodeService(registry)}
 }
 
+func (registry *ServiceRegistry) GetNodeByID(nodeID string) moleculer.Node {
+	node, _ := registry.nodes.findNode(nodeID)
+	return node
+}
+
+func (registry *ServiceRegistry) heartbeat() {
+	registry.localNode.UpdateMetrics()
+	registry.transit.SendHeartbeat()
+}
+
 // Start : start the registry background processes.
 func (registry *ServiceRegistry) Start() {
 	registry.logger.Debug("Registry Start() ")
 	registry.stopping = false
-	err := <-registry.transit.Connect()
+	err := <-registry.transit.Connect(registry)
 	if err != nil {
 		panic(errors.New(fmt.Sprint("Could not connect to the transit. err: ", err)))
 	}
@@ -160,7 +184,7 @@ func (registry *ServiceRegistry) Start() {
 	registry.nodes.Add(registry.localNode)
 
 	if registry.heartbeatFrequency > 0 {
-		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.transit.SendHeartbeat)
+		go registry.loopWhileAlive(registry.heartbeatFrequency, registry.heartbeat)
 	}
 	if registry.heartbeatTimeout > 0 {
 		go registry.loopWhileAlive(registry.heartbeatTimeout, registry.checkExpiredRemoteNodes)
@@ -334,8 +358,8 @@ func (registry *ServiceRegistry) removeServicesByNodeID(nodeID string) {
 	registry.events.RemoveByNode(nodeID)
 }
 
-// disconnectNode remove node info (actions, events) from local registry.
-func (registry *ServiceRegistry) disconnectNode(nodeID string) {
+// DisconnectNode remove node info (actions, events) from local registry.
+func (registry *ServiceRegistry) DisconnectNode(nodeID string) {
 	node, exists := registry.nodes.findNode(nodeID)
 	if !exists {
 		return
@@ -349,7 +373,7 @@ func (registry *ServiceRegistry) disconnectNode(nodeID string) {
 func (registry *ServiceRegistry) checkExpiredRemoteNodes() {
 	expiredNodes := registry.nodes.expiredNodes(registry.heartbeatTimeout)
 	for _, node := range expiredNodes {
-		registry.disconnectNode(node.GetID())
+		registry.DisconnectNode(node.GetID())
 	}
 }
 
@@ -403,7 +427,7 @@ func (registry *ServiceRegistry) disconnectMessageReceived(message moleculer.Pay
 	node, exists := registry.nodes.findNode(sender)
 	registry.logger.Debug("disconnectMessageReceived() sender: ", sender, " exists: ", exists)
 	if exists {
-		registry.disconnectNode(node.GetID())
+		registry.DisconnectNode(node.GetID())
 	}
 }
 
@@ -415,8 +439,16 @@ func compatibility(info map[string]interface{}) map[string]interface{} {
 	return info
 }
 
+func (registry *ServiceRegistry) ForEachNode(forEAchFunc moleculer.ForEachNodeFunc) {
+	registry.nodes.ForEachNode(forEAchFunc)
+}
+
+func (registry *ServiceRegistry) GetLocalNode() moleculer.Node {
+	return registry.localNode
+}
+
 // remoteNodeInfoReceived process the remote node info message and add to local registry.
-func (registry *ServiceRegistry) remoteNodeInfoReceived(message moleculer.Payload) {
+func (registry *ServiceRegistry) RemoteNodeInfoReceived(message moleculer.Payload) {
 	registry.nodeReceivedMutex.Lock()
 	defer registry.nodeReceivedMutex.Unlock()
 
@@ -559,6 +591,10 @@ func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy
 		return registry.actions.NextFromNode(actionName, opts[0].NodeID)
 	}
 	return registry.actions.Next(actionName, strategy)
+}
+
+func (registry *ServiceRegistry) GetNodeByAddress(address string) moleculer.Node {
+	return registry.nodes.GetNodeByAddress(address)
 }
 
 func (registry *ServiceRegistry) KnownEventListeners(addNode bool) []string {

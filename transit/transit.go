@@ -12,7 +12,7 @@ type ValidateMsgFunc func(moleculer.Payload) bool
 type Transit interface {
 	Emit(moleculer.BrokerContext)
 	Request(moleculer.BrokerContext) chan moleculer.Payload
-	Connect() chan error
+	Connect(moleculer.Registry) chan error
 	Disconnect() chan error
 	DiscoverNode(nodeID string)
 
@@ -22,7 +22,7 @@ type Transit interface {
 }
 
 type Transport interface {
-	Connect() chan error
+	Connect(registry moleculer.Registry) chan error
 	Disconnect() chan error
 	Subscribe(command, nodeID string, handler TransportHandler)
 	Publish(command, nodeID string, message moleculer.Payload)

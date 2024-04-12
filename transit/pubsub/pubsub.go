@@ -18,6 +18,7 @@ import (
 	"github.com/moleculer-go/moleculer/transit/kafka"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	"github.com/moleculer-go/moleculer/transit/nats"
+	"github.com/moleculer-go/moleculer/transit/tcp"
 	"github.com/moleculer-go/moleculer/util"
 
 	"github.com/moleculer-go/moleculer"
@@ -47,22 +48,20 @@ const DATATYPE_JSON = 2
 const DATATYPE_BUFFER = 3
 
 func (pubsub *PubSub) onServiceAdded(values ...interface{}) {
-	if pubsub.isConnected && pubsub.brokerStarted {
-		localNodeID := pubsub.broker.LocalNode().GetID()
-
-		// Checking that was added local service
-		isLocalServiceAdded := false
-		for _, value := range values {
-			if value.(map[string]string)["nodeID"] == localNodeID {
-				isLocalServiceAdded = true
-				break
-			}
+	localNodeID := pubsub.broker.LocalNode().GetID()
+	// Checking that was added local service
+	isLocalServiceAdded := false
+	for _, value := range values {
+		if value.(map[string]string)["nodeID"] == localNodeID {
+			isLocalServiceAdded = true
+			break
 		}
-
-		if isLocalServiceAdded {
-			pubsub.broker.LocalNode().IncreaseSequence()
-			pubsub.broadcastNodeInfo("")
-		}
+	}
+	if isLocalServiceAdded {
+		pubsub.broker.LocalNode().IncreaseSequence()
+	}
+	if isLocalServiceAdded && pubsub.isConnected && pubsub.brokerStarted {
+		pubsub.broadcastNodeInfo("")
 	}
 }
 
@@ -163,6 +162,7 @@ func isKafka(v string) bool {
 // CreateTransport : based on config it will load the transporter
 // for now is hard coded for NATS Streaming localhost
 func (pubsub *PubSub) createTransport() transit.Transport {
+	pubsub.logger.Debug("createTransport() Config.Transporter: " + pubsub.broker.Config.Transporter)
 	var transport transit.Transport
 	if pubsub.broker.Config.TransporterFactory != nil {
 		pubsub.logger.Info("Transporter: Custom factory")
@@ -170,6 +170,9 @@ func (pubsub *PubSub) createTransport() transit.Transport {
 	} else if pubsub.broker.Config.Transporter == "STAN" {
 		pubsub.logger.Info("Transporter: NatsStreamingTransporter")
 		transport = pubsub.createStanTransporter()
+	} else if pubsub.broker.Config.Transporter == "TCP" {
+		pubsub.logger.Info("Transporter: TCP")
+		transport = pubsub.createTCPTransporter()
 	} else if isNats(pubsub.broker.Config.Transporter) {
 		pubsub.logger.Info("Transporter: NatsTransporter")
 		transport = pubsub.createNatsTransporter()
@@ -213,7 +216,6 @@ func (pubsub *PubSub) createKafkaTransporter() transit.Transport {
 
 func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 	pubsub.logger.Debug("createNatsTransporter()")
-
 	return nats.CreateNatsTransporter(nats.NATSOptions{
 		URL:            pubsub.broker.Config.Transporter,
 		Name:           pubsub.broker.LocalNode().GetID(),
@@ -223,6 +225,52 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 		ReconnectWait:  time.Second * 2,
 		MaxReconnect:   -1,
 	})
+}
+
+func (pubsub *PubSub) createTCPTransporter() transit.Transport {
+	pubsub.logger.Debug("createTCPTransporter()")
+	tcpTransporter := tcp.CreateTCPTransporter(tcp.TCPOptions{
+		// Enable UDP discovery
+		UdpDiscovery: true,
+		// Reusing UDP server socket
+		UdpReuseAddr: true,
+
+		// UDP port
+		UdpPort: 4445,
+		// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
+		UdpBindAddress: "",
+		// UDP sending period (seconds)
+		UdpPeriod: 30,
+
+		// Multicast address.
+		UdpMulticast: "239.0.0.0",
+		// Multicast TTL setting
+		UdpMulticastTTL: 1,
+
+		// Send broadcast (Boolean, String, Array<String>)
+		UdpBroadcast: []string{},
+
+		// TCP server port.  0 means random port
+		Port: 0,
+		// Static remote nodes address list (when UDP discovery is not available)
+		Urls: []string{},
+		// Use hostname as preffered connection address
+		UseHostname: true,
+
+		// Gossip sending period in seconds
+		GossipPeriod: 2,
+		// Maximum enabled outgoing connections. If reach, close the old connections
+		MaxConnections: 32,
+		// Maximum TCP packet size
+		MaxPacketSize: 1 * 1024 * 1024,
+
+		Namespace:  pubsub.broker.Config.Namespace,
+		NodeId:     pubsub.broker.LocalNode().GetID(),
+		Logger:     pubsub.logger.WithField("transport", "tcp"),
+		Serializer: pubsub.serializer,
+	})
+	var transport transit.Transport = &tcpTransporter
+	return transport
 }
 
 func (pubsub *PubSub) createStanTransporter() transit.Transport {
@@ -285,7 +333,7 @@ func (pubsub *PubSub) waitForNeighbours() bool {
 	}
 }
 
-//DiscoverNodes will check if there are neighbours and return true if any are found ;).
+// DiscoverNodes will check if there are neighbours and return true if any are found ;).
 func (pubsub *PubSub) DiscoverNodes() chan bool {
 	result := make(chan bool)
 	go func() {
@@ -304,9 +352,11 @@ func (pubsub *PubSub) SendHeartbeat() {
 		"ver":    version.MoleculerProtocol(),
 	}
 	message, err := pubsub.serializer.MapToPayload(&payload)
-	if err == nil {
-		pubsub.transport.Publish("HEARTBEAT", "", message)
+	if err != nil {
+		pubsub.logger.Error("SendHeartbeat() Error serializing the payload: ", payload, " error: ", err)
+		return
 	}
+	pubsub.transport.Publish("HEARTBEAT", "", message)
 }
 
 func (pubsub *PubSub) DiscoverNode(nodeID string) {
@@ -315,9 +365,12 @@ func (pubsub *PubSub) DiscoverNode(nodeID string) {
 		"ver":    version.MoleculerProtocol(),
 	}
 	message, err := pubsub.serializer.MapToPayload(&payload)
-	if err == nil {
-		pubsub.transport.Publish("DISCOVER", nodeID, message)
+	if err != nil {
+		pubsub.logger.Error("DiscoverNode() Error serializing the payload: ", payload, " error: ", err)
+		return
 	}
+	pubsub.transport.Publish("DISCOVER", nodeID, message)
+
 }
 
 // Emit emit an event to all services that listens to this event.
@@ -552,7 +605,7 @@ func (pubsub *PubSub) requestHandler() transit.TransportHandler {
 	}
 }
 
-//eventHandler handles when a event msg is sent to this broker
+// eventHandler handles when a event msg is sent to this broker
 func (pubsub *PubSub) eventHandler() transit.TransportHandler {
 	return func(message moleculer.Payload) {
 		values := pubsub.serializer.PayloadToContextMap(message)
@@ -711,7 +764,7 @@ func (pubsub *PubSub) Disconnect() chan error {
 }
 
 // Connect : connect the transit with the transporter, subscribe to all events and start publishing its node info
-func (pubsub *PubSub) Connect() chan error {
+func (pubsub *PubSub) Connect(registry moleculer.Registry) chan error {
 	endChan := make(chan error)
 	if pubsub.isConnected {
 		endChan <- nil
@@ -720,7 +773,7 @@ func (pubsub *PubSub) Connect() chan error {
 	pubsub.logger.Debug("PubSub - Connecting transport...")
 	pubsub.transport = pubsub.createTransport()
 	go func() {
-		err := <-pubsub.transport.Connect()
+		err := <-pubsub.transport.Connect(registry)
 		if err == nil {
 			pubsub.isConnected = true
 			pubsub.logger.Debug("PubSub - Transport Connected!")
