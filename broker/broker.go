@@ -55,33 +55,71 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.StrategyFactory != nil {
 				baseConfig.StrategyFactory = config.StrategyFactory
 			}
-			if config.DisableInternalMiddlewares {
-				baseConfig.DisableInternalMiddlewares = config.DisableInternalMiddlewares
+			if config.UpdateNodeMetricsFrequency != 0 {
+				baseConfig.UpdateNodeMetricsFrequency = config.UpdateNodeMetricsFrequency
 			}
-			if config.DisableInternalServices {
-				baseConfig.DisableInternalServices = config.DisableInternalServices
+			if config.HeartbeatFrequency != 0 {
+				baseConfig.HeartbeatFrequency = config.HeartbeatFrequency
 			}
-			if config.Metrics {
-				baseConfig.Metrics = config.Metrics
+			if config.HeartbeatTimeout != 0 {
+				baseConfig.HeartbeatTimeout = config.HeartbeatTimeout
 			}
-
-			if config.MetricsRate > 0 {
-				baseConfig.MetricsRate = config.MetricsRate
+			if config.OfflineCheckFrequency != 0 {
+				baseConfig.OfflineCheckFrequency = config.OfflineCheckFrequency
 			}
-
-			if config.DontWaitForNeighbours {
-				baseConfig.DontWaitForNeighbours = config.DontWaitForNeighbours
+			if config.OfflineTimeout != 0 {
+				baseConfig.OfflineTimeout = config.OfflineTimeout
 			}
-
+			if config.NeighboursCheckTimeout != 0 {
+				baseConfig.NeighboursCheckTimeout = config.NeighboursCheckTimeout
+			}
+			if config.WaitForDependenciesTimeout != 0 {
+				baseConfig.WaitForDependenciesTimeout = config.WaitForDependenciesTimeout
+			}
 			if config.Middlewares != nil {
 				baseConfig.Middlewares = config.Middlewares
+			}
+			if config.Namespace != "" {
+				baseConfig.Namespace = config.Namespace
 			}
 			if config.RequestTimeout != 0 {
 				baseConfig.RequestTimeout = config.RequestTimeout
 			}
-
-			if config.Namespace != "" {
-				baseConfig.Namespace = config.Namespace
+			if config.MCallTimeout != 0 {
+				baseConfig.MCallTimeout = config.MCallTimeout
+			}
+			if config.RetryPolicy != nil {
+				baseConfig.RetryPolicy = config.RetryPolicy
+			}
+			if config.MaxCallLevel != 0 {
+				baseConfig.MaxCallLevel = config.MaxCallLevel
+			}
+			if config.Metrics {
+				baseConfig.Metrics = config.Metrics
+			}
+			if config.MetricsRate > 0 {
+				baseConfig.MetricsRate = config.MetricsRate
+			}
+			if config.DisableInternalServices {
+				baseConfig.DisableInternalServices = config.DisableInternalServices
+			}
+			if config.DisableInternalMiddlewares {
+				baseConfig.DisableInternalMiddlewares = config.DisableInternalMiddlewares
+			}
+			if config.DontWaitForNeighbours {
+				baseConfig.DontWaitForNeighbours = config.DontWaitForNeighbours
+			}
+			if config.WaitForNeighboursInterval != 0 {
+				baseConfig.WaitForNeighboursInterval = config.WaitForNeighboursInterval
+			}
+			if config.Created != nil {
+				baseConfig.Created = config.Created
+			}
+			if config.Started != nil {
+				baseConfig.Started = config.Started
+			}
+			if config.Stopped != nil {
+				baseConfig.Stopped = config.Stopped
 			}
 		}
 	}
@@ -330,6 +368,9 @@ func (broker *ServiceBroker) waitForService(service string) error {
 			break
 		}
 		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+			broker.logger.Debug("Time:", time.Since(start))
+			broker.logger.Debug("WaitForDependenciesTimeout:", broker.config.WaitForDependenciesTimeout)
+
 			err := errors.New("waitForService() - Timeout ! service: " + service)
 			broker.logger.Error(err)
 			return err

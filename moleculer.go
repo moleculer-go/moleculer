@@ -134,7 +134,7 @@ type Config struct {
 	Namespace                  string
 	RequestTimeout             time.Duration
 	MCallTimeout               time.Duration
-	RetryPolicy                RetryPolicy
+	RetryPolicy                *RetryPolicy
 	MaxCallLevel               int
 	Metrics                    bool
 	MetricsRate                float32
@@ -170,7 +170,7 @@ var DefaultConfig = Config{
 	Started:                    func() {},
 	Stopped:                    func() {},
 	MaxCallLevel:               100,
-	RetryPolicy: RetryPolicy{
+	RetryPolicy: &RetryPolicy{
 		Enabled: false,
 	},
 	RequestTimeout:            3 * time.Second,

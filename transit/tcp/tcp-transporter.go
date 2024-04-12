@@ -338,6 +338,7 @@ func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
 }
 
 func (transporter *TCPTransporter) Publish(command, nodeID string, message moleculer.Payload) {
+	transporter.logger.Debug("TCPTransporter.Publish() command: " + command + " to nodeID: " + nodeID)
 	if command == "DISCOVER" {
 		if transporter.udpServer != nil {
 			transporter.udpServer.BroadcastDiscoveryMessage()
