@@ -61,12 +61,8 @@ func main() {
 }
 ```
 
-# Roadmap
-
-## v0.1.0 (MVP)
-
-**Contents:**
-
+# Features
+ 
 - Service Broker
 - Transit and Transport
 - Actions (request-reply)
@@ -78,30 +74,7 @@ func main() {
 - Middlewares
 - NATS Streaming Transporter
 - JSON Serializer
-- Examples :)
-
-## v0.2.0 (Beta RC1)
-
-- Action validators
-- Support for streams
-- More Load balancing implementations (cpu-usage, latency)
-- Fault tolerance features (Circuit Breaker, Bulkhead, Retry, Timeout, Fallback)
-- Built-in caching solution (memory, Redis)
-- More transporters (gRPC, TCP, Redis, Kafka)
-- More serializers (Avro, MsgPack, Protocol Buffer, Thrift)
-
-## v0.3.0 (Beta)
-
-- Performance and Optimization
-- More DB Adaptors (Firebase, MySQL)
-- CLI for Project Seed Generation
-
-## v0.4.0 (Alpha)
-
-- Event Sourcing Mixins
-
-## v0.5.0 (Release)
-
+ 
 # Installation
 
 ```bash

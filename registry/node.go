@@ -19,6 +19,8 @@ type Node struct {
 	sequence          int64
 	ipList            []string
 	hostname          string
+	udpAddress        string
+	port              int
 	client            map[string]interface{}
 	services          []map[string]interface{}
 	isAvailable       bool
@@ -59,8 +61,6 @@ func discoverHostname() string {
 }
 
 func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
-	ipList := discoverIpList()
-	hostname := discoverHostname()
 	services := make([]map[string]interface{}, 0)
 	node := Node{
 		id: id,
@@ -69,43 +69,117 @@ func CreateNode(id string, local bool, logger *log.Entry) moleculer.Node {
 			"version":     version.Moleculer(),
 			"langVersion": version.Go(),
 		},
-		ipList:   ipList,
-		hostname: hostname,
 		services: services,
 		logger:   logger,
-		isLocal:  local,
 		sequence: 1,
+	}
+	if local {
+		node.isLocal = true
+		node.ipList = discoverIpList()
+		node.hostname = discoverHostname()
+		if node.hostname == "unknown" && len(node.ipList) > 0 {
+			node.hostname = node.ipList[0]
+		}
 	}
 	var result moleculer.Node = &node
 	return result
 }
 
+func (node *Node) GetIpList() []string {
+	return node.ipList
+}
+
+func (node *Node) GetUdpAddress() string {
+	return node.udpAddress
+}
+
+func (node *Node) GetHostname() string {
+	return node.hostname
+}
+
+func (node *Node) GetPort() int {
+	return node.port
+}
+
+func (node *Node) UpdateInfo(info map[string]interface{}) []map[string]interface{} {
+	node.logger.Trace("node.UpdateInfo() - info:", util.PrettyPrintMap(info))
+
+	if ipListArray, ok := info["ipList"].([]interface{}); ok {
+		node.ipList = interfaceToString(ipListArray)
+	}
+	if ipList, ok := info["ipList"].([]string); ok {
+		node.ipList = ipList
+	}
+	if hostname, ok := info["hostname"].(string); ok {
+		node.hostname = hostname
+	}
+	if local, ok := info["local"].(bool); ok {
+		node.isLocal = local
+	}
+	if port, ok := info["port"].(int); ok {
+		node.port = port
+	}
+	if udpAddress, ok := info["udpAddress"].(string); ok {
+		node.udpAddress = udpAddress
+	}
+	if client, ok := info["client"].(map[string]interface{}); ok {
+		node.client = client
+	}
+	if _, ok := info["seq"]; !ok {
+		node.sequence = int64Field(info, "seq", 0)
+	}
+	if _, ok := info["cpu"]; !ok {
+		node.cpu = int64Field(info, "cpu", 0)
+	}
+	if _, ok := info["cpuSeq"]; !ok {
+		node.cpuSequence = int64Field(info, "cpuSeq", 0)
+	}
+	if _, ok := info["services"].([]interface{}); ok {
+		services, removedServices := FilterServices(node.services, info)
+		node.logger.Debug("removedServices:", util.PrettyPrintMap(removedServices))
+		node.services = services
+		return removedServices
+	}
+	return []map[string]interface{}{}
+}
+
+func (node *Node) GetSequence() int64 {
+	return node.sequence
+}
+
+func (node *Node) GetCpuSequence() int64 {
+	return node.cpuSequence
+}
+
+func (node *Node) GetCpu() int64 {
+	return node.cpu
+}
+
+func (node *Node) IsLocal() bool {
+	return node.isLocal
+}
+
 func (node *Node) Update(id string, info map[string]interface{}) (bool, []map[string]interface{}) {
 	if id != node.id {
-		panic(fmt.Errorf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
+		node.logger.Error(fmt.Sprintf("Node.Update() - the id received : %s does not match this node.id : %s", id, node.id))
+		return false, nil
 	}
-	node.logger.Debug("node.Update() - info:")
-	node.logger.Debug(util.PrettyPrintMap(info))
-
+	node.logger.Debug("node.Update()")
+	removedServices := node.UpdateInfo(info)
 	reconnected := !node.isAvailable
-
 	node.isAvailable = true
 	node.lastHeartBeatTime = time.Now().Unix()
 	node.offlineSince = 0
-
-	node.ipList = interfaceToString(info["ipList"].([]interface{}))
-	node.hostname = info["hostname"].(string)
-	node.client = info["client"].(map[string]interface{})
-
-	services, removedServices := FilterServices(node.services, info)
-	node.logger.Debug("removedServices:", util.PrettyPrintMap(removedServices))
-
-	node.services = services
-	node.sequence = int64Field(info, "seq", 0)
-	node.cpu = int64Field(info, "cpu", 0)
-	node.cpuSequence = int64Field(info, "cpuSeq", 0)
-
 	return reconnected, removedServices
+}
+
+func (node *Node) UpdateMetrics() {
+	cpu, err := util.GetCpuUsage(100 * time.Millisecond)
+	if err != nil {
+		node.logger.Error("Error getting cpu usage:", err)
+		return
+	}
+	node.cpu = int64(cpu)
 }
 
 // FilterServices return all services excluding local services (example: $node) and return all removed services, services that existed in the currentServices list but
@@ -174,6 +248,7 @@ func (node *Node) ExportAsMap() map[string]interface{} {
 	resultMap["services"] = node.services // node.removeInternalServices(node.services)
 	resultMap["ipList"] = node.ipList
 	resultMap["hostname"] = node.hostname
+	resultMap["port"] = node.port
 	resultMap["client"] = node.client
 	resultMap["seq"] = node.sequence
 	resultMap["cpu"] = node.cpu
@@ -215,6 +290,10 @@ func (node *Node) IsAvailable() bool {
 
 // Unavailable mark the node as unavailable
 func (node *Node) Unavailable() {
+	if node.isAvailable {
+		node.offlineSince = time.Now().Unix()
+		node.sequence++
+	}
 	node.isAvailable = false
 }
 
@@ -223,10 +302,7 @@ func (node *Node) Available() {
 	node.isAvailable = true
 }
 
-func (node *Node) IsLocal() bool {
-	return node.isLocal
-}
-
 func (node *Node) IncreaseSequence() {
 	node.sequence++
+	node.logger.Debug("node.IncreaseSequence() nodeID:", node.id, "sequence:", node.sequence)
 }

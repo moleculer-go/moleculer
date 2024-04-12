@@ -46,7 +46,7 @@ func CreateStanTransporter(options StanOptions) StanTransporter {
 	return transport
 }
 
-func (transporter *StanTransporter) Connect() chan error {
+func (transporter *StanTransporter) Connect(registry moleculer.Registry) chan error {
 	endChan := make(chan error)
 	go func() {
 		transporter.logger.Debug("STAN Connect() - url: ", transporter.url, " clusterID: ", transporter.clusterID, " clientID: ", transporter.clientID)

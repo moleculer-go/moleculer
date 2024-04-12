@@ -123,6 +123,7 @@ type Config struct {
 	Transporter                string
 	TransporterFactory         TransporterFactoryFunc
 	StrategyFactory            StrategyFactoryFunc
+	UpdateNodeMetricsFrequency time.Duration
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
 	OfflineCheckFrequency      time.Duration
@@ -133,7 +134,7 @@ type Config struct {
 	Namespace                  string
 	RequestTimeout             time.Duration
 	MCallTimeout               time.Duration
-	RetryPolicy                RetryPolicy
+	RetryPolicy                *RetryPolicy
 	MaxCallLevel               int
 	Metrics                    bool
 	MetricsRate                float32
@@ -153,6 +154,7 @@ var DefaultConfig = Config{
 	LogFormat:                  "TEXT",
 	DiscoverNodeID:             discoverNodeID,
 	Transporter:                "MEMORY",
+	UpdateNodeMetricsFrequency: 5 * time.Second,
 	HeartbeatFrequency:         5 * time.Second,
 	HeartbeatTimeout:           15 * time.Second,
 	OfflineCheckFrequency:      20 * time.Second,
@@ -168,7 +170,7 @@ var DefaultConfig = Config{
 	Started:                    func() {},
 	Stopped:                    func() {},
 	MaxCallLevel:               100,
-	RetryPolicy: RetryPolicy{
+	RetryPolicy: &RetryPolicy{
 		Enabled: false,
 	},
 	RequestTimeout:            3 * time.Second,
@@ -223,14 +225,23 @@ type Node interface {
 	GetID() string
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
+	GetIpList() []string
+	GetPort() int
 	Available()
 	Unavailable()
 	IsExpired(timeout time.Duration) bool
 	Update(id string, info map[string]interface{}) (bool, []map[string]interface{})
-
+	UpdateInfo(info map[string]interface{}) []map[string]interface{}
 	IncreaseSequence()
 	HeartBeat(heartbeat map[string]interface{})
 	Publish(service map[string]interface{})
+	GetUdpAddress() string
+	GetSequence() int64
+	GetCpuSequence() int64
+	GetCpu() int64
+	IsLocal() bool
+	UpdateMetrics()
+	GetHostname() string
 }
 
 type Options struct {
@@ -248,6 +259,17 @@ type Context interface {
 
 	Payload() Payload
 	Meta() Payload
+}
+
+type ForEachNodeFunc func(node Node) bool
+type Registry interface {
+	GetNodeByID(nodeID string) Node
+	AddOfflineNode(nodeID, hostname, ipAddress string, port int) Node
+	ForEachNode(ForEachNodeFunc)
+	DisconnectNode(nodeID string)
+	RemoteNodeInfoReceived(message Payload)
+	GetLocalNode() Node
+	GetNodeByAddress(host string) Node
 }
 
 type BrokerContext interface {

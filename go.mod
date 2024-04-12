@@ -22,13 +22,16 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/procfs v0.0.0-20190503130316-740c07785007 // indirect
 	github.com/segmentio/kafka-go v0.4.18
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 	github.com/tidwall/gjson v1.9.3
 	github.com/tidwall/sjson v1.0.4
+	github.com/tklauser/go-sysconf v0.3.13 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
-	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 )

@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -19,6 +21,40 @@ func CreateNodesCatalog(logger *log.Entry) *NodeCatalog {
 	return &NodeCatalog{sync.Map{}, logger}
 }
 
+func contains(str string, list []string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func (catalog *NodeCatalog) GetNodeByAddress(address string) moleculer.Node {
+
+	host, portString, err := net.SplitHostPort(address)
+	if err != nil {
+		catalog.logger.Error("GetNodeByAddress() Error parsing address: ", address)
+		return nil
+	}
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		catalog.logger.Error("GetNodeByAddress() Error parsing port: ", portString)
+		return nil
+	}
+
+	var result moleculer.Node
+	catalog.nodes.Range(func(key, value interface{}) bool {
+		node := value.(moleculer.Node)
+		if (contains(host, node.GetIpList()) || node.GetHostname() == host) && node.GetPort() == port {
+			result = node
+			return false
+		}
+		return true
+	})
+	return result
+}
+
 // HeartBeat delegate the heart beat to the node in question payload.sender
 func (catalog *NodeCatalog) HeartBeat(heartbeat map[string]interface{}) bool {
 	sender := heartbeat["sender"].(string)
@@ -29,6 +65,12 @@ func (catalog *NodeCatalog) HeartBeat(heartbeat map[string]interface{}) bool {
 		return true
 	}
 	return false
+}
+
+func (catalog *NodeCatalog) ForEachNode(forEAchFunc moleculer.ForEachNodeFunc) {
+	catalog.nodes.Range(func(key, value interface{}) bool {
+		return forEAchFunc(value.(moleculer.Node))
+	})
 }
 
 func (catalog *NodeCatalog) list() []moleculer.Node {
