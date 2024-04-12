@@ -33,5 +33,5 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974
+	golang.org/x/net v0.17.0
 )
