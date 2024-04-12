@@ -19,6 +19,28 @@ func CreateNodesCatalog(logger *log.Entry) *NodeCatalog {
 	return &NodeCatalog{sync.Map{}, logger}
 }
 
+func contains(str string, list []string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func (catalog *NodeCatalog) GetNodeByHost(host string) moleculer.Node {
+	var result moleculer.Node
+	catalog.nodes.Range(func(key, value interface{}) bool {
+		node := value.(moleculer.Node)
+		if contains(host, node.GetIpList()) || node.GetHostname() == host {
+			result = node
+			return false
+		}
+		return true
+	})
+	return result
+}
+
 // HeartBeat delegate the heart beat to the node in question payload.sender
 func (catalog *NodeCatalog) HeartBeat(heartbeat map[string]interface{}) bool {
 	sender := heartbeat["sender"].(string)

@@ -240,10 +240,6 @@ func interfaceToString(list []interface{}) []string {
 	return result
 }
 
-func (node *Node) Disconnected(isUnexpected bool) {
-
-}
-
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {
@@ -294,6 +290,10 @@ func (node *Node) IsAvailable() bool {
 
 // Unavailable mark the node as unavailable
 func (node *Node) Unavailable() {
+	if node.isAvailable {
+		node.offlineSince = time.Now().Unix()
+		node.sequence++
+	}
 	node.isAvailable = false
 }
 

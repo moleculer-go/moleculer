@@ -179,6 +179,7 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 		transporter.logger.Error("Unknown command received - msgType: " + string(msgType))
 		return
 	}
+	transporter.logger.Debug("Incoming message - command: " + command)
 	message := transporter.serializer.BytesToPayload(msgBytes)
 	// if transporter.validateMsg(message) {
 	if handlers, ok := transporter.handlers[command]; ok {
@@ -189,8 +190,15 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 	// }
 }
 
+func (transporter *TCPTransporter) disconnectNodeByHost(host string) {
+	node := transporter.registry.GetNodeByHost(host)
+	if node != nil {
+		transporter.registry.DisconnectNode(node.GetID())
+	}
+}
+
 func (transporter *TCPTransporter) startTcpServer() {
-	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.logger.WithFields(log.Fields{
+	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.disconnectNodeByHost, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
 	}))
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{

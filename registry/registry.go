@@ -593,6 +593,10 @@ func (registry *ServiceRegistry) nextAction(actionName string, strategy strategy
 	return registry.actions.Next(actionName, strategy)
 }
 
+func (registry *ServiceRegistry) GetNodeByHost(ip string) moleculer.Node {
+	return registry.nodes.GetNodeByHost(ip)
+}
+
 func (registry *ServiceRegistry) KnownEventListeners(addNode bool) []string {
 	events := registry.events.list()
 	result := make([]string, len(events))

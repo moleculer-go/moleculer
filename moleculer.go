@@ -240,7 +240,6 @@ type Node interface {
 	GetCpuSequence() int64
 	GetCpu() int64
 	IsLocal() bool
-	Disconnected(isUnexpected bool)
 	UpdateMetrics()
 	GetHostname() string
 }
@@ -270,6 +269,7 @@ type Registry interface {
 	DisconnectNode(nodeID string)
 	RemoteNodeInfoReceived(message Payload)
 	GetLocalNode() Node
+	GetNodeByHost(host string) Node
 }
 
 type BrokerContext interface {

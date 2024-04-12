@@ -97,7 +97,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 	payload := transporter.serializer.BytesToPayload(msgBytes)
 	sender := payload.Get("sender").String()
 
-	transporter.logger.Debug("Received gossip request from " + sender)
+	transporter.logger.Trace("Received gossip request from " + sender)
 
 	onlineResponse := map[string]interface{}{}
 	offlineResponse := map[string]interface{}{}
@@ -122,7 +122,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 		if onlineMap.Exists() {
 			online = onlineMap.Get(node.GetID())
 			if online.Exists() {
-				transporter.logger.Debug("received for: "+node.GetID(), " seq: ", seq, " cpuSeq: ", cpuSeq, " cpu: ", cpu)
+				transporter.logger.Trace("received for: "+node.GetID(), " seq: ", seq, " cpuSeq: ", cpuSeq, " cpu: ", cpu)
 				seq = online.Get("seq").Int64()
 				cpuSeq = online.Get("cpuSeq").Int64()
 				cpu = online.Get("cpu").Int64()
@@ -230,13 +230,13 @@ func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
 	payload := transporter.serializer.BytesToPayload(msgBytes)
 	sender := payload.Get("sender").String()
 
-	transporter.logger.Debug("Received gossip response from " + sender)
+	transporter.logger.Trace("Received gossip response from " + sender)
 
 	online := payload.Get("online")
 	offline := payload.Get("offline")
 
 	if online.Exists() {
-		transporter.logger.Debug("Received online info from nodeID: " + sender)
+		transporter.logger.Trace("Received online info from nodeID: " + sender)
 		online.ForEach(func(key interface{}, value moleculer.Payload) bool {
 			nodeID, ok := key.(string)
 			if !ok {
