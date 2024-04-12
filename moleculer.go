@@ -269,7 +269,7 @@ type Registry interface {
 	DisconnectNode(nodeID string)
 	RemoteNodeInfoReceived(message Payload)
 	GetLocalNode() Node
-	GetNodeByHost(host string) Node
+	GetNodeByAddress(host string) Node
 }
 
 type BrokerContext interface {

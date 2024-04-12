@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -28,11 +30,23 @@ func contains(str string, list []string) bool {
 	return false
 }
 
-func (catalog *NodeCatalog) GetNodeByHost(host string) moleculer.Node {
+func (catalog *NodeCatalog) GetNodeByAddress(address string) moleculer.Node {
+
+	host, portString, err := net.SplitHostPort(address)
+	if err != nil {
+		catalog.logger.Error("GetNodeByAddress() Error parsing address: ", address)
+		return nil
+	}
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		catalog.logger.Error("GetNodeByAddress() Error parsing port: ", portString)
+		return nil
+	}
+
 	var result moleculer.Node
 	catalog.nodes.Range(func(key, value interface{}) bool {
 		node := value.(moleculer.Node)
-		if contains(host, node.GetIpList()) || node.GetHostname() == host {
+		if (contains(host, node.GetIpList()) || node.GetHostname() == host) && node.GetPort() == port {
 			result = node
 			return false
 		}

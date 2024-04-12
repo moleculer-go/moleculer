@@ -13,12 +13,12 @@ func (transporter *TCPTransporter) startGossipTimer() {
 	transporter.gossipTimer = time.NewTicker(time.Second * time.Duration(transporter.options.GossipPeriod))
 	go func() {
 		for range transporter.gossipTimer.C {
-			transporter.sendGossipRequest()
+			transporter.sendGossipRequest(false)
 		}
 	}()
 }
 
-func (transporter *TCPTransporter) sendGossipRequest() {
+func (transporter *TCPTransporter) sendGossipRequest(broadcast bool) {
 
 	transporter.logger.Trace("Sending gossip request")
 
@@ -51,13 +51,29 @@ func (transporter *TCPTransporter) sendGossipRequest() {
 	}
 
 	if len(onlineResponse) > 0 {
-		transporter.sendGossipToRandomEndpoint(payload, onlineNodes)
+		if broadcast {
+			transporter.broadcastGossipToNodes(payload, onlineNodes)
+		} else {
+			transporter.sendGossipToRandomEndpoint(payload, onlineNodes)
+		}
 	}
 
 	if len(offlineNodes) > 0 {
 		ratio := float64(len(offlineNodes)) / float64(len(onlineNodes)+1)
 		if ratio >= 1 || rand.Float64() < ratio {
 			transporter.sendGossipToRandomEndpoint(payload, offlineNodes)
+		}
+	}
+}
+
+func (transporter *TCPTransporter) broadcastGossipToNodes(payload moleculer.Payload, nodes []moleculer.Node) {
+	if len(nodes) == 0 {
+		return
+	}
+	for _, node := range nodes {
+		if !node.IsLocal() {
+			transporter.logger.Trace("Sending gossip request to "+node.GetID(), "payload:", payload)
+			transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
 		}
 	}
 }

@@ -190,15 +190,15 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 	// }
 }
 
-func (transporter *TCPTransporter) disconnectNodeByHost(host string) {
-	node := transporter.registry.GetNodeByHost(host)
-	if node != nil {
+func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
+	node := transporter.registry.GetNodeByAddress(address)
+	if node != nil && !node.IsLocal() {
 		transporter.registry.DisconnectNode(node.GetID())
 	}
 }
 
 func (transporter *TCPTransporter) startTcpServer() {
-	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.disconnectNodeByHost, transporter.logger.WithFields(log.Fields{
+	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
 	}))
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
@@ -345,13 +345,12 @@ func (transporter *TCPTransporter) Publish(command, nodeID string, message molec
 		return
 	}
 	if command == "INFO" {
-		//how does the JS TCP transporter handle node info broadcast?
-		//prob done by the gossip protocol
+		transporter.sendGossipRequest(true)
 		return
 	}
 	if command == "HEARTBEAT" {
 		//how does the JS TCP transporter handle HEARTBEAT?
-		//prob done by the gossip protocol
+		//prob done by the gossip protocol - already has a timer
 		return
 	}
 

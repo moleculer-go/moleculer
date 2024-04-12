@@ -20,24 +20,24 @@ const (
 type OnMessageFunc func(fromAddrss string, msgType int, msgBytes *[]byte)
 
 type TcpReader struct {
-	port                 int
-	listener             net.Listener
-	sockets              map[net.Conn]bool
-	logger               *log.Entry
-	lock                 sync.Mutex
-	state                State
-	maxPacketSize        int
-	onMessage            OnMessageFunc
-	disconnectNodeByHost func(host string)
+	port                    int
+	listener                net.Listener
+	sockets                 map[net.Conn]bool
+	logger                  *log.Entry
+	lock                    sync.Mutex
+	state                   State
+	maxPacketSize           int
+	onMessage               OnMessageFunc
+	disconnectNodeByAddress func(address string)
 }
 
-func NewTcpReader(port int, onMessage OnMessageFunc, disconnectNodeByHost func(host string), logger *log.Entry) *TcpReader {
+func NewTcpReader(port int, onMessage OnMessageFunc, disconnectNodeByAddress func(address string), logger *log.Entry) *TcpReader {
 	return &TcpReader{
-		port:      port,
-		sockets:   make(map[net.Conn]bool),
-		logger:    logger,
-		onMessage: onMessage,
-		disconnectNodeByHost : disconnectNodeByHost
+		port:                    port,
+		sockets:                 make(map[net.Conn]bool),
+		logger:                  logger,
+		onMessage:               onMessage,
+		disconnectNodeByAddress: disconnectNodeByAddress,
 	}
 }
 
@@ -98,7 +98,7 @@ func (r *TcpReader) handleConnection(conn net.Conn) {
 
 			if err.Error() == "EOF" {
 				r.logger.Debugf("EOF received from '%s' ", address)
-				r.disconnectNodeByHost(host)
+				r.disconnectNodeByAddress(address)
 			} else {
 				r.logger.Errorf("Error reading message from '%s': %s", address, err)
 			}
