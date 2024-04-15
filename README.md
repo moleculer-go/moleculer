@@ -73,6 +73,7 @@ func main() {
 - Versioned services
 - Middlewares
 - NATS Streaming Transporter
+- TCP Transporter
 - JSON Serializer
  
 # Installation
