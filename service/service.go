@@ -360,6 +360,7 @@ func (service *Service) AsMap() map[string]interface{} {
 	serviceInfo["settings"] = service.settings
 	serviceInfo["metadata"] = service.metadata
 	serviceInfo["nodeID"] = service.nodeID
+	serviceInfo["fullName"] = service.fullname
 
 	if service.nodeID == "" {
 		panic("no service.nodeID")
@@ -458,7 +459,7 @@ func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 	return &serviceEvent
 }
 
-//UpdateFromMap update the service metadata and settings from a serviceInfo map
+// UpdateFromMap update the service metadata and settings from a serviceInfo map
 func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
@@ -482,9 +483,13 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 	}
 	service.version = ParseVersion(serviceInfo["version"])
 	service.name = serviceInfo["name"].(string)
-	service.fullname = JoinVersionToName(
-		service.name,
-		service.version)
+	if fullName, ok := serviceInfo["fullName"]; ok {
+		service.fullname = fullName.(string)
+	} else {
+		service.fullname = JoinVersionToName(
+			service.name,
+			service.version)
+	}
 
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
@@ -822,7 +827,7 @@ func getName(obj interface{}) (string, error) {
 }
 
 // objToSchema create a service schema based on a object.
-//checks if
+// checks if
 func objToSchema(obj interface{}) (moleculer.ServiceSchema, error) {
 	schema := moleculer.ServiceSchema{}
 	name, err := getName(obj)

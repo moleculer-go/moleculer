@@ -240,6 +240,16 @@ func interfaceToString(list []interface{}) []string {
 	return result
 }
 
+func (node *Node) GetHost() string {
+	if node.GetUdpAddress() != "" {
+		return node.GetUdpAddress()
+	}
+	if len(node.GetIpList()) > 0 {
+		return node.GetIpList()[0]
+	}
+	return ""
+}
+
 // ExportAsMap export the node info as a map
 // this map is used to publish the node info to other nodes.
 func (node *Node) ExportAsMap() map[string]interface{} {

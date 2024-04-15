@@ -223,6 +223,7 @@ type Middleware interface {
 }
 type Node interface {
 	GetID() string
+	GetHost() string
 	ExportAsMap() map[string]interface{}
 	IsAvailable() bool
 	GetIpList() []string

@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	payloadPkg "github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
+	"github.com/moleculer-go/moleculer/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -107,14 +109,22 @@ const (
 	PACKET_GOSSIP_HELLO = 8
 )
 
+func (transporter *TCPTransporter) onTcpConnection(fromAddrss string, host string, port int) {
+	node := transporter.registry.GetNodeByAddress(fromAddrss)
+	if node != nil {
+		payload := payloadPkg.Empty().Add("sender", node.GetID())
+		transporter.onGossipRequest(payload)
+	}
+}
+
 func (transporter *TCPTransporter) onTcpMessage(fromAddrss string, msgType int, msgBytes *[]byte) {
 	switch msgType {
 	case PACKET_GOSSIP_HELLO:
-		transporter.onGossipHello(fromAddrss, msgBytes)
+		transporter.onGossipHello(fromAddrss, transporter.serializer.BytesToPayload(msgBytes))
 	case PACKET_GOSSIP_REQ:
-		transporter.onGossipRequest(msgBytes)
+		transporter.onGossipRequest(transporter.serializer.BytesToPayload(msgBytes))
 	case PACKET_GOSSIP_RES:
-		transporter.onGossipResponse(msgBytes)
+		transporter.onGossipResponse(transporter.serializer.BytesToPayload(msgBytes))
 	default:
 		transporter.incomingMessage(msgType, msgBytes)
 	}
@@ -198,7 +208,7 @@ func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
 }
 
 func (transporter *TCPTransporter) startTcpServer() {
-	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
+	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.onTcpConnection, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
 	}))
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
@@ -258,15 +268,17 @@ func addIpToList(ipList []string, address string) []string {
 
 // TODO - check full lifecycle - this message creates or updates a node with ip address and port to connect to directly
 // need to find where the TCP connection step happens.. is not happening here - where is this node info used ?
-func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int) {
+func (transporter *TCPTransporter) onUdpMessage(nodeID, host string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
-		transporter.logger.Debug("UDP discovery received from " + address + " nodeId: " + nodeID + " port: " + string(port))
+		transporter.logger.Debug("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + string(port))
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
 			transporter.logger.Debug("Unknown node. Register as offline node")
-			node = transporter.registry.AddOfflineNode(nodeID, address, address, port)
+			node = transporter.registry.AddOfflineNode(nodeID, host, host, port)
+			transporter.sendGossipHello(nodeID)
+
 		} else if !node.IsAvailable() {
-			ipList := addIpToList(node.GetIpList(), address)
+			ipList := addIpToList(node.GetIpList(), host)
 			node.UpdateInfo(map[string]interface{}{
 				// "hostname": address,
 				"port":   port,
@@ -274,7 +286,7 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int
 			})
 		}
 		node.UpdateInfo(map[string]interface{}{
-			"udpAddress": address,
+			"udpAddress": host,
 		})
 	}
 }
@@ -294,27 +306,10 @@ func (transporter *TCPTransporter) Disconnect() chan error {
 }
 
 func (transporter *TCPTransporter) Subscribe(command, nodeID string, handler transit.TransportHandler) {
-	// if commandToMsgType(command) == -1 {
-	// 	transporter.logger.Error("TCPTransporter.Subscribe() Invalid command: " + command)
-	// 	return
-	// }
 	if _, ok := transporter.handlers[command]; !ok {
 		transporter.handlers[command] = make([]transit.TransportHandler, 0)
 	}
 	transporter.handlers[command] = append(transporter.handlers[command], handler)
-}
-
-func (transporter *TCPTransporter) getNodeAddress(node moleculer.Node) string {
-	if node.GetUdpAddress() != "" {
-		return node.GetUdpAddress()
-	}
-	if transporter.options.UseHostname && node.GetHostname() != "" {
-		return node.GetHostname()
-	}
-	if len(node.GetIpList()) > 0 {
-		return node.GetIpList()[0]
-	}
-	return ""
 }
 
 func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
@@ -323,7 +318,10 @@ func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
 		transporter.logger.Error("TCPTransporter.tryToConnect() Unknown nodeID: " + nodeID)
 		return errors.New("Unknown nodeID: " + nodeID)
 	}
-	nodeAddress := transporter.getNodeAddress(node)
+	nodeAddress := node.GetHost()
+	if transporter.options.UseHostname && node.GetHostname() != "" {
+		nodeAddress = node.GetHostname()
+	}
 	if nodeAddress == "" {
 		transporter.logger.Error("TCPTransporter.tryToConnect() No address found for nodeID: " + nodeID)
 		return errors.New("No address found for nodeID: " + nodeID)
@@ -338,7 +336,6 @@ func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
 }
 
 func (transporter *TCPTransporter) Publish(command, nodeID string, message moleculer.Payload) {
-	transporter.logger.Debug("TCPTransporter.Publish() command: " + command + " to nodeID: " + nodeID)
 	if command == "DISCOVER" {
 		if transporter.udpServer != nil {
 			transporter.udpServer.BroadcastDiscoveryMessage()
@@ -346,14 +343,14 @@ func (transporter *TCPTransporter) Publish(command, nodeID string, message molec
 		return
 	}
 	if command == "INFO" {
-		transporter.sendGossipRequest(true)
+		transporter.sendGossipRequest(nodeID)
 		return
 	}
 	if command == "HEARTBEAT" {
-		//how does the JS TCP transporter handle HEARTBEAT?
-		//prob done by the gossip protocol - already has a timer
+		//handled by the gossip protocol
 		return
 	}
+	transporter.logger.Trace("TCPTransporter.Publish() command: "+command+" to nodeID: "+nodeID, " message: ", util.PrettyPrintMap(message.RawMap()))
 
 	msgType := commandToMsgType(command)
 	if msgType == -1 {

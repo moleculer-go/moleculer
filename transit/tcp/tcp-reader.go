@@ -19,6 +19,8 @@ const (
 
 type OnMessageFunc func(fromAddrss string, msgType int, msgBytes *[]byte)
 
+type OnConnectionFunc func(address, host string, port int)
+
 type TcpReader struct {
 	port                    int
 	listener                net.Listener
@@ -27,16 +29,18 @@ type TcpReader struct {
 	lock                    sync.Mutex
 	state                   State
 	maxPacketSize           int
+	onConnection            OnConnectionFunc
 	onMessage               OnMessageFunc
 	disconnectNodeByAddress func(address string)
 }
 
-func NewTcpReader(port int, onMessage OnMessageFunc, disconnectNodeByAddress func(address string), logger *log.Entry) *TcpReader {
+func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFunc, disconnectNodeByAddress func(address string), logger *log.Entry) *TcpReader {
 	return &TcpReader{
 		port:                    port,
 		sockets:                 make(map[net.Conn]bool),
 		logger:                  logger,
 		onMessage:               onMessage,
+		onConnection:            onConnection,
 		disconnectNodeByAddress: disconnectNodeByAddress,
 	}
 }
@@ -85,12 +89,16 @@ func (r *TcpReader) Listen() (int, error) {
 
 func (r *TcpReader) handleConnection(conn net.Conn) {
 	address := conn.RemoteAddr().String()
-	host, _, err := net.SplitHostPort(address)
+	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		r.logger.Error("Failed to split host and port - address:", address)
 	}
-
 	r.logger.Debugf("New TCP client connected from '%s'\n", address)
+	postInt, err := strconv.Atoi(port)
+	if err != nil {
+		r.logger.Error("Failed to convert port to integer - port:", port)
+	}
+	r.onConnection(address, host, postInt)
 	for err == nil {
 		msgType, msgBytes, e := r.readMessage(conn)
 		err = e
@@ -104,7 +112,7 @@ func (r *TcpReader) handleConnection(conn net.Conn) {
 			}
 			break
 		}
-		r.logger.Trace("handleConnection() message read from socket  - msgType: ", msgType, "message:", string(msgBytes))
+
 		r.onMessage(host, msgType, &msgBytes)
 	}
 	r.closeSocket(conn)

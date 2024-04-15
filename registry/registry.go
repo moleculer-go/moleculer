@@ -124,6 +124,7 @@ func (registry *ServiceRegistry) AddOfflineNode(nodeID string, hostname, ipAddre
 		"ipList":   []string{ipAddress},
 	})
 	registry.nodes.Add(node)
+	// registry.GetLocalNode().IncreaseSequence()
 	return node
 }
 

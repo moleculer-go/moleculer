@@ -13,18 +13,71 @@ func (transporter *TCPTransporter) startGossipTimer() {
 	transporter.gossipTimer = time.NewTicker(time.Second * time.Duration(transporter.options.GossipPeriod))
 	go func() {
 		for range transporter.gossipTimer.C {
-			transporter.sendGossipRequest(false)
+			transporter.sendGossipRequest("")
 		}
 	}()
 }
 
-func (transporter *TCPTransporter) sendGossipRequest(broadcast bool) {
+func (transporter *TCPTransporter) getRandomNode(nodes []moleculer.Node) moleculer.Node {
+	if len(nodes) == 0 {
+		return nil
+	}
+	nonLocalNodes := []moleculer.Node{}
+	for _, node := range nodes {
+		if !node.IsLocal() {
+			nonLocalNodes = append(nonLocalNodes, node)
+		}
+	}
+	if len(nonLocalNodes) == 0 {
+		return nil
+	}
+	return nonLocalNodes[rand.Intn(len(nonLocalNodes))]
+}
 
+func (transporter *TCPTransporter) sendGossip(nodeID string, payload moleculer.Payload) {
+	node := transporter.registry.GetNodeByID(nodeID)
+	if !node.IsLocal() {
+		transporter.logger.Trace("Sending gossip request to "+node.GetID(), "payload:", util.PrettyPrintMap(payload.RawMap()))
+		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
+	}
+}
+
+func (transporter *TCPTransporter) sendGossipHello(nodeID string) {
+	localNode := transporter.registry.GetLocalNode()
+	payload := payloadPkg.Empty()
+	payload.Add("sender", localNode.GetID())
+	payload.Add("host", localNode.GetHost())
+	payload.Add("port", localNode.GetPort())
+
+	transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_HELLO), nodeID, payload)
+}
+
+func (transporter *TCPTransporter) onGossipHello(fromAddrss string, payload moleculer.Payload) {
+	sender := payload.Get("sender").String()
+	port := payload.Get("port").Int()
+	hostname := payload.Get("host").String()
+
+	transporter.logger.Debug("Received gossip hello from sender: ", sender, "ipAddress: ", fromAddrss, " hostname: ", hostname)
+
+	node := transporter.registry.GetNodeByID(sender)
+	if node == nil {
+		transporter.logger.Debug("Unknown node. Register as offline node - sender: ", sender)
+		node = transporter.registry.AddOfflineNode(sender, hostname, fromAddrss, port)
+	}
+	if node.GetUdpAddress() == "" {
+		node.UpdateInfo(map[string]interface{}{
+			"udpAddress": fromAddrss,
+		})
+	}
+	node.Available()
+	transporter.logger.Trace("will send a gossip response to node: " + sender)
+	transporter.onGossipRequest(payloadPkg.Empty().Add("sender", sender))
+}
+
+func (transporter *TCPTransporter) sendGossipRequest(target string) {
 	transporter.logger.Trace("Sending gossip request")
-
 	node := transporter.registry.GetLocalNode()
 	node.UpdateMetrics()
-
 	onlineResponse := map[string]interface{}{}
 	offlineResponse := map[string]interface{}{}
 	onlineNodes := []moleculer.Node{}
@@ -51,77 +104,47 @@ func (transporter *TCPTransporter) sendGossipRequest(broadcast bool) {
 	}
 
 	if len(onlineResponse) > 0 {
-		if broadcast {
-			transporter.broadcastGossipToNodes(payload, onlineNodes)
+		var targetNode moleculer.Node
+		if target != "" {
+			transporter.logger.Debug("target node is specified target:", target)
+			targetNode = transporter.registry.GetNodeByID(target)
+		}
+		if targetNode == nil {
+			targetNode = transporter.getRandomNode(onlineNodes)
+			if targetNode != nil {
+				transporter.logger.Trace("selected a random node to send gossip request - nodeId:", targetNode.GetID())
+			} else {
+				transporter.logger.Trace("could not select a random node  - online nodes size:", len(onlineNodes))
+			}
+		}
+		if targetNode != nil {
+			transporter.sendGossip(targetNode.GetID(), payload)
 		} else {
-			transporter.sendGossipToRandomEndpoint(payload, onlineNodes)
+			transporter.logger.Debug("No target node found for gossip request - target param:", target, " online nodes size:", len(onlineNodes))
 		}
 	}
 
 	if len(offlineNodes) > 0 {
 		ratio := float64(len(offlineNodes)) / float64(len(onlineNodes)+1)
 		if ratio >= 1 || rand.Float64() < ratio {
-			transporter.sendGossipToRandomEndpoint(payload, offlineNodes)
+			randomNode := transporter.getRandomNode(offlineNodes)
+			transporter.sendGossip(randomNode.GetID(), payload)
 		}
 	}
 }
 
-func (transporter *TCPTransporter) broadcastGossipToNodes(payload moleculer.Payload, nodes []moleculer.Node) {
-	if len(nodes) == 0 {
-		return
-	}
-	for _, node := range nodes {
-		if !node.IsLocal() {
-			transporter.logger.Trace("Sending gossip request to "+node.GetID(), "payload:", payload)
-			transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
-		}
-	}
-}
-
-func (transporter *TCPTransporter) sendGossipToRandomEndpoint(payload moleculer.Payload, nodes []moleculer.Node) {
-	if len(nodes) == 0 {
-		return
-	}
-	node := nodes[rand.Intn(len(nodes))]
-	if !node.IsLocal() {
-		transporter.logger.Trace("Sending gossip request to "+node.GetID(), "payload:", payload)
-		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
-	}
-}
-
-func (transporter *TCPTransporter) onGossipHello(fromAddrss string, msgBytes *[]byte) {
-	payload := transporter.serializer.BytesToPayload(msgBytes)
-	sender := payload.Get("sender").String()
-	port := payload.Get("port").Int()
-	hostname := payload.Get("host").String()
-
-	transporter.logger.Debug("Received gossip hello from sender: ", sender, "ipAddress: ", fromAddrss, " hostname: ", hostname)
-
-	node := transporter.registry.GetNodeByID(sender)
-	if node == nil {
-		transporter.logger.Debug("Unknown node. Register as offline node - sender: ", sender)
-		node = transporter.registry.AddOfflineNode(sender, hostname, fromAddrss, port)
-	}
-	if node.GetUdpAddress() == "" {
-		node.UpdateInfo(map[string]interface{}{
-			"udpAddress": fromAddrss,
-		})
-	}
-}
-
-func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
-	payload := transporter.serializer.BytesToPayload(msgBytes)
+func (transporter *TCPTransporter) onGossipRequest(payload moleculer.Payload) {
 	sender := payload.Get("sender").String()
 
-	transporter.logger.Trace("Received gossip request from " + sender)
+	transporter.logger.Debug("onGossipRequest() - sender:" + sender)
 
 	onlineResponse := map[string]interface{}{}
 	offlineResponse := map[string]interface{}{}
 
-	transporter.registry.ForEachNode(func(node moleculer.Node) bool {
+	onlineMap := payload.Get("online")
+	offlineMap := payload.Get("offline")
 
-		onlineMap := payload.Get("online")
-		offlineMap := payload.Get("offline")
+	transporter.registry.ForEachNode(func(node moleculer.Node) bool {
 		var seq int64 = 0
 		var cpuSeq int64 = 0
 		var cpu int64 = 0
@@ -143,16 +166,6 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 				cpuSeq = online.Get("cpuSeq").Int64()
 				cpu = online.Get("cpu").Int64()
 			}
-		}
-
-		if node.IsLocal() {
-			node.UpdateMetrics()
-			info := node.ExportAsMap()
-			seq = node.GetSequence()
-			cpu = node.GetCpu()
-			cpuSeq = node.GetCpuSequence()
-			onlineResponse[node.GetID()] = []interface{}{info, node.GetCpuSequence(), node.GetCpu()}
-			// transporter.logger.Debug("Node is local - send back the node info and cpu, cpuSed to "+node.GetID(), " seq: ", seq, " cpuSeq: ", cpuSeq, " cpu: ", cpu, " info: ", util.PrettyPrintMap(info))
 		}
 
 		if seq != 0 && seq < node.GetSequence() {
@@ -215,7 +228,7 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 					transporter.logger.Debug("CPU info updated for " + node.GetID())
 				} else if cpuSeq < node.GetCpuSequence() {
 					// We have newer info, send back
-					onlineResponse[node.GetID()] = []interface{}{node.GetCpuSequence(), node.GetCpu()}
+					onlineResponse[node.GetID()] = []interface{}{node.ExportAsMap(), node.GetCpuSequence(), node.GetCpu()}
 					transporter.logger.Debug("CPU info sent back to " + node.GetID())
 				}
 			} else {
@@ -227,26 +240,34 @@ func (transporter *TCPTransporter) onGossipRequest(msgBytes *[]byte) {
 		return true
 	})
 
+	localNode := transporter.registry.GetLocalNode()
+	localNode.UpdateMetrics()
+	info := localNode.ExportAsMap()
+	onlineResponse[localNode.GetID()] = []interface{}{info, localNode.GetCpuSequence(), localNode.GetCpu()}
+
 	if len(onlineResponse) > 0 || len(offlineResponse) > 0 {
 		sender := payload.Get("sender").String()
 		responsePayload := payloadPkg.
 			Empty().
-			Add("online", onlineResponse).
-			Add("offline", offlineResponse).
 			Add("sender", transporter.registry.GetLocalNode().GetID())
+		if len(onlineResponse) > 0 {
+			responsePayload.Add("online", onlineResponse)
+		}
+		if len(offlineResponse) > 0 {
+			responsePayload.Add("offline", offlineResponse)
+		}
+		transporter.logger.Trace("Gossip response sent to "+sender, " payload:", util.PrettyPrintMap(responsePayload.RawMap()))
 		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_RES), sender, responsePayload)
-		transporter.logger.Trace("Gossip response sent to " + sender)
 	} else {
 		transporter.logger.Trace("No response sent to " + sender)
 	}
 
 }
 
-func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
-	payload := transporter.serializer.BytesToPayload(msgBytes)
+func (transporter *TCPTransporter) onGossipResponse(payload moleculer.Payload) {
 	sender := payload.Get("sender").String()
 
-	transporter.logger.Trace("Received gossip response from " + sender)
+	transporter.logger.Trace("Received gossip response from "+sender, " payload:", util.PrettyPrintMap(payload.RawMap()))
 
 	online := payload.Get("online")
 	offline := payload.Get("offline")
@@ -255,6 +276,7 @@ func (transporter *TCPTransporter) onGossipResponse(msgBytes *[]byte) {
 		transporter.logger.Trace("Received online info from nodeID: " + sender)
 		online.ForEach(func(key interface{}, value moleculer.Payload) bool {
 			nodeID, ok := key.(string)
+			transporter.logger.Debug("Received online info from nodeID: " + nodeID)
 			if !ok {
 				transporter.logger.Error("Error parsing online nodeID")
 				return true
