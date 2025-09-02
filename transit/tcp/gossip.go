@@ -10,17 +10,23 @@ import (
 )
 
 func (transporter *TCPTransporter) startGossipTimer() {
+	transporter.logger.Trace("Starting gossip timer with period:", transporter.options.GossipPeriod, "seconds")
 	transporter.gossipTimer = time.NewTicker(time.Second * time.Duration(transporter.options.GossipPeriod))
 	go func() {
+		transporter.logger.Trace("Gossip timer goroutine started")
+		tickCount := 0
 		for range transporter.gossipTimer.C {
+			tickCount++
+			transporter.logger.Trace("Gossip timer tick #", tickCount, "- sending gossip request")
 			transporter.sendGossipRequest(false)
 		}
+		transporter.logger.Trace("Gossip timer goroutine exited")
 	}()
 }
 
 func (transporter *TCPTransporter) sendGossipRequest(broadcast bool) {
 
-	transporter.logger.Trace("Sending gossip request")
+	transporter.logger.Trace("Sending gossip request, broadcast:", broadcast)
 
 	node := transporter.registry.GetLocalNode()
 	node.UpdateMetrics()
@@ -30,25 +36,19 @@ func (transporter *TCPTransporter) sendGossipRequest(broadcast bool) {
 	onlineNodes := []moleculer.Node{}
 	offlineNodes := []moleculer.Node{}
 
-	transporter.registry.ForEachNode(func(node moleculer.Node) bool {
-		if node.IsAvailable() {
-			onlineResponse[node.GetID()] = []interface{}{node.GetSequence(), node.GetCpuSequence(), node.GetCpu()}
-			onlineNodes = append(onlineNodes, node)
-		} else {
-			offlineResponse[node.GetID()] = node.GetSequence()
-			offlineNodes = append(offlineNodes, node)
-		}
-		return true
-	})
+	// For initial testing, only send information about our own node
+	// JavaScript format: [seq, cpuSeq, cpu]
+	localSeq := node.GetSequence()
+	localCpuSeq := node.GetCpuSequence()
+	localCpu := node.GetCpu()
+	onlineResponse[node.GetID()] = []interface{}{localSeq, localCpuSeq, localCpu}
+	onlineNodes = append(onlineNodes, node)
 
 	payload := payloadPkg.Empty()
 	payload.Add("sender", node.GetID())
-	if len(onlineResponse) > 0 {
-		payload.Add("online", onlineResponse)
-	}
-	if len(offlineResponse) > 0 {
-		payload.Add("offline", offlineResponse)
-	}
+	// Always include online and offline, even if empty (JavaScript expects this structure)
+	payload.Add("online", onlineResponse)
+	payload.Add("offline", offlineResponse)
 
 	if len(onlineResponse) > 0 {
 		if broadcast {
@@ -334,6 +334,6 @@ func parseGossipResponse(row []moleculer.Payload) (info moleculer.Payload, cpu i
 	return info, cpu, cpuSeq
 }
 
-func isGossipMessage(msgType byte) bool {
+func isGossipMessage(msgType int) bool {
 	return msgType == PACKET_GOSSIP_REQ || msgType == PACKET_GOSSIP_RES || msgType == PACKET_GOSSIP_HELLO
 }

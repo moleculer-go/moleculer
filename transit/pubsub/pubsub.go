@@ -229,46 +229,119 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 
 func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	pubsub.logger.Debug("createTCPTransporter()")
-	tcpTransporter := tcp.CreateTCPTransporter(tcp.TCPOptions{
-		// Enable UDP discovery
-		UdpDiscovery: true,
-		// Reusing UDP server socket
-		UdpReuseAddr: true,
 
-		// UDP port
-		UdpPort: 4445,
-		// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
-		UdpBindAddress: "",
-		// UDP sending period (seconds)
-		UdpPeriod: 30,
+	// Use broker's TCP config if provided, otherwise use defaults
+	var tcpOptions tcp.TCPOptions
+	if pubsub.broker.Config.TCPConfig != nil {
+		// Convert moleculer.TCPConfig to tcp.TCPOptions with defaults for zero values
+		config := pubsub.broker.Config.TCPConfig
+		tcpOptions = tcp.TCPOptions{
+			UdpDiscovery:      config.UdpDiscovery,
+			UdpReuseAddr:      config.UdpReuseAddr,
+			UdpPort:           config.UdpPort,
+			UdpBindAddress:    config.UdpBindAddress,
+			UdpPeriod:         config.UdpPeriod,
+			UdpMaxDiscovery:   config.UdpMaxDiscovery,
+			UdpMulticast:      config.UdpMulticast,
+			UdpMulticastTTL:   config.UdpMulticastTTL,
+			UdpBroadcast:      config.UdpBroadcast,
+			UdpBroadcastAddrs: config.UdpBroadcastAddrs,
+			Port:              config.Port,
+			Urls:              config.Urls,
+			UseHostname:       config.UseHostname,
+			GossipPeriod:      config.GossipPeriod,
+			MaxConnections:    config.MaxConnections,
+			MaxPacketSize:     config.MaxPacketSize,
+		}
 
-		// Multicast address.
-		UdpMulticast: "239.0.0.0",
-		// Multicast TTL setting
-		UdpMulticastTTL: 1,
+		// Apply defaults for zero values
+		if tcpOptions.UdpPort == 0 {
+			tcpOptions.UdpPort = 4445
+		}
+		if tcpOptions.UdpPeriod == 0 {
+			tcpOptions.UdpPeriod = 30 * time.Second
+		}
+		if tcpOptions.UdpMulticast == "" {
+			tcpOptions.UdpMulticast = "239.0.0.0"
+		}
+		if tcpOptions.UdpMulticastTTL == 0 {
+			tcpOptions.UdpMulticastTTL = 1
+		}
+		if tcpOptions.GossipPeriod == 0 {
+			tcpOptions.GossipPeriod = 2
+		}
+		if tcpOptions.MaxConnections == 0 {
+			tcpOptions.MaxConnections = 32
+		}
+		if tcpOptions.MaxPacketSize == 0 {
+			tcpOptions.MaxPacketSize = 1 * 1024 * 1024
+		}
+		if tcpOptions.Urls == nil {
+			tcpOptions.Urls = []string{}
+		}
+		if tcpOptions.UdpBroadcast == nil {
+			tcpOptions.UdpBroadcast = []string{}
+		}
+		if tcpOptions.UdpBroadcastAddrs == nil {
+			tcpOptions.UdpBroadcastAddrs = []string{}
+		}
 
-		// Send broadcast (Boolean, String, Array<String>)
-		UdpBroadcast: []string{},
+		// Set required fields from broker
+		tcpOptions.Logger = pubsub.logger.WithField("transport", "tcp")
+		tcpOptions.Serializer = pubsub.serializer
+		tcpOptions.NodeId = pubsub.broker.LocalNode().GetID()
+		tcpOptions.Namespace = pubsub.broker.Config.Namespace
+	} else {
+		// Use default options
+		tcpOptions = tcp.TCPOptions{
+			// Enable UDP discovery
+			UdpDiscovery: true,
+			// Reusing UDP server socket
+			UdpReuseAddr: true,
 
-		// TCP server port.  0 means random port
-		Port: 0,
-		// Static remote nodes address list (when UDP discovery is not available)
-		Urls: []string{},
-		// Use hostname as preffered connection address
-		UseHostname: true,
+			// UDP port
+			UdpPort: 4445,
+			// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
+			UdpBindAddress: "",
+			// UDP sending period (seconds)
+			UdpPeriod: 30 * time.Second,
 
-		// Gossip sending period in seconds
-		GossipPeriod: 2,
-		// Maximum enabled outgoing connections. If reach, close the old connections
-		MaxConnections: 32,
-		// Maximum TCP packet size
-		MaxPacketSize: 1 * 1024 * 1024,
+			// UDP max discovery
+			UdpMaxDiscovery: 0,
 
-		Namespace:  pubsub.broker.Config.Namespace,
-		NodeId:     pubsub.broker.LocalNode().GetID(),
-		Logger:     pubsub.logger.WithField("transport", "tcp"),
-		Serializer: pubsub.serializer,
-	})
+			// Multicast address.
+			UdpMulticast: "239.0.0.0",
+			// Multicast TTL setting
+			UdpMulticastTTL: 1,
+
+			// Send broadcast (Boolean, String, Array<String>)
+			UdpBroadcast:      []string{},
+			UdpBroadcastAddrs: []string{},
+
+			// TCP server port.  0 means random port
+			Port: 0,
+			// Static remote nodes address list (when UDP discovery is not available)
+			Urls: []string{},
+			// Use hostname as preffered connection address
+			UseHostname: true,
+
+			// Gossip sending period in seconds
+			GossipPeriod: 2,
+			// Maximum enabled outgoing connections. If reach, close the old connections
+			MaxConnections: 32,
+			// Maximum TCP packet size
+			MaxPacketSize: 1 * 1024 * 1024,
+
+			Namespace:  pubsub.broker.Config.Namespace,
+			NodeId:     pubsub.broker.LocalNode().GetID(),
+			Logger:     pubsub.logger.WithField("transport", "tcp"),
+			Serializer: pubsub.serializer,
+		}
+	}
+
+	// Create TCP transporter instance
+	tcpTransporter := tcp.CreateTCPTransporter(tcpOptions)
+
 	var transport transit.Transport = &tcpTransporter
 	return transport
 }

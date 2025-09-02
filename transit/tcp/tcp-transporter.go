@@ -2,6 +2,9 @@ package tcp
 
 import (
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -88,6 +91,38 @@ type TCPOptions struct {
 }
 
 func CreateTCPTransporter(options TCPOptions) TCPTransporter {
+	// Apply default values from JavaScript implementation for compatibility
+	if options.Port == 0 {
+		options.Port = 0 // Random port (matches JS default)
+	}
+	if options.UdpPort == 0 {
+		options.UdpPort = 4445 // Matches JS default
+	}
+	if options.UdpMulticast == "" {
+		options.UdpMulticast = "239.0.0.0" // Matches JS default
+	}
+	if options.UdpMulticastTTL == 0 {
+		options.UdpMulticastTTL = 1 // Matches JS default
+	}
+	if options.UdpPeriod == 0 {
+		options.UdpPeriod = time.Second // Matches JS default (1 second)
+	}
+	if options.UdpMaxDiscovery == 0 {
+		options.UdpMaxDiscovery = 0 // Unlimited (matches JS default)
+	}
+	if options.GossipPeriod == 0 {
+		options.GossipPeriod = 2 // 2 seconds (matches JS default)
+	}
+	if options.MaxConnections == 0 {
+		options.MaxConnections = 32 // Matches JS default
+	}
+	if options.MaxPacketSize == 0 {
+		options.MaxPacketSize = 1 * 1024 * 1024 // 1MB (matches JS default)
+	}
+	if options.UdpBindAddress == "" {
+		options.UdpBindAddress = "0.0.0.0" // Bind to all interfaces (JS default)
+	}
+
 	transport := TCPTransporter{options: options, logger: options.Logger}
 	transport.handlers = make(map[string][]transit.TransportHandler)
 	transport.serializer = options.Serializer
@@ -109,19 +144,30 @@ func (transporter *TCPTransporter) setState(state TransportState) {
 }
 
 func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan error {
+	transporter.logger.Info("TCP Transport Connect() called")
 	// Set state to starting
 	transporter.setState(TransportStarting)
 
 	transporter.registry = registry
-	transporter.logger.Info("TCP Transport Connect()")
+
+	// Allow starting without URLs - the service can still receive incoming connections
+	// from other services that have URLs pointing to this service
+	if !transporter.options.UdpDiscovery && len(transporter.options.Urls) == 0 {
+		transporter.logger.Info("TCP Transport: No peer URLs configured, waiting for incoming connections")
+	}
+
+	transporter.logger.Info("TCP Transport validation passed")
 
 	// Initialize worker pool
 	transporter.workerPool = NewWorkerPool(5, transporter.logger.WithField("component", "transport"))
+	transporter.logger.Info("Worker pool created")
 
 	endChan := make(chan error, 1)
 
 	// Use worker pool for initialization tasks
+	transporter.logger.Info("Submitting transport initialization task to worker pool")
 	transporter.workerPool.Submit(func() {
+		transporter.logger.Info("Transport initialization task STARTED")
 		defer func() {
 			if r := recover(); r != nil {
 				transporter.logger.Errorf("Transport initialization panic: %v", r)
@@ -131,9 +177,20 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 		}()
 
 		transporter.startTcpServer()
-		transporter.startUDPServer()
+		transporter.logger.Info("TCP server started")
+
+		// Only start UDP server if UDP discovery is enabled
+		if transporter.options.UdpDiscovery {
+			transporter.startUDPServer()
+		} else {
+			// Parse URLs and connect to static peers when UDP discovery is disabled
+			transporter.connectToStaticPeers()
+			transporter.logger.Info("Static peer connection completed")
+		}
 
 		transporter.startGossipTimer()
+		transporter.logger.Info("Gossip timer started")
+
 		transporter.setState(TransportRunning)
 		transporter.logger.Info("TCP Transport connected successfully")
 		endChan <- nil
@@ -145,14 +202,17 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 type MessageType int
 
 const (
-	PACKET_EVENT        = 1
-	PACKET_REQUEST      = 2
-	PACKET_RESPONSE     = 3
-	PACKET_PING         = 4
-	PACKET_PONG         = 5
-	PACKET_GOSSIP_REQ   = 6
-	PACKET_GOSSIP_RES   = 7
-	PACKET_GOSSIP_HELLO = 8
+	// JavaScript-compatible packet IDs - must match exactly
+	PACKET_EVENT        = 1 // JS: PACKET_EVENT_ID = 1
+	PACKET_REQUEST      = 2 // JS: PACKET_REQUEST_ID = 2
+	PACKET_RESPONSE     = 3 // JS: PACKET_RESPONSE_ID = 3
+	PACKET_PING         = 4 // JS: PACKET_PING_ID = 4
+	PACKET_PONG         = 5 // JS: PACKET_PONG_ID = 5
+	PACKET_GOSSIP_REQ   = 6 // JS: PACKET_GOSSIP_REQ_ID = 6
+	PACKET_GOSSIP_RES   = 7 // JS: PACKET_GOSSIP_RES_ID = 7
+	PACKET_GOSSIP_HELLO = 8 // JS: PACKET_GOSSIP_HELLO_ID = 8
+
+	// Note: JavaScript does NOT support PACKET_DISCOVER, PACKET_INFO, PACKET_DISCONNECT, PACKET_HEARTBEAT
 )
 
 func (transporter *TCPTransporter) onTcpMessage(fromAddrss string, msgType int, msgBytes *[]byte) {
@@ -252,6 +312,7 @@ func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
 }
 
 func (transporter *TCPTransporter) startTcpServer() {
+	transporter.logger.Info("startTcpServer() called")
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
 	}))
@@ -259,15 +320,131 @@ func (transporter *TCPTransporter) startTcpServer() {
 		"TCPTransporter": "TCPWriter",
 	}))
 
+	transporter.logger.Info("About to call tcpReader.Listen()")
 	port, err := transporter.tcpReader.Listen()
 	if err != nil {
 		transporter.logger.Error("Error trying to listen on tcp reader - error: ", err)
 		return
 	}
+	transporter.logger.Infof("tcpReader.Listen() returned port: %d", port)
 	node := transporter.registry.GetLocalNode()
 	node.UpdateInfo(map[string]interface{}{
 		"port": port,
 	})
+	transporter.logger.Infof("TCP server is listening on port %d", port)
+}
+
+func (transporter *TCPTransporter) connectToStaticPeers() {
+	transporter.logger.Info("Starting static peer connection process")
+	if len(transporter.options.Urls) == 0 {
+
+		transporter.logger.Info("No static peers configured - skipping direct connections")
+		return
+	}
+
+	transporter.logger.Trace("Found %d peer URLs to process", len(transporter.options.Urls))
+	transporter.logger.Infof("Connecting to %d static peer(s)...", len(transporter.options.Urls))
+
+	for i, url := range transporter.options.Urls {
+		transporter.logger.Trace("Processing peer URL %d: %s", i, url)
+		nodeID, address, port, err := transporter.parsePeerURL(url)
+		transporter.logger.Trace("Parsed peer URL %d successfully", i)
+		if err != nil {
+			transporter.logger.Errorf("Failed to parse peer URL '%s': %v", url, err)
+			continue
+		}
+
+		transporter.logger.Trace("Adding offline node: %s", nodeID)
+		peer := transporter.registry.AddOfflineNode(nodeID, address, address, port)
+		transporter.logger.Trace("AddOfflineNode returned for %s (peer=%v)", nodeID, peer != nil)
+		if peer != nil {
+			transporter.logger.Infof("Registered static peer: %s at %s:%d", nodeID, address, port)
+
+			transporter.logger.Trace("Starting connection goroutine for peer: %s", nodeID)
+			go func(peerID, peerAddr string, peerPort int) {
+				transporter.logger.Trace("Connection goroutine started for peer: %s", peerID)
+				transporter.tryConnectToPeer(peerID, peerAddr, peerPort)
+				transporter.logger.Trace("Connection goroutine finished for peer: %s", peerID)
+			}(nodeID, address, port)
+		}
+	}
+	transporter.logger.Trace("Static peer connection process completed")
+}
+
+func (transporter *TCPTransporter) parsePeerURL(url string) (nodeID, address string, port int, err error) {
+	// Support formats:
+	// 1. "nodeID@host:port" (Go format)
+	// 2. "host:port/nodeID" (JavaScript format)
+	// 3. "host:port" (with default nodeID)
+
+	// Check for JavaScript format first (contains "/")
+	if strings.Contains(url, "/") {
+		parts := strings.Split(url, "/")
+		if len(parts) == 2 {
+			hostPort := parts[0]
+			nodeID = parts[1]
+
+			host, portStr, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				return "", "", 0, fmt.Errorf("invalid host:port format '%s': %v", hostPort, err)
+			}
+
+			port, err = strconv.Atoi(portStr)
+			if err != nil {
+				return "", "", 0, fmt.Errorf("invalid port '%s': %v", portStr, err)
+			}
+
+			address = host
+			return nodeID, address, port, nil
+		}
+	}
+
+	// Check for Go format (contains "@")
+	if strings.Contains(url, "@") {
+		parts := strings.Split(url, "@")
+		if len(parts) == 2 {
+			nodeID = parts[0]
+			hostPort := parts[1]
+
+			host, portStr, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				return "", "", 0, fmt.Errorf("invalid host:port format '%s': %v", hostPort, err)
+			}
+
+			port, err = strconv.Atoi(portStr)
+			if err != nil {
+				return "", "", 0, fmt.Errorf("invalid port '%s': %v", portStr, err)
+			}
+
+			address = host
+			return nodeID, address, port, nil
+		}
+	}
+
+	// Default format: "host:port" (with default nodeID)
+	host, portStr, err := net.SplitHostPort(url)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("invalid host:port format '%s': %v", url, err)
+	}
+
+	port, err = strconv.Atoi(portStr)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("invalid port '%s': %v", portStr, err)
+	}
+
+	// Default nodeID format: host_port
+	nodeID = strings.ReplaceAll(url, ":", "_")
+	address = host
+	return nodeID, address, port, nil
+}
+
+func (transporter *TCPTransporter) tryConnectToPeer(nodeID, address string, port int) {
+	err := transporter.tryToConnect(nodeID)
+	if err != nil {
+		transporter.logger.Warnf("Failed to connect to peer %s at %s:%d: %v", nodeID, address, port, err)
+	} else {
+		transporter.logger.Infof("Successfully connected to peer %s at %s:%d", nodeID, address, port)
+	}
 }
 
 func (transporter *TCPTransporter) startUDPServer() {
@@ -378,7 +555,7 @@ func (transporter *TCPTransporter) performShutdown(endChan chan error) {
 		transporter.tcpWriter.Close()
 	}
 
-	if transporter.udpServer != nil {
+	if transporter.udpServer != nil && transporter.options.UdpDiscovery {
 		transporter.udpServer.Close()
 	}
 
@@ -437,6 +614,8 @@ func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
 			fmt.Sprintf("%s:%d", nodeAddress, node.GetPort()), err)
 	}
 
+	// Update node status to online after successful connection
+	node.Available()
 	transporter.logger.Infof("Connected to node %s at %s:%d", nodeID, nodeAddress, node.GetPort())
 	return nil
 }
@@ -450,18 +629,16 @@ func (transporter *TCPTransporter) Publish(command, nodeID string, message molec
 
 	transporter.logger.Debugf("TCP Transport Publish() command: %s to nodeID: %s", command, nodeID)
 
-	// Handle special commands
+	// JavaScript TCP transporter only supports: EVENT, REQ, RES, PING, PONG, GOSSIP_*
+	// Handle unsupported commands gracefully
 	switch command {
-	case "DISCOVER":
-		if transporter.udpServer != nil {
-			transporter.udpServer.BroadcastDiscoveryMessage()
-		}
-		return
-	case "INFO":
-		transporter.sendGossipRequest(true)
-		return
 	case "HEARTBEAT":
-		// Handled by gossip protocol timer
+		// JavaScript doesn't support HEARTBEAT - silently ignore
+		transporter.logger.Debugf("Ignoring HEARTBEAT command (not supported by JavaScript TCP transporter)")
+		return
+	case "DISCOVER", "INFO", "DISCONNECT":
+		// JavaScript doesn't support these - silently ignore
+		transporter.logger.Debugf("Ignoring unsupported command: %s", command)
 		return
 	}
 

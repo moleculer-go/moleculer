@@ -55,6 +55,9 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.StrategyFactory != nil {
 				baseConfig.StrategyFactory = config.StrategyFactory
 			}
+			if config.TCPConfig != nil {
+				baseConfig.TCPConfig = config.TCPConfig
+			}
 			if config.UpdateNodeMetricsFrequency != 0 {
 				baseConfig.UpdateNodeMetricsFrequency = config.UpdateNodeMetricsFrequency
 			}

@@ -66,8 +66,9 @@ func (w *TcpWriter) Broadcast(msgType byte, msgBytes []byte) error {
 }
 
 func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
-	// Get connection from pool
-	conn, err := w.connPool.Get(nodeID, "", 0) // Address and port should be provided by caller
+	// Get connection from pool - for existing connections, we don't need address/port
+	// The connection pool will reuse existing connections by nodeID
+	conn, err := w.connPool.Get(nodeID, "", 0)
 	if err != nil {
 		return NewTransportErrorWithNode("send", nodeID, err)
 	}

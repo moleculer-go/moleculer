@@ -108,6 +108,11 @@ func (cp *ConnectionPool) Get(nodeID, address string, port int) (*Connection, er
 		connection.Close()
 	}
 
+	// If no address/port provided, we can't create a new connection
+	if address == "" || port == 0 {
+		return nil, NewTransportError("connect", fmt.Errorf("no existing connection for node %s and no address/port provided to create new connection", nodeID))
+	}
+
 	// Create new connection
 	conn, err := cp.createConnection(address, port)
 	if err != nil {

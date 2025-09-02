@@ -116,6 +116,44 @@ type Mixin struct {
 type TransporterFactoryFunc func() interface{}
 type StrategyFactoryFunc func() interface{}
 
+type TCPConfig struct {
+	// Enable UDP discovery
+	UdpDiscovery bool
+	// Reusing UDP server socket
+	UdpReuseAddr bool
+
+	// UDP port
+	UdpPort int
+	// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
+	UdpBindAddress string
+	// UDP sending period (seconds)
+	UdpPeriod time.Duration
+
+	UdpMaxDiscovery int
+
+	// Multicast address.
+	UdpMulticast string
+	// Multicast TTL setting
+	UdpMulticastTTL int
+
+	// Send broadcast (Boolean, String, Array<String>)
+	UdpBroadcast      []string
+	UdpBroadcastAddrs []string
+	// TCP server port. 0 means random port
+	Port int
+	// Static remote nodes address list (when UDP discovery is not available)
+	Urls []string
+	// Use hostname as preffered connection address
+	UseHostname bool
+
+	// Gossip sending period in seconds
+	GossipPeriod int
+	// Maximum enabled outgoing connections. If reach, close the old connections
+	MaxConnections int
+	// Maximum TCP packet size
+	MaxPacketSize int
+}
+
 type Config struct {
 	LogLevel                   string
 	LogFormat                  string
@@ -123,6 +161,7 @@ type Config struct {
 	Transporter                string
 	TransporterFactory         TransporterFactoryFunc
 	StrategyFactory            StrategyFactoryFunc
+	TCPConfig                  *TCPConfig
 	UpdateNodeMetricsFrequency time.Duration
 	HeartbeatFrequency         time.Duration
 	HeartbeatTimeout           time.Duration
