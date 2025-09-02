@@ -27,6 +27,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
+	github.com/stretchr/testify v1.6.1
 	github.com/tidwall/gjson v1.9.3
 	github.com/tidwall/sjson v1.0.4
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
