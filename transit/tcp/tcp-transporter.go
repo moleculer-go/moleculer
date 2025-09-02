@@ -1,8 +1,8 @@
 package tcp
 
 import (
-	"errors"
-	"strconv"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -12,6 +12,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type TransportState int
+
+const (
+	TransportStopped TransportState = iota
+	TransportStarting
+	TransportRunning
+	TransportStopping
+)
+
 type TCPTransporter struct {
 	options     TCPOptions
 	tcpReader   *TcpReader
@@ -19,12 +28,17 @@ type TCPTransporter struct {
 	udpServer   *UdpServer
 	registry    moleculer.Registry
 	gossipTimer *time.Ticker
+	workerPool  *WorkerPool
+
+	state      TransportState
+	stateMutex sync.RWMutex
 
 	logger *log.Entry
 
-	validateMsg transit.ValidateMsgFunc
-	serializer  serializer.Serializer
-	handlers    map[string][]transit.TransportHandler
+	validateMsg   transit.ValidateMsgFunc
+	serializer    serializer.Serializer
+	handlersMutex sync.RWMutex
+	handlers      map[string][]transit.TransportHandler
 }
 
 type TCPOptions struct {
@@ -81,16 +95,50 @@ func CreateTCPTransporter(options TCPOptions) TCPTransporter {
 	return transport
 }
 
+// State management methods for thread-safe access
+func (transporter *TCPTransporter) getState() TransportState {
+	transporter.stateMutex.RLock()
+	defer transporter.stateMutex.RUnlock()
+	return transporter.state
+}
+
+func (transporter *TCPTransporter) setState(state TransportState) {
+	transporter.stateMutex.Lock()
+	defer transporter.stateMutex.Unlock()
+	transporter.state = state
+}
+
 func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan error {
+	// Set state to starting
+	transporter.setState(TransportStarting)
+
 	transporter.registry = registry
-	transporter.logger.Info("TCP Transported Connect()")
-	endChan := make(chan error)
-	go func() {
+	transporter.logger.Info("TCP Transport Connect()")
+
+	// Initialize worker pool
+	transporter.workerPool = NewWorkerPool(5, transporter.logger.WithField("component", "transport"))
+
+	endChan := make(chan error, 1)
+
+	// Use worker pool for initialization tasks
+	transporter.workerPool.Submit(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				transporter.logger.Errorf("Transport initialization panic: %v", r)
+				transporter.setState(TransportStopped)
+				endChan <- fmt.Errorf("transport initialization failed: %v", r)
+			}
+		}()
+
 		transporter.startTcpServer()
 		transporter.startUDPServer()
+
 		transporter.startGossipTimer()
+		transporter.setState(TransportRunning)
+		transporter.logger.Info("TCP Transport connected successfully")
 		endChan <- nil
-	}()
+	})
+
 	return endChan
 }
 
@@ -176,13 +224,19 @@ func commandToMsgType(command string) int {
 func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte) {
 	command := msgTypeToCommand(msgType)
 	if command == "???" {
-		transporter.logger.Error("Unknown command received - msgType: " + string(msgType))
+		transporter.logger.Errorf("Unknown command received - msgType: %d", msgType)
 		return
 	}
 	transporter.logger.Debug("Incoming message - command: " + command)
 	message := transporter.serializer.BytesToPayload(msgBytes)
+
+	// Thread-safe access to handlers map
+	transporter.handlersMutex.RLock()
+	handlers, ok := transporter.handlers[command]
+	transporter.handlersMutex.RUnlock()
+
 	// if transporter.validateMsg(message) {
-	if handlers, ok := transporter.handlers[command]; ok {
+	if ok {
 		for _, handler := range handlers {
 			handler(message)
 		}
@@ -260,7 +314,7 @@ func addIpToList(ipList []string, address string) []string {
 // need to find where the TCP connection step happens.. is not happening here - where is this node info used ?
 func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
-		transporter.logger.Debug("UDP discovery received from " + address + " nodeId: " + nodeID + " port: " + string(port))
+		transporter.logger.Debugf("UDP discovery received from %s nodeId: %s port: %d", address, nodeID, port)
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
 			transporter.logger.Debug("Unknown node. Register as offline node")
@@ -280,20 +334,69 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, address string, port int
 }
 
 func (transporter *TCPTransporter) Disconnect() chan error {
-	endChan := make(chan error)
-	go func() {
-		transporter.tcpReader.Close()
-		transporter.tcpWriter.Close()
-		transporter.udpServer.Close()
-		if transporter.gossipTimer != nil {
-			transporter.gossipTimer.Stop()
-		}
-		endChan <- nil
-	}()
+	// Set state to stopping
+	transporter.setState(TransportStopping)
+
+	endChan := make(chan error, 1)
+
+	// Use worker pool for shutdown if available, otherwise direct goroutine
+	if transporter.workerPool != nil && !transporter.workerPool.IsStopped() {
+		transporter.workerPool.Submit(func() {
+			transporter.performShutdown(endChan)
+		})
+	} else {
+		go func() {
+			transporter.performShutdown(endChan)
+		}()
+	}
+
 	return endChan
 }
 
+func (transporter *TCPTransporter) performShutdown(endChan chan error) {
+	defer func() {
+		if r := recover(); r != nil {
+			transporter.logger.Errorf("Transport shutdown panic: %v", r)
+			transporter.setState(TransportStopped)
+			endChan <- fmt.Errorf("transport shutdown failed: %v", r)
+		}
+	}()
+
+	transporter.logger.Info("TCP Transport disconnecting...")
+
+	// Stop worker pool first
+	if transporter.workerPool != nil {
+		transporter.workerPool.Stop()
+	}
+
+	// Close components
+	if transporter.tcpReader != nil {
+		transporter.tcpReader.Close()
+	}
+
+	if transporter.tcpWriter != nil {
+		transporter.tcpWriter.Close()
+	}
+
+	if transporter.udpServer != nil {
+		transporter.udpServer.Close()
+	}
+
+	// Stop gossip timer
+	if transporter.gossipTimer != nil {
+		transporter.gossipTimer.Stop()
+		transporter.gossipTimer = nil
+	}
+
+	transporter.setState(TransportStopped)
+	transporter.logger.Info("TCP Transport disconnected successfully")
+	endChan <- nil
+}
+
 func (transporter *TCPTransporter) Subscribe(command, nodeID string, handler transit.TransportHandler) {
+	transporter.handlersMutex.Lock()
+	defer transporter.handlersMutex.Unlock()
+
 	// if commandToMsgType(command) == -1 {
 	// 	transporter.logger.Error("TCPTransporter.Subscribe() Invalid command: " + command)
 	// 	return
@@ -320,66 +423,91 @@ func (transporter *TCPTransporter) getNodeAddress(node moleculer.Node) string {
 func (transporter *TCPTransporter) tryToConnect(nodeID string) error {
 	node := transporter.registry.GetNodeByID(nodeID)
 	if node == nil {
-		transporter.logger.Error("TCPTransporter.tryToConnect() Unknown nodeID: " + nodeID)
-		return errors.New("Unknown nodeID: " + nodeID)
+		return NewTransportErrorWithNode("connect", nodeID, fmt.Errorf("unknown node"))
 	}
+
 	nodeAddress := transporter.getNodeAddress(node)
 	if nodeAddress == "" {
-		transporter.logger.Error("TCPTransporter.tryToConnect() No address found for nodeID: " + nodeID)
-		return errors.New("No address found for nodeID: " + nodeID)
+		return NewTransportErrorWithNode("connect", nodeID, fmt.Errorf("no address found"))
 	}
+
 	_, err := transporter.tcpWriter.Connect(nodeID, nodeAddress, node.GetPort())
 	if err != nil {
-		transporter.logger.Error("TCPTransporter.tryToConnect() Error connecting to nodeID: "+nodeID+" node address:"+nodeAddress+" port: "+strconv.Itoa(node.GetPort())+" error: ", err)
-		return err
+		return NewTransportErrorWithAddress("connect", nodeID,
+			fmt.Sprintf("%s:%d", nodeAddress, node.GetPort()), err)
 	}
-	transporter.logger.Info("TCPTransporter.tryToConnect() Connected to nodeID: " + nodeID + " node address:" + nodeAddress + " port: " + strconv.Itoa(node.GetPort()))
+
+	transporter.logger.Infof("Connected to node %s at %s:%d", nodeID, nodeAddress, node.GetPort())
 	return nil
 }
 
 func (transporter *TCPTransporter) Publish(command, nodeID string, message moleculer.Payload) {
-	transporter.logger.Debug("TCPTransporter.Publish() command: " + command + " to nodeID: " + nodeID)
-	if command == "DISCOVER" {
+	// Check if transport is running
+	if transporter.getState() != TransportRunning {
+		transporter.logger.Warn("Cannot publish message: transport not running")
+		return
+	}
+
+	transporter.logger.Debugf("TCP Transport Publish() command: %s to nodeID: %s", command, nodeID)
+
+	// Handle special commands
+	switch command {
+	case "DISCOVER":
 		if transporter.udpServer != nil {
 			transporter.udpServer.BroadcastDiscoveryMessage()
 		}
 		return
-	}
-	if command == "INFO" {
+	case "INFO":
 		transporter.sendGossipRequest(true)
 		return
-	}
-	if command == "HEARTBEAT" {
-		//how does the JS TCP transporter handle HEARTBEAT?
-		//prob done by the gossip protocol - already has a timer
+	case "HEARTBEAT":
+		// Handled by gossip protocol timer
 		return
 	}
 
 	msgType := commandToMsgType(command)
 	if msgType == -1 {
-		transporter.logger.Error("TCPTransporter.Publish() Invalid command: " + command + " nodeID: " + nodeID)
+		transporter.logger.Errorf("Invalid command: %s", command)
 		return
 	}
-	msgBts := transporter.serializer.PayloadToBytes(message)
+
+	msgBytes := transporter.serializer.PayloadToBytes(message)
+
+	// Use worker pool for async operations
+	transporter.workerPool.Submit(func() {
+		transporter.publishMessage(command, nodeID, byte(msgType), msgBytes)
+	})
+}
+
+func (transporter *TCPTransporter) publishMessage(command, nodeID string, msgType byte, msgBytes []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			transporter.logger.Errorf("Publish panic recovered: %v", r)
+		}
+	}()
 
 	if nodeID == "" {
-		err := transporter.tcpWriter.Broadcast(byte(msgType), msgBts)
-		if err != nil {
-			transporter.logger.Error("TCPTransporter.Publish() Error broadcasting message command:"+command+" error: ", err)
-		}
+		// Broadcast - not yet implemented with connection pool
+		transporter.logger.Warn("Broadcast not implemented with new connection pool")
 		return
 	}
 
+	// Check connection and send
 	if !transporter.tcpWriter.IsConnected(nodeID) {
 		err := transporter.tryToConnect(nodeID)
 		if err != nil {
-			transporter.logger.Error("TCPTransporter.Publish() Error connecting to nodeID: "+nodeID+" error: ", err)
+			transporter.logger.Errorf("Failed to connect to node %s: %v", nodeID, err)
 			return
 		}
 	}
-	err := transporter.tcpWriter.Send(nodeID, byte(msgType), msgBts)
+
+	err := transporter.tcpWriter.Send(nodeID, msgType, msgBytes)
 	if err != nil {
-		transporter.logger.Error("TCPTransporter.Publish() Error sending message command:"+command+" error: ", err)
+		if transportErr, ok := err.(*TransportError); ok {
+			transporter.logger.Errorf("Transport error sending to %s: %v", nodeID, transportErr)
+		} else {
+			transporter.logger.Errorf("Error sending message to %s: %v", nodeID, err)
+		}
 	}
 }
 
