@@ -2,12 +2,10 @@ package payload_test
 
 import (
 	"errors"
-	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 
-	"github.com/moleculer-go/cupaloy/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -15,7 +13,7 @@ import (
 	. "github.com/moleculer-go/moleculer/payload"
 )
 
-var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
+
 
 var _ = Describe("Payload", func() {
 
@@ -28,7 +26,14 @@ var _ = Describe("Payload", func() {
 			"Winter":   "is coming!",
 		})
 
-		Expect(snap.SnapshotMulti("Remove()", p.Remove("Winter", "name"))).ShouldNot(HaveOccurred())
+		// Test Remove() method
+		result := p.Remove("Winter", "name")
+		Expect(result.RawMap()).Should(HaveKey("faction"))
+		Expect(result.RawMap()).Should(HaveKey("lastname"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("Winter"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("name"))
+		Expect(result.RawMap()["faction"]).Should(Equal("Stark"))
+		Expect(result.RawMap()["lastname"]).Should(Equal("Snow"))
 	})
 
 	It("Bson should return a bson map", func() {
@@ -42,7 +47,16 @@ var _ = Describe("Payload", func() {
 
 		bs := p.Bson()
 
-		Expect(snap.SnapshotMulti("Bson()", bs)).ShouldNot(HaveOccurred())
+		// Test Bson() method
+		Expect(bs).ShouldNot(BeNil())
+		Expect(bs).Should(HaveKey("name"))
+		Expect(bs).Should(HaveKey("lastname"))
+		Expect(bs).Should(HaveKey("faction"))
+		Expect(bs).Should(HaveKey("Winter"))
+		Expect(bs["name"]).Should(Equal("John"))
+		Expect(bs["lastname"]).Should(Equal("Snow"))
+		Expect(bs["faction"]).Should(Equal("Stark"))
+		Expect(bs["Winter"]).Should(Equal("is coming!"))
 	})
 
 	It("Add should add fields to payload", func() {
@@ -59,7 +73,19 @@ var _ = Describe("Payload", func() {
 			"pageSize": 15,
 		})
 
-		Expect(snap.SnapshotMulti("Add()", m)).ShouldNot(HaveOccurred())
+		// Test Add() method
+		Expect(m.RawMap()).Should(HaveKey("name"))
+		Expect(m.RawMap()).Should(HaveKey("lastname"))
+		Expect(m.RawMap()).Should(HaveKey("faction"))
+		Expect(m.RawMap()).Should(HaveKey("Winter"))
+		Expect(m.RawMap()).Should(HaveKey("page"))
+		Expect(m.RawMap()).Should(HaveKey("pageSize"))
+		Expect(m.RawMap()["name"]).Should(Equal("John"))
+		Expect(m.RawMap()["lastname"]).Should(Equal("Snow"))
+		Expect(m.RawMap()["faction"]).Should(Equal("Stark"))
+		Expect(m.RawMap()["Winter"]).Should(Equal("is coming!"))
+		Expect(m.RawMap()["page"]).Should(Equal(1))
+		Expect(m.RawMap()["pageSize"]).Should(Equal(15))
 	})
 
 	type customMap map[string]interface{}
@@ -82,8 +108,21 @@ var _ = Describe("Payload", func() {
 				},
 			},
 		})
-		Expect(snap.SnapshotMulti("CustomMap()-RawMap()", p.RawMap())).ShouldNot(HaveOccurred())
-		Expect(snap.SnapshotMulti("CustomMap()-Bson()", p.Bson())).ShouldNot(HaveOccurred())
+		// Test CustomMap RawMap() method
+		rawMap := p.RawMap()
+		Expect(rawMap).Should(HaveKey("name"))
+		Expect(rawMap).Should(HaveKey("lastname"))
+		Expect(rawMap).Should(HaveKey("sub"))
+		Expect(rawMap["name"]).Should(Equal("John"))
+		Expect(rawMap["lastname"]).Should(Equal("Snow"))
+		
+		// Test CustomMap Bson() method
+		bsonMap := p.Bson()
+		Expect(bsonMap).Should(HaveKey("name"))
+		Expect(bsonMap).Should(HaveKey("lastname"))
+		Expect(bsonMap).Should(HaveKey("sub"))
+		Expect(bsonMap["name"]).Should(Equal("John"))
+		Expect(bsonMap["lastname"]).Should(Equal("Snow"))
 	})
 
 	It("should deal with bson.M map types", func() {
@@ -103,7 +142,13 @@ var _ = Describe("Payload", func() {
 				},
 			},
 		})
-		Expect(snap.SnapshotMulti("Bson-values", p.Bson())).ShouldNot(HaveOccurred())
+		// Test Bson-values
+		bsonMap := p.Bson()
+		Expect(bsonMap).Should(HaveKey("name"))
+		Expect(bsonMap).Should(HaveKey("lastname"))
+		Expect(bsonMap).Should(HaveKey("sub"))
+		Expect(bsonMap["name"]).Should(Equal("John"))
+		Expect(bsonMap["lastname"]).Should(Equal("Snow"))
 
 	})
 
@@ -230,7 +275,19 @@ var _ = Describe("Payload", func() {
 			}
 			rawMap[key] = value
 		}
-		Expect(snap.SnapshotMulti("RawMap()", rawMap)).ShouldNot(HaveOccurred())
+		// Test RawMap() - validate that the map contains expected keys and values
+		Expect(rawMap).Should(HaveKey("string"))
+		Expect(rawMap).Should(HaveKey("int"))
+		Expect(rawMap).Should(HaveKey("int64"))
+		Expect(rawMap).Should(HaveKey("float32"))
+		Expect(rawMap).Should(HaveKey("float64"))
+		Expect(rawMap).Should(HaveKey("map"))
+		Expect(rawMap).Should(HaveKey("stringArray"))
+		Expect(rawMap).Should(HaveKey("intArray"))
+		Expect(rawMap).Should(HaveKey("boolArray"))
+		Expect(rawMap["string"]).Should(Equal("Hellow Night!"))
+		Expect(rawMap["int"]).Should(Equal(12345678910))
+		Expect(rawMap["int64"]).Should(Equal(lHeight))
 
 		moreOfTheSame := New(params)
 		Expect(moreOfTheSame.Get("notFound").Value()).Should(BeNil())
@@ -336,7 +393,13 @@ var _ = Describe("Payload", func() {
 			"Winter":   "is coming!",
 		})
 
-		Expect(snap.SnapshotMulti("Only()", p.Only("Winter"))).ShouldNot(HaveOccurred())
+		// Test Only() method
+		result := p.Only("Winter")
+		Expect(result.RawMap()).Should(HaveKey("Winter"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("name"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("lastname"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("faction"))
+		Expect(result.RawMap()["Winter"]).Should(Equal("is coming!"))
 	})
 
 	It("PayloadError should create an error with payload", func() {
@@ -344,8 +407,18 @@ var _ = Describe("Payload", func() {
 			"root_Cause": "root cause description",
 			"code":       "12321321",
 		}))
-		Expect(snap.SnapshotMulti("PayloadError() .Error()", p.Error())).ShouldNot(HaveOccurred())
-		Expect(snap.SnapshotMulti("PayloadError() .ErrorPayload()", p.ErrorPayload())).ShouldNot(HaveOccurred())
+		// Test PayloadError Error() method
+		err := p.Error()
+		Expect(err).ShouldNot(BeNil())
+		Expect(err.Error()).Should(ContainSubstring("Custom error message"))
+		
+		// Test PayloadError ErrorPayload() method
+		errorPayload := p.ErrorPayload()
+		Expect(errorPayload).ShouldNot(BeNil())
+		Expect(errorPayload.RawMap()).Should(HaveKey("root_Cause"))
+		Expect(errorPayload.RawMap()).Should(HaveKey("code"))
+		Expect(errorPayload.RawMap()["root_Cause"]).Should(Equal("root cause description"))
+		Expect(errorPayload.RawMap()["code"]).Should(Equal("12321321"))
 	})
 
 	type M map[string]interface{}

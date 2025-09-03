@@ -1,4 +1,0 @@
-([]string) (len=2) {
-  (string) (len=12) "SoundsBroker",
-  (string) (len=12) "VisualBroker"
-}

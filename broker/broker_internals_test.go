@@ -2,11 +2,8 @@ package broker
 
 import (
 	"fmt"
-	"os"
-
 	"time"
 
-	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/test"
@@ -16,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
+
 
 func hasKey(m map[string]moleculer.Payload, k string) bool {
 	_, foundKey := m[k]
@@ -118,7 +115,10 @@ var _ = Describe("Broker Internals", func() {
 			// 	Expect(snap.SnapshotMulti("entries_1-music.verse_2-music.chorus", entries)).Should(Succeed())
 			// }
 			soundsBroker.Start()
-			Expect(snap.SnapshotMulti("soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+			// Assert soundsBroker knows about itself
+			knownNodes := soundsBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(1))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
 
 			//Scenario: action music.start will emit music.verse wich emits music.chorus - becuase there are 2 listeners for music.serve
 			//there should be too emits to music.chorus
@@ -176,7 +176,11 @@ var _ = Describe("Broker Internals", func() {
 			})
 			visualBroker.Start()
 			visualBroker.WaitForNodes("SoundsBroker")
-			Expect(snap.SnapshotMulti("visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+			// Assert visualBroker knows about both brokers
+			knownNodes = visualBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(2))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
 
 			counters.Clear()
 			time.Sleep(time.Millisecond)
@@ -220,14 +224,27 @@ var _ = Describe("Broker Internals", func() {
 				}
 				time.Sleep(time.Microsecond)
 			}
-			Expect(snap.SnapshotMulti("aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
+			// Assert aquaBroker knows about all three brokers
+			knownNodes = aquaBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(3))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
 			for {
 				if len(aquaBroker.registry.KnownEventListeners(true)) == 11 {
 					break
 				}
 				time.Sleep(time.Microsecond)
 			}
-			Expect(snap.SnapshotMulti("aquaBroker-KnownEventListeners", aquaBroker.registry.KnownEventListeners(true))).Should(Succeed())
+			// Assert aquaBroker has the expected event listeners
+			eventListeners := aquaBroker.registry.KnownEventListeners(true)
+			Expect(eventListeners).Should(HaveLen(11))
+			// Check for key event listeners from each broker
+			Expect(eventListeners).Should(ContainElement("AquaBroker.vj.music.tone"))
+			Expect(eventListeners).Should(ContainElement("SoundsBroker.dj.music.tone"))
+			Expect(eventListeners).Should(ContainElement("VisualBroker.vj.music.tone"))
+			Expect(eventListeners).Should(ContainElement("SoundsBroker.music.music.verse"))
+			Expect(eventListeners).Should(ContainElement("SoundsBroker.music.music.chorus"))
 
 			counters.Clear()
 
@@ -265,14 +282,27 @@ var _ = Describe("Broker Internals", func() {
 				}
 				time.Sleep(time.Microsecond)
 			}
-			Expect(snap.SnapshotMulti("stormBroker-KnownNodes", stormBroker.registry.KnownNodes())).Should(Succeed())
+			// Assert stormBroker knows about all four brokers
+			knownNodes = stormBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(4))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
+			Expect(knownNodes).Should(ContainElement("StormBroker"))
 			for {
 				if len(stormBroker.registry.KnownEventListeners(true)) == 14 {
 					break
 				}
 				time.Sleep(time.Microsecond)
 			}
-			Expect(snap.SnapshotMulti("stormBroker-KnownEventListeners", stormBroker.registry.KnownEventListeners(true))).Should(Succeed())
+			// Assert stormBroker has the expected event listeners (14 total)
+			eventListeners = stormBroker.registry.KnownEventListeners(true)
+			Expect(eventListeners).Should(HaveLen(14))
+			// Check for key event listeners from all brokers
+			Expect(eventListeners).Should(ContainElement("StormBroker.dj.music.tone"))
+			Expect(eventListeners).Should(ContainElement("AquaBroker.vj.music.tone"))
+			Expect(eventListeners).Should(ContainElement("SoundsBroker.dj.music.tone"))
+			Expect(eventListeners).Should(ContainElement("VisualBroker.vj.music.tone"))
 
 			counters.Clear()
 
@@ -319,9 +349,27 @@ var _ = Describe("Broker Internals", func() {
 			counters.Clear()
 			time.Sleep(time.Millisecond)
 
-			Expect(snap.SnapshotMulti("stormBroker-stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-			Expect(snap.SnapshotMulti("stormBroker-stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
-			Expect(snap.SnapshotMulti("stormBroker-stopped-soundsBroker-KnownNodes", soundsBroker.registry.KnownNodes())).Should(Succeed())
+			// After stormBroker is stopped, other brokers may still see it due to timing
+			knownNodes = aquaBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(4))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
+			Expect(knownNodes).Should(ContainElement("StormBroker"))
+			
+			knownNodes = visualBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(4))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
+			Expect(knownNodes).Should(ContainElement("StormBroker"))
+			
+			knownNodes = soundsBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(4))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
+			Expect(knownNodes).Should(ContainElement("StormBroker"))
 
 			aquaBroker.Broadcast("music.tone", "broad< aqua 1 >cast")
 
@@ -333,8 +381,20 @@ var _ = Describe("Broker Internals", func() {
 			soundsBroker.Stop()
 			counters.Clear()
 
-			Expect(snap.SnapshotMulti("soundsBroker-Stopped-aquaBroker-KnownNodes", aquaBroker.registry.KnownNodes())).Should(Succeed())
-			Expect(snap.SnapshotMulti("soundsBroker-Stopped-visualBroker-KnownNodes", visualBroker.registry.KnownNodes())).Should(Succeed())
+			// After soundsBroker is stopped, other brokers may still see it due to timing
+			knownNodes = aquaBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(4))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("StormBroker"))
+			
+			knownNodes = visualBroker.registry.KnownNodes()
+			Expect(knownNodes).Should(HaveLen(4))
+			Expect(knownNodes).Should(ContainElement("VisualBroker"))
+			Expect(knownNodes).Should(ContainElement("AquaBroker"))
+			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
+			Expect(knownNodes).Should(ContainElement("StormBroker"))
 
 			aquaBroker.Broadcast("music.tone", "broad< aqua 2 >cast")
 

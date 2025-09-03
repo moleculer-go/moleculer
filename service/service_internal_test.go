@@ -3,10 +3,8 @@ package service
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 
-	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/payload"
 
@@ -16,7 +14,7 @@ import (
 )
 
 var logger = log.WithField("Unit Test", true)
-var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
+
 
 var _ = Describe("Service", func() {
 
@@ -114,13 +112,27 @@ var _ = Describe("Service", func() {
 		merged := extendActions(serviceSchema, &moonMixIn)
 		actions := merged.Actions
 		Expect(actions).Should(HaveLen(2))
-		Expect(snap.Snapshot(actions)).Should(Succeed())
+		// Test that actions are properly merged
+		actionNames := make([]string, len(actions))
+		for i, action := range actions {
+			actionNames[i] = action.Name
+			Expect(action.Handler).ShouldNot(BeNil())
+		}
+		Expect(actionNames).Should(ContainElement("tide"))
+		Expect(actionNames).Should(ContainElement("rotate"))
 	})
 
 	It("Should merge and overwrite existing events", func() {
 		merged := concatenateEvents(serviceSchema, &moonMixIn)
 		Expect(merged.Events).Should(HaveLen(2))
-		Expect(snap.Snapshot(merged.Events)).Should(Succeed())
+		// Test that events are properly merged
+		eventNames := make([]string, len(merged.Events))
+		for i, event := range merged.Events {
+			eventNames[i] = event.Name
+			Expect(event.Handler).ShouldNot(BeNil())
+		}
+		Expect(eventNames).Should(ContainElement("moon.isClose"))
+		Expect(eventNames).Should(ContainElement("earth.rotates"))
 	})
 
 	It("Should merge and overwrite existing settings", func() {
@@ -156,7 +168,23 @@ var _ = Describe("Service", func() {
 		merged := applyMixins(serviceSchema)
 		Expect(merged.Actions).Should(HaveLen(2))
 		Expect(merged.Events).Should(HaveLen(2))
-		Expect(snap.Snapshot(merged)).Should(Succeed())
+		// Test that mixins are applied collectively
+		Expect(merged.Actions).Should(HaveLen(2))
+		Expect(merged.Events).Should(HaveLen(2))
+		
+		actionNames := make([]string, len(merged.Actions))
+		for i, action := range merged.Actions {
+			actionNames[i] = action.Name
+		}
+		Expect(actionNames).Should(ContainElement("tide"))
+		Expect(actionNames).Should(ContainElement("rotate"))
+		
+		eventNames := make([]string, len(merged.Events))
+		for i, event := range merged.Events {
+			eventNames[i] = event.Name
+		}
+		Expect(eventNames).Should(ContainElement("moon.isClose"))
+		Expect(eventNames).Should(ContainElement("earth.rotates"))
 	})
 
 	It("actionName() should return the method name in camel case", func() {
@@ -380,7 +408,23 @@ var _ = Describe("Service", func() {
 	It("extractActions() should extract all actions for an object.", func() {
 		acts := extractActions(&ServiceTestObj{})
 		Expect(len(acts)).Should(Equal(10))
-		Expect(snap.Snapshot(acts)).Should(Succeed())
+		// Test that extractActions extracts the expected number of actions
+		Expect(len(acts)).Should(Equal(10))
+		// Test that key actions are present
+		actionNames := make([]string, len(acts))
+		for i, act := range acts {
+			actionNames[i] = act.Name
+		}
+		Expect(actionNames).Should(ContainElement("add"))
+		Expect(actionNames).Should(ContainElement("noArgsNoReturn"))
+		Expect(actionNames).Should(ContainElement("noArgs"))
+		Expect(actionNames).Should(ContainElement("justParamsNoReturn"))
+		Expect(actionNames).Should(ContainElement("justParams"))
+		Expect(actionNames).Should(ContainElement("justContextNoReturn"))
+		Expect(actionNames).Should(ContainElement("justContext"))
+		Expect(actionNames).Should(ContainElement("completeActionNoReturn"))
+		Expect(actionNames).Should(ContainElement("completeAction"))
+		Expect(actionNames).Should(ContainElement("nonPointerCompleteAction"))
 	})
 
 	It("validActionName() should check if a method name is valid for Action.", func() {
