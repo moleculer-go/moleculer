@@ -60,8 +60,8 @@ jobs:
         image: nats-streaming
         ports:
           - 4222:4222
-        options: >-
-          --command "nats-streaming-server" -- -mc 0
+        env:
+          NATS_STREAMING_SERVER_OPTS: "--max_channels=0 --max_msgs=1000000 --max_bytes=1048576000"
 
     steps:
     - name: Checkout code
