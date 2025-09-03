@@ -60,8 +60,8 @@ jobs:
         image: nats-streaming
         ports:
           - 4222:4222
-        env:
-          NATS_STREAMING_SERVER_OPTS: "-mc 0 -msu 0 -mm 0 -mb 0"
+        options: >-
+          --command "nats-streaming-server" -- -mc 0
 
     steps:
     - name: Checkout code
