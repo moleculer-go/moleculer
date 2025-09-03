@@ -21,6 +21,8 @@ func cleanupNode(in map[string]interface{}) map[string]interface{} {
 	in["ipList"] = []string{"100.100.0.100"}
 	in["hostname"] = "removed"
 	in["seq"] = "removed"
+	// Always include the port field (defaults to 0 if not set)
+	in["port"] = 0
 	return in
 }
 
