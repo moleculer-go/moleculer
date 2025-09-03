@@ -52,6 +52,13 @@ func (transporter *MemoryTransporter) SetSerializer(serializer serializer.Serial
 
 }
 
+func (transporter *MemoryTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "memory",
+		"active": true,
+	}
+}
+
 func (transporter *MemoryTransporter) Connect(registry moleculer.Registry) chan error {
 	transporter.logger.Debug("[Mem-Trans-", transporter.instanceID, "] -> Connecting() ...")
 	endChan := make(chan error)

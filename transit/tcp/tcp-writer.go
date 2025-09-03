@@ -25,14 +25,27 @@ type TcpWriter struct {
 	maxConnections int
 	logger         *log.Entry
 	lock           sync.Mutex
+	bufferPool     *BufferPool
+	cleanupTicker  *time.Ticker
+	stopChan       chan struct{}
+	idleTimeout    time.Duration
 }
 
-func NewTcpWriter(maxConnections int, logger *log.Entry) *TcpWriter {
-	return &TcpWriter{
+func NewTcpWriter(maxConnections int, logger *log.Entry, bufferPool *BufferPool, idleTimeout time.Duration) *TcpWriter {
+	writer := &TcpWriter{
 		sockets:        make(map[string]*TCPConnEntry),
 		maxConnections: maxConnections,
 		logger:         logger,
+		bufferPool:     bufferPool,
+		idleTimeout:    idleTimeout,
+		stopChan:       make(chan struct{}),
 	}
+
+	// Start cleanup routine
+	writer.cleanupTicker = time.NewTicker(30 * time.Second)
+	go writer.cleanupRoutine()
+
+	return writer
 }
 
 func (w *TcpWriter) Connect(nodeID, host string, port int) (*net.TCPConn, error) {
@@ -75,7 +88,7 @@ func (w *TcpWriter) IsConnected(nodeID string) bool {
 func (w *TcpWriter) Broadcast(msgType byte, msgBytes []byte) error {
 	w.lock.Lock()
 	nodeIDs := make([]string, 0, len(w.sockets))
-	for nodeID, _ := range w.sockets {
+	for nodeID := range w.sockets {
 		nodeIDs = append(nodeIDs, nodeID)
 	}
 	w.lock.Unlock()
@@ -104,14 +117,25 @@ func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
 	if !exists || socket == nil {
 		return errors.New("connection does not exist for nodeID: " + nodeID)
 	}
-	header := make([]byte, HEADER_SIZE)
+	// Use buffer pool for header
+	header := w.bufferPool.GetBuffer(HEADER_SIZE)
 	binary.BigEndian.PutUint32(header[1:], uint32(len(msgBytes)+len(header)))
 	header[5] = msgType
 	crc := header[1] ^ header[2] ^ header[3] ^ header[4] ^ header[5]
 	header[0] = crc
 
-	payload := append(header, msgBytes...)
+	// Create payload using buffer pool
+	payloadSize := len(header) + len(msgBytes)
+	payload := w.bufferPool.GetBuffer(payloadSize)
+	copy(payload, header)
+	copy(payload[len(header):], msgBytes)
+
+	// Return header to pool
+	w.bufferPool.PutBuffer(header)
 	_, err := socket.conn.Write(payload)
+
+	// Return payload buffer to pool
+	w.bufferPool.PutBuffer(payload)
 
 	if !isGossipMessage(msgType) {
 		socket.lastUsed = time.Now()
@@ -154,11 +178,44 @@ func (w *TcpWriter) manageConnections() {
 }
 
 func (w *TcpWriter) Close() {
+	// Stop cleanup routine
+	if w.cleanupTicker != nil {
+		w.cleanupTicker.Stop()
+	}
+	close(w.stopChan)
+
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
 	for nodeID, socket := range w.sockets {
 		socket.conn.Close()
 		delete(w.sockets, nodeID)
+	}
+}
+
+// cleanupRoutine periodically removes idle connections
+func (w *TcpWriter) cleanupRoutine() {
+	for {
+		select {
+		case <-w.cleanupTicker.C:
+			w.cleanupIdleConnections()
+		case <-w.stopChan:
+			return
+		}
+	}
+}
+
+// cleanupIdleConnections removes connections that haven't been used recently
+func (w *TcpWriter) cleanupIdleConnections() {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	now := time.Now()
+	for nodeID, socket := range w.sockets {
+		if now.Sub(socket.lastUsed) > w.idleTimeout {
+			w.logger.Debug("Closing idle connection for nodeID:", nodeID)
+			socket.conn.Close()
+			delete(w.sockets, nodeID)
+		}
 	}
 }

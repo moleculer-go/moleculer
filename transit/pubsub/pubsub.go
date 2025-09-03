@@ -232,22 +232,25 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 
 	// Start with default options (matching JavaScript defaults)
 	tcpOpts := tcp.TCPOptions{
-		UdpDiscovery:     true,
-		UdpReuseAddr:     true,
-		UdpPort:          4445, // Default UDP listening port (matches JavaScript)
-		UdpDiscoveryPort: 4445, // Default UDP discovery port (standard Moleculer port)
-		UdpBindAddress:   "",
-		UdpPeriod:        30 * time.Second,
-		UdpMaxDiscovery:  0, // Unlimited
-		UdpMulticast:     "239.0.0.0",
-		UdpMulticastTTL:  1,
-		UdpBroadcast:     []string{},
-		Port:             0, // Random TCP port
-		Urls:             []string{},
-		UseHostname:      true,
-		GossipPeriod:     2, // 2 seconds
-		MaxConnections:   32,
-		MaxPacketSize:    1024 * 1024, // 1MB
+		UdpDiscovery:          true,
+		UdpReuseAddr:          true,
+		UdpPort:               4445, // Default UDP listening port (matches JavaScript)
+		UdpDiscoveryPort:      4445, // Default UDP discovery port (standard Moleculer port)
+		UdpBindAddress:        "",
+		UdpPeriod:             30 * time.Second,
+		UdpMaxDiscovery:       0,                // Unlimited
+		WorkerPoolSize:        20,               // Default worker pool size
+		ConnectionTimeout:     30 * time.Second, // Default connection timeout
+		IdleConnectionTimeout: 60 * time.Second, // Default idle connection timeout
+		UdpMulticast:          "239.0.0.0",
+		UdpMulticastTTL:       1,
+		UdpBroadcast:          []string{},
+		Port:                  0, // Random TCP port
+		Urls:                  []string{},
+		UseHostname:           true,
+		GossipPeriod:          2, // 2 seconds
+		MaxConnections:        32,
+		MaxPacketSize:         1024 * 1024, // 1MB
 	}
 
 	// Merge with user-provided options if any
@@ -263,6 +266,18 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 		if config.UdpDiscoveryPort != 0 {
 			tcpOpts.UdpDiscoveryPort = config.UdpDiscoveryPort
 			pubsub.logger.Debug("Updated UdpDiscoveryPort to:", tcpOpts.UdpDiscoveryPort)
+		}
+		if config.WorkerPoolSize != 0 {
+			tcpOpts.WorkerPoolSize = config.WorkerPoolSize
+			pubsub.logger.Debug("Updated WorkerPoolSize to:", tcpOpts.WorkerPoolSize)
+		}
+		if config.ConnectionTimeout != 0 {
+			tcpOpts.ConnectionTimeout = config.ConnectionTimeout
+			pubsub.logger.Debug("Updated ConnectionTimeout to:", tcpOpts.ConnectionTimeout)
+		}
+		if config.IdleConnectionTimeout != 0 {
+			tcpOpts.IdleConnectionTimeout = config.IdleConnectionTimeout
+			pubsub.logger.Debug("Updated IdleConnectionTimeout to:", tcpOpts.IdleConnectionTimeout)
 		}
 		if config.UdpBindAddress != "" {
 			tcpOpts.UdpBindAddress = config.UdpBindAddress
@@ -325,7 +340,7 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	tcpOpts.Serializer = pubsub.serializer
 
 	tcpTransporter := tcp.CreateTCPTransporter(tcpOpts)
-	var transport transit.Transport = &tcpTransporter
+	var transport transit.Transport = tcpTransporter
 	return transport
 }
 

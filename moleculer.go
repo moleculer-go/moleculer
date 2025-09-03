@@ -170,6 +170,14 @@ type TCPConfig struct {
 
 	UdpMaxDiscovery int
 
+	// Memory management options
+	// Worker pool size for connection handling (default: 20)
+	WorkerPoolSize int
+	// Connection timeout duration (default: 30 seconds)
+	ConnectionTimeout time.Duration
+	// Idle connection cleanup interval (default: 60 seconds)
+	IdleConnectionTimeout time.Duration
+
 	// Multicast address.
 	UdpMulticast string
 	// Multicast TTL setting
@@ -230,28 +238,31 @@ var DefaultConfig = Config{
 
 	// Default TCP options (matching JavaScript defaults)
 	TCPOptions: &TCPConfig{
-		UdpDiscovery:     true,
-		UdpReuseAddr:     true,
-		UdpPort:          4445, // Default UDP listening port (matches JavaScript)
-		UdpDiscoveryPort: 4445, // Default UDP discovery port (standard Moleculer port)
-		UdpBindAddress:   "",
-		UdpPeriod:        30 * time.Second,
-		UdpMaxDiscovery:  0, // Unlimited
-		UdpMulticast:     "239.0.0.0",
-		UdpMulticastTTL:  1,
-		UdpBroadcast:     []string{},
-		Port:             0, // Random TCP port
-		Urls:             []string{},
-		UseHostname:      true,
-		GossipPeriod:     2, // 2 seconds
-		MaxConnections:   32,
-		MaxPacketSize:    1024 * 1024, // 1MB
-		Prefix:           "",
-		NodeId:           "",
-		Namespace:        "",
-		Logger:           nil, // Will be set by broker
-		Serializer:       nil, // Will be set by broker
-		ValidateMsg:      nil, // Will be set by broker
+		UdpDiscovery:          true,
+		UdpReuseAddr:          true,
+		UdpPort:               4445, // Default UDP listening port (matches JavaScript)
+		UdpDiscoveryPort:      4445, // Default UDP discovery port (standard Moleculer port)
+		UdpBindAddress:        "",
+		UdpPeriod:             30 * time.Second,
+		UdpMaxDiscovery:       0,                // Unlimited
+		WorkerPoolSize:        20,               // Default worker pool size
+		ConnectionTimeout:     30 * time.Second, // Default connection timeout
+		IdleConnectionTimeout: 60 * time.Second, // Default idle connection timeout
+		UdpMulticast:          "239.0.0.0",
+		UdpMulticastTTL:       1,
+		UdpBroadcast:          []string{},
+		Port:                  0, // Random TCP port
+		Urls:                  []string{},
+		UseHostname:           true,
+		GossipPeriod:          2, // 2 seconds
+		MaxConnections:        32,
+		MaxPacketSize:         1024 * 1024, // 1MB
+		Prefix:                "",
+		NodeId:                "",
+		Namespace:             "",
+		Logger:                nil, // Will be set by broker
+		Serializer:            nil, // Will be set by broker
+		ValidateMsg:           nil, // Will be set by broker
 	},
 }
 

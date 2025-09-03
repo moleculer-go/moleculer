@@ -3,6 +3,7 @@ package tcp
 import (
 	"errors"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -27,6 +28,13 @@ type TCPTransporter struct {
 	validateMsg transit.ValidateMsgFunc
 	serializer  serializer.Serializer
 	handlers    map[string][]transit.TransportHandler
+
+	// Memory management components
+	bufferPool        *BufferPool
+	connectionManager *ConnectionManager
+	workerPool        *WorkerPool
+	metrics           *Metrics
+	handlersLock      sync.RWMutex
 }
 
 type TCPOptions struct {
@@ -46,6 +54,14 @@ type TCPOptions struct {
 	UdpPeriod time.Duration
 
 	UdpMaxDiscovery int
+
+	// Memory management options
+	// Worker pool size for connection handling
+	WorkerPoolSize int
+	// Connection timeout duration
+	ConnectionTimeout time.Duration
+	// Idle connection cleanup interval
+	IdleConnectionTimeout time.Duration
 
 	// Multicast address.
 	UdpMulticast string
@@ -77,12 +93,18 @@ type TCPOptions struct {
 	ValidateMsg transit.ValidateMsgFunc
 }
 
-func CreateTCPTransporter(options TCPOptions) TCPTransporter {
+func CreateTCPTransporter(options TCPOptions) *TCPTransporter {
 	transport := TCPTransporter{options: options, logger: options.Logger}
 	transport.handlers = make(map[string][]transit.TransportHandler)
 	transport.serializer = options.Serializer
+
+	// Initialize memory management components
+	transport.bufferPool = NewBufferPool()
+	transport.connectionManager = NewConnectionManager(options.ConnectionTimeout)
+	transport.workerPool = NewWorkerPool(options.WorkerPoolSize)
+	transport.metrics = NewMetrics()
 	transport.validateMsg = options.ValidateMsg
-	return transport
+	return &transport
 }
 
 func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan error {
@@ -114,12 +136,23 @@ const (
 func (transporter *TCPTransporter) onTcpConnection(fromAddrss string, host string, port int) {
 	node := transporter.registry.GetNodeByAddress(fromAddrss)
 	if node != nil {
+		// Track the connection
+		transporter.connectionManager.RegisterConnection(node.GetID())
+		transporter.metrics.IncrementConnectionCount()
+
 		payload := payloadPkg.Empty().Add("sender", node.GetID())
 		transporter.onGossipRequest(payload)
 	}
 }
 
 func (transporter *TCPTransporter) onTcpMessage(fromAddrss string, msgType int, msgBytes *[]byte) {
+	// Track message activity
+	node := transporter.registry.GetNodeByAddress(fromAddrss)
+	if node != nil {
+		transporter.connectionManager.UpdateConnectionActivity(node.GetID())
+		transporter.metrics.RecordMessage(len(*msgBytes))
+	}
+
 	switch msgType {
 	case PACKET_GOSSIP_HELLO:
 		transporter.onGossipHello(fromAddrss, transporter.serializer.BytesToPayload(msgBytes))
@@ -194,7 +227,11 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 	transporter.logger.Debug("Incoming message - command: " + command)
 	message := transporter.serializer.BytesToPayload(msgBytes)
 	// if transporter.validateMsg(message) {
-	if handlers, ok := transporter.handlers[command]; ok {
+	transporter.handlersLock.RLock()
+	handlers, ok := transporter.handlers[command]
+	transporter.handlersLock.RUnlock()
+
+	if ok {
 		for _, handler := range handlers {
 			handler(message)
 		}
@@ -212,10 +249,10 @@ func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
 func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.onTcpConnection, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
-	}))
+	}), transporter.bufferPool, transporter.workerPool)
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPWriter",
-	}))
+	}), transporter.bufferPool, transporter.options.IdleConnectionTimeout)
 
 	port, err := transporter.tcpReader.Listen()
 	if err != nil {
@@ -303,12 +340,24 @@ func (transporter *TCPTransporter) Disconnect() chan error {
 		if transporter.gossipTimer != nil {
 			transporter.gossipTimer.Stop()
 		}
+
+		// Stop memory management components
+		if transporter.connectionManager != nil {
+			transporter.connectionManager.Stop()
+		}
+		if transporter.workerPool != nil {
+			transporter.workerPool.Stop()
+		}
+
 		endChan <- nil
 	}()
 	return endChan
 }
 
 func (transporter *TCPTransporter) Subscribe(command, nodeID string, handler transit.TransportHandler) {
+	transporter.handlersLock.Lock()
+	defer transporter.handlersLock.Unlock()
+
 	if _, ok := transporter.handlers[command]; !ok {
 		transporter.handlers[command] = make([]transit.TransportHandler, 0)
 	}
@@ -389,6 +438,31 @@ func (transporter *TCPTransporter) SetPrefix(prefix string) {
 
 func (transporter *TCPTransporter) SetNodeID(nodeID string) {
 	transporter.options.NodeId = nodeID
+}
+
+// GetMetrics returns performance and memory metrics
+func (transporter *TCPTransporter) GetMetrics() map[string]interface{} {
+	metrics := transporter.metrics.GetStats()
+
+	// Add connection manager stats
+	if transporter.connectionManager != nil {
+		connStats := transporter.connectionManager.GetConnectionStats()
+		for k, v := range connStats {
+			metrics["connection_"+k] = v
+		}
+	}
+
+	// Add buffer pool stats
+	if transporter.bufferPool != nil {
+		metrics["buffer_pool_active"] = true
+	}
+
+	// Add worker pool stats
+	if transporter.workerPool != nil {
+		metrics["worker_pool_active"] = true
+	}
+
+	return metrics
 }
 
 func (transporter *TCPTransporter) SetSerializer(serializer serializer.Serializer) {

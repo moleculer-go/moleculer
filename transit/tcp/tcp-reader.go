@@ -32,9 +32,11 @@ type TcpReader struct {
 	onConnection            OnConnectionFunc
 	onMessage               OnMessageFunc
 	disconnectNodeByAddress func(address string)
+	bufferPool              *BufferPool
+	workerPool              *WorkerPool
 }
 
-func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFunc, disconnectNodeByAddress func(address string), logger *log.Entry) *TcpReader {
+func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFunc, disconnectNodeByAddress func(address string), logger *log.Entry, bufferPool *BufferPool, workerPool *WorkerPool) *TcpReader {
 	return &TcpReader{
 		port:                    port,
 		sockets:                 make(map[net.Conn]bool),
@@ -42,6 +44,8 @@ func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFu
 		onMessage:               onMessage,
 		onConnection:            onConnection,
 		disconnectNodeByAddress: disconnectNodeByAddress,
+		bufferPool:              bufferPool,
+		workerPool:              workerPool,
 	}
 }
 
@@ -81,7 +85,10 @@ func (r *TcpReader) Listen() (int, error) {
 			r.sockets[conn] = true
 			r.lock.Unlock()
 
-			go r.handleConnection(conn)
+			// Use worker pool for connection handling
+			r.workerPool.Submit(func() {
+				r.handleConnection(conn)
+			})
 		}
 	}()
 	return r.port, nil
@@ -120,26 +127,46 @@ func (r *TcpReader) handleConnection(conn net.Conn) {
 
 func (r *TcpReader) readMessage(conn net.Conn) (msgType int, msg []byte, err error) {
 	var buf []byte
+	var chunks []byte // Track chunks for cleanup
+
 	for {
-		// Read data from the connection
-		chunk := make([]byte, 1024)
+		// Read data from the connection using buffer pool
+		chunk := r.bufferPool.GetBuffer(1024)
 		n, err := conn.Read(chunk)
 		if err != nil {
+			r.bufferPool.PutBuffer(chunk)
+			// Clean up any previous chunks
+			if chunks != nil {
+				r.bufferPool.PutBuffer(chunks)
+			}
 			return 0, nil, err
 		}
 		chunk = chunk[:n]
+
 		// If there's a previous chunk, concatenate them
 		if buf != nil {
-			buf = append(buf, chunk...)
+			// Create new buffer with combined data
+			newBuf := make([]byte, len(buf)+len(chunk))
+			copy(newBuf, buf)
+			copy(newBuf[len(buf):], chunk)
+			buf = newBuf
+			// Return the chunk to pool
+			r.bufferPool.PutBuffer(chunk)
 		} else {
 			buf = chunk
+			chunks = chunk // Track for cleanup
 		}
+
 		// If the buffer is too short, wait for the next chunk
 		if len(buf) < 6 {
 			continue
 		}
 		// If the buffer is larger than the max packet size, return an error
 		if r.maxPacketSize > 0 && len(buf) > r.maxPacketSize {
+			// Clean up buffers
+			if chunks != nil {
+				r.bufferPool.PutBuffer(chunks)
+			}
 			return 0, nil, fmt.Errorf("incoming packet is larger than the 'maxPacketSize' limit (%d > %d)", len(buf), r.maxPacketSize)
 		}
 
@@ -149,13 +176,23 @@ func (r *TcpReader) readMessage(conn net.Conn) (msgType int, msg []byte, err err
 		crc := buf[1] ^ buf[2] ^ buf[3] ^ buf[4] ^ buf[5]
 		if crc != buf[0] {
 			r.logger.Errorf("invalid packet CRC: %d buf[0]: %d buf: %s", crc, buf[0], string(buf))
+			// Clean up buffers
+			if chunks != nil {
+				r.bufferPool.PutBuffer(chunks)
+			}
 			return 0, nil, fmt.Errorf("invalid packet CRC: %d buf[0]: %d  ", crc, buf[0])
 		}
 
 		// If the buffer contains a complete message, return it
 		if len(buf) >= length {
-			msg = buf[6:length]
-			msgType = int(buf[5]) // You'll need to replace this with your actual resolvePacketType function
+			msg = make([]byte, length-6) // Create new slice for return value
+			copy(msg, buf[6:length])
+			msgType = int(buf[5])
+
+			// Clean up buffers
+			if chunks != nil {
+				r.bufferPool.PutBuffer(chunks)
+			}
 			return msgType, msg, nil
 		}
 
