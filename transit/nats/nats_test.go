@@ -42,7 +42,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	contextA := context.BrokerContext(brokerDelegates)
 	url := "nats://" + NatsTestHost + ":4222"
 
-	logLevel := "TRACE"
+	logLevel := "error"
 	stringSize := 50
 	arraySize := 100
 	var longList []interface{}
