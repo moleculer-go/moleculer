@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/metrics"
 	payloadPkg "github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
@@ -35,6 +36,9 @@ type TCPTransporter struct {
 	workerPool        *WorkerPool
 	metrics           *Metrics
 	handlersLock      sync.RWMutex
+
+	// Metrics collector for events
+	metricsCollector *metrics.TransportMetricsCollector
 }
 
 type TCPOptions struct {
@@ -91,6 +95,9 @@ type TCPOptions struct {
 	Logger      *log.Entry
 	Serializer  serializer.Serializer
 	ValidateMsg transit.ValidateMsgFunc
+
+	// Broker delegates for metrics
+	BrokerDelegates *moleculer.BrokerDelegates
 }
 
 func CreateTCPTransporter(options TCPOptions) *TCPTransporter {
@@ -104,6 +111,19 @@ func CreateTCPTransporter(options TCPOptions) *TCPTransporter {
 	transport.workerPool = NewWorkerPool(options.WorkerPoolSize)
 	transport.metrics = NewMetrics()
 	transport.validateMsg = options.ValidateMsg
+
+	// Initialize metrics collector if broker delegates are available
+	if options.BrokerDelegates != nil {
+		transport.metricsCollector = metrics.NewTransportMetricsCollector(options.BrokerDelegates, &transport)
+
+		// Set up buffer pool event callback
+		transport.bufferPool.SetBufferEventCallback(func(eventType string, size int) {
+			transport.metricsCollector.EmitBufferPoolEvent(eventType, size, map[string]interface{}{
+				"pool_size": size,
+			})
+		})
+	}
+
 	return &transport
 }
 
@@ -115,6 +135,12 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 		transporter.startTcpServer()
 		transporter.startUDPServer()
 		transporter.startGossipTimer()
+
+		// Start periodic metrics collection
+		if transporter.metricsCollector != nil {
+			transporter.metricsCollector.StartPeriodicCollection(30 * time.Second)
+		}
+
 		endChan <- nil
 	}()
 	return endChan
@@ -139,6 +165,15 @@ func (transporter *TCPTransporter) onTcpConnection(fromAddrss string, host strin
 		// Track the connection
 		transporter.connectionManager.RegisterConnection(node.GetID())
 		transporter.metrics.IncrementConnectionCount()
+
+		// Emit connection event
+		if transporter.metricsCollector != nil {
+			transporter.metricsCollector.EmitConnectionEvent("connected", node.GetID(), map[string]interface{}{
+				"address": fromAddrss,
+				"host":    host,
+				"port":    port,
+			})
+		}
 
 		payload := payloadPkg.Empty().Add("sender", node.GetID())
 		transporter.onGossipRequest(payload)

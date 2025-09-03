@@ -109,6 +109,15 @@ func (transporter *StanTransporter) SetSerializer(serializer serializer.Serializ
 	// Ignored while transporter initialized in pubsub function
 }
 
+func (transporter *StanTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":       "stan",
+		"active":     transporter.connection != nil,
+		"cluster_id": transporter.clusterID,
+		"client_id":  transporter.clientID,
+	}
+}
+
 func (transporter *StanTransporter) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Subscribe() No connection :( -> command: ", command, " nodeID: ", nodeID)

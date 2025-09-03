@@ -280,6 +280,14 @@ func (t *KafkaTransporter) SetSerializer(serializer serializer.Serializer) {
 	t.serializer = serializer
 }
 
+func (t *KafkaTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":   "kafka",
+		"active": t.connectionEnable,
+		"url":    t.opts.Url,
+	}
+}
+
 func (t *KafkaTransporter) topicName(command string, nodeID string) string {
 	parts := []string{t.prefix, command}
 	if nodeID != "" {

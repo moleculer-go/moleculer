@@ -10,6 +10,9 @@ type BufferPool struct {
 	smallPool  sync.Pool // For small buffers (1KB)
 	mediumPool sync.Pool // For medium buffers (4KB)
 	largePool  sync.Pool // For large buffers (16KB)
+
+	// Optional callback for metrics events
+	onBufferEvent func(eventType string, size int)
 }
 
 // NewBufferPool creates a new buffer pool with optimized sizes
@@ -33,6 +36,11 @@ func NewBufferPool() *BufferPool {
 	}
 }
 
+// SetBufferEventCallback sets a callback for buffer pool events
+func (bp *BufferPool) SetBufferEventCallback(callback func(eventType string, size int)) {
+	bp.onBufferEvent = callback
+}
+
 // GetBuffer returns a buffer of appropriate size from the pool
 func (bp *BufferPool) GetBuffer(size int) []byte {
 	var pool *sync.Pool
@@ -50,6 +58,15 @@ func (bp *BufferPool) GetBuffer(size int) []byte {
 	// Ensure buffer is large enough, resize if necessary
 	if cap(buf) < size {
 		buf = make([]byte, size)
+		// Emit buffer miss event
+		if bp.onBufferEvent != nil {
+			bp.onBufferEvent("miss", size)
+		}
+	} else {
+		// Emit buffer hit event
+		if bp.onBufferEvent != nil {
+			bp.onBufferEvent("hit", size)
+		}
 	}
 	return buf[:size]
 }

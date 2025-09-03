@@ -150,3 +150,11 @@ func (t *NatsTransporter) SetNodeID(nodeID string) {
 func (t *NatsTransporter) SetSerializer(serializer serializer.Serializer) {
 	// Ignored while transporter initialized in pubsub function
 }
+
+func (t *NatsTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":   "nats",
+		"active": t.conn != nil,
+		"url":    t.opts.Url,
+	}
+}

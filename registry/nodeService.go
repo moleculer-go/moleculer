@@ -305,10 +305,8 @@ func createNodeService(registry *ServiceRegistry) *service.Service {
 						"net": map[string]interface{}{
 							"ip": nodeInfo["ipList"],
 						},
-						"transit": map[string]interface{}{
-							// TODO
-						},
-						"time": map[string]interface{}{
+						"transit": registry.getTransitMetrics(),
+						"time":    map[string]interface{}{
 							// TODO
 						},
 					}

@@ -338,6 +338,7 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	tcpOpts.NodeId = pubsub.broker.LocalNode().GetID()
 	tcpOpts.Logger = pubsub.logger.WithField("transport", "tcp")
 	tcpOpts.Serializer = pubsub.serializer
+	tcpOpts.BrokerDelegates = pubsub.broker
 
 	tcpTransporter := tcp.CreateTCPTransporter(tcpOpts)
 	var transport transit.Transport = tcpTransporter
@@ -861,4 +862,9 @@ func (pubsub *PubSub) Connect(registry moleculer.Registry) chan error {
 
 func (pubsub *PubSub) Ready() {
 
+}
+
+// GetTransport returns the underlying transport for metrics access
+func (pubsub *PubSub) GetTransport() transit.Transport {
+	return pubsub.transport
 }

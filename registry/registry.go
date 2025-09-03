@@ -622,3 +622,20 @@ func (registry *ServiceRegistry) KnownNodes() []string {
 	sort.Strings(result)
 	return result
 }
+
+// getTransitMetrics returns transit-specific metrics
+func (registry *ServiceRegistry) getTransitMetrics() map[string]interface{} {
+	// Try to get metrics from the transport layer
+	if pubsubTransit, ok := registry.transit.(*pubsub.PubSub); ok {
+		transport := pubsubTransit.GetTransport()
+		if transport != nil {
+			return transport.GetMetrics()
+		}
+	}
+
+	// Fallback if transport is not available
+	return map[string]interface{}{
+		"type":   "unknown",
+		"active": false,
+	}
+}
