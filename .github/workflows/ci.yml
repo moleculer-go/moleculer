@@ -55,17 +55,14 @@ jobs:
   # NATS Streaming tests
   nats-tests:
     runs-on: ubuntu-latest
-    services:
-      nats-streaming:
-        image: nats-streaming
-        ports:
-          - 4222:4222
-        env:
-          NATS_STREAMING_SERVER_OPTS: "--max_channels=0 --max_msgs=1000000 --max_bytes=1048576000"
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Start NATS Streaming with unlimited channels
+      run: |
+        docker run -d -p 4222:4222 nats-streaming -mc 0
+        echo "NATS Streaming started with unlimited channels"
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -76,6 +73,8 @@ jobs:
       run: |
         go get github.com/onsi/ginkgo/ginkgo@v1.16.2
         go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+
+    
 
     - name: Wait for NATS
       run: |
