@@ -16,4 +16,4 @@
 .idea
 .DS_Store
 
-registry/.snapshots/
+# registry/.snapshots/  # Commented out - snapshots should be committed for consistent testing
