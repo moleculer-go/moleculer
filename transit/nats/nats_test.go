@@ -146,6 +146,9 @@ var _ = Describe("NATS Streaming Transit", func() {
 			})
 
 			bench.Time("local calls", func() {
+				// Add a small delay to ensure brokers are fully connected
+				time.Sleep(50 * time.Millisecond)
+
 				result := <-userBroker.Call("user.update", longList)
 				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
@@ -186,6 +189,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 			})
 
 			loopNumber++
+
+			// Ensure all brokers are properly stopped and cleaned up
+			stopBrokers(userBroker, contactBroker, profileBroker)
+			// Additional delay between loops to prevent "too many channels" error
+			time.Sleep(200 * time.Millisecond)
 
 		}, numberOfLoops)
 

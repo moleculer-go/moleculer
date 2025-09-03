@@ -1,6 +1,8 @@
 package nats_test
 
 import (
+	"time"
+
 	. "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
 
@@ -89,6 +91,10 @@ func profileService() moleculer.ServiceSchema {
 
 func stopBrokers(brokers ...*broker.ServiceBroker) {
 	for _, bkr := range brokers {
-		bkr.Stop()
+		if bkr != nil {
+			bkr.Stop()
+		}
 	}
+	// Add a small delay to allow connections to be properly cleaned up
+	time.Sleep(100 * time.Millisecond)
 }

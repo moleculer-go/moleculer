@@ -2,6 +2,7 @@ package nats_test
 
 import (
 	"os"
+	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
@@ -18,6 +19,11 @@ import (
 var StanTestHost = os.Getenv("STAN_HOST")
 
 var _ = Describe("NATS Streaming Transit", func() {
+	BeforeEach(func() {
+		if StanTestHost == "" {
+			Skip("STAN_HOST environment variable not set - skipping STAN tests")
+		}
+	})
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
 	logger := contextA.Logger()
@@ -113,6 +119,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 			})
 
 			loopNumber++
+
+			// Ensure all brokers are properly stopped and cleaned up
+			stopBrokers(userBroker, contactBroker, profileBroker)
+			// Additional delay between loops to prevent "too many channels" error
+			time.Sleep(200 * time.Millisecond)
 
 		}, numberOfLoops)
 
