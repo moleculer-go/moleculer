@@ -1,6 +1,10 @@
 package test
 
-import "time"
+import (
+	"time"
+
+	"github.com/moleculer-go/moleculer"
+)
 
 type NodeMock struct {
 	UpdateResult          bool
@@ -103,4 +107,60 @@ func (node *NodeMock) GetHostname() string {
 func (node *NodeMock) UpdateInfo(info map[string]interface{}) []map[string]interface{} {
 	// Mock implementation - return empty slice
 	return []map[string]interface{}{}
+}
+
+// RegistryMock implements moleculer.Registry interface for testing
+type RegistryMock struct {
+	LocalNodeResult moleculer.Node
+	Nodes           map[string]moleculer.Node
+}
+
+func (r *RegistryMock) GetNodeByID(nodeID string) moleculer.Node {
+	if node, exists := r.Nodes[nodeID]; exists {
+		return node
+	}
+	return nil
+}
+
+func (r *RegistryMock) AddOfflineNode(nodeID, hostname, ipAddress string, port int) moleculer.Node {
+	node := &NodeMock{
+		ID:       nodeID,
+		Host:     ipAddress,
+		Hostname: hostname,
+		Port:     port,
+	}
+	if r.Nodes == nil {
+		r.Nodes = make(map[string]moleculer.Node)
+	}
+	r.Nodes[nodeID] = node
+	return node
+}
+
+func (r *RegistryMock) ForEachNode(fn moleculer.ForEachNodeFunc) {
+	for _, node := range r.Nodes {
+		if !fn(node) {
+			break
+		}
+	}
+}
+
+func (r *RegistryMock) DisconnectNode(nodeID string) {
+	delete(r.Nodes, nodeID)
+}
+
+func (r *RegistryMock) RemoteNodeInfoReceived(message moleculer.Payload) {
+	// Mock implementation - no-op
+}
+
+func (r *RegistryMock) GetLocalNode() moleculer.Node {
+	return r.LocalNodeResult
+}
+
+func (r *RegistryMock) GetNodeByAddress(host string) moleculer.Node {
+	for _, node := range r.Nodes {
+		if node.GetHost() == host {
+			return node
+		}
+	}
+	return nil
 }

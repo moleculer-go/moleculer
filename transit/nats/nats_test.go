@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
+	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,15 @@ func natsTestHost() string {
 }
 
 var NatsTestHost = natsTestHost()
+
+// createRegistryMock creates a mock registry for testing
+func createRegistryMock() moleculer.Registry {
+	localNode := &test.NodeMock{ID: "test-node"}
+	return &test.RegistryMock{
+		LocalNodeResult: localNode,
+		Nodes:           make(map[string]moleculer.Node),
+	}
+}
 
 var _ = Describe("NATS Streaming Transit", func() {
 	//log.SetLevel(log.TraceLevel)
@@ -194,7 +204,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).ShouldNot(Succeed())
 	})
 
 	It("Should not fail on double disconnect", func() {
@@ -211,7 +222,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 	})
@@ -245,7 +257,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {

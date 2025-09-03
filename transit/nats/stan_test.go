@@ -16,6 +16,7 @@ import (
 )
 
 var StanTestHost = os.Getenv("STAN_HOST")
+
 var _ = Describe("NATS Streaming Transit", func() {
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
@@ -128,7 +129,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		transporter := nats.CreateStanTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {
@@ -170,7 +172,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateStanTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).ShouldNot(Succeed())
 	})
 
 	It("Should not fail on double disconnect", func() {
@@ -187,7 +190,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateStanTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 	})
