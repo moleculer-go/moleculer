@@ -145,8 +145,9 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 func (transporter *StanTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Publish() No connection :( -> command: ", command, " nodeID: ", nodeID)
-		transporter.logger.Warn(msg)
-		panic(errors.New(msg))
+		transporter.logger.Error(msg)
+		// Don't panic during shutdown - just log and return
+		return
 	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")

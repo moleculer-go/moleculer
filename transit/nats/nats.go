@@ -126,8 +126,9 @@ func (t *NatsTransporter) Subscribe(command, nodeID string, handler transit.Tran
 func (t *NatsTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if t.conn == nil {
 		msg := fmt.Sprint("nats.Publish() No connection :( -> command: ", command, " nodeID: ", nodeID)
-		t.logger.Warn(msg)
-		panic(errors.New(msg))
+		t.logger.Error(msg)
+		// Don't panic during shutdown - just log and return
+		return
 	}
 
 	topic := t.topicName(command, nodeID)

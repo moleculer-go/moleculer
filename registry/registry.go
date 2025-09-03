@@ -168,7 +168,13 @@ func (registry *ServiceRegistry) GetNodeByID(nodeID string) moleculer.Node {
 }
 
 func (registry *ServiceRegistry) heartbeat() {
+	if registry.stopping {
+		return
+	}
 	registry.localNode.UpdateMetrics()
+	if registry.stopping {
+		return
+	}
 	registry.transit.SendHeartbeat()
 }
 

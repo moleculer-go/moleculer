@@ -42,6 +42,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	contextA := context.BrokerContext(brokerDelegates)
 	url := "nats://" + NatsTestHost + ":4222"
 
+	logLevel := "TRACE"
 	stringSize := 50
 	arraySize := 100
 	var longList []interface{}
@@ -51,7 +52,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	}
 
 	Describe("Remote Calls", func() {
-		logLevel := "fatal"
+
 		transporter := "nats://" + NatsTestHost + ":4222"
 
 		var userBroker, profileBroker *broker.ServiceBroker
@@ -108,7 +109,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	})
 
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "error"
+
 		numberOfLoops := 5
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
