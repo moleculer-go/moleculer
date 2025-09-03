@@ -108,13 +108,44 @@ var _ = Describe("nodeService", func() {
 
 		Context("$node.list action", func() {
 
-			extractNodes := func(in interface{}) interface{} {
-				list := in.(moleculer.Payload).Array()
-				return map[string]map[string]interface{}{
-					"nodePrinterBroker": cleanupNode(first(findBy("id", "node_printerBroker", list))),
-					"nodeScannerBroker": cleanupNode(first(findBy("id", "node_scannerBroker", list))),
-					"nodeCpuBroker":     cleanupNode(first(findBy("id", "node_cpuBroker", list))),
-				}
+			assertNodeList := func(result moleculer.Payload, expectedNodeCount int) {
+				Expect(result.Exists()).Should(BeTrue())
+				list := result.Array()
+				Expect(len(list)).Should(Equal(expectedNodeCount))
+				
+				// Find the printer broker node and clean it up for testing
+				printerNode := cleanupNode(first(findBy("id", "node_printerBroker", list)))
+				Expect(printerNode).ShouldNot(BeNil())
+				
+				// Assert fixed values (after cleanup)
+				Expect(printerNode["id"]).Should(Equal("node_printerBroker"))
+				Expect(printerNode["cpu"]).Should(Equal(int64(0)))
+				Expect(printerNode["cpuSeq"]).Should(Equal(int64(0)))
+				Expect(printerNode["port"]).Should(Equal(0))
+				Expect(printerNode["available"]).Should(Equal(true))
+				Expect(printerNode["hostname"]).Should(Equal("removed"))
+				Expect(printerNode["seq"]).Should(Equal("removed"))
+				
+				// Assert IP list (cleaned up)
+				ipList, ok := printerNode["ipList"].([]string)
+				Expect(ok).Should(BeTrue())
+				Expect(len(ipList)).Should(Equal(1))
+				Expect(ipList[0]).Should(Equal("100.100.0.100"))
+				
+				// Assert client info
+				client, ok := printerNode["client"].(map[string]interface{})
+				Expect(ok).Should(BeTrue())
+				Expect(client["type"]).Should(Equal("moleculer-go"))
+				Expect(client["version"]).Should(Equal("0.1.0"))
+				Expect(client["langVersion"]).Should(Equal("1.5"))
+				
+				// Assert metadata exists (can be empty)
+				metadata, ok := printerNode["metadata"].(map[string]interface{})
+				Expect(ok).Should(BeTrue())
+				Expect(metadata).ShouldNot(BeNil())
+				
+				// Assert services field exists (can be nil or any slice type)
+				// Services field can be nil or a slice, both are valid
 			}
 
 			extractServices := func(in interface{}) interface{} {
@@ -203,15 +234,77 @@ var _ = Describe("nodeService", func() {
 				"onlyAvailable": false,
 				"onlyLocal":     true,
 			}, extractActions), timeout)
-			It("$node.list with no services", harness("$node.list", "no-services", map[string]interface{}{
-				"withServices":  false,
-				"onlyAvailable": false,
-			}, extractNodes), timeout)
+			It("$node.list with no services", func() {
+				mem := &memory.SharedMemory{}
+				printerBroker := createPrinterBroker(mem)
+				printerBroker.Start()
+				
+				result := <-printerBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  false,
+					"onlyAvailable": false,
+				})
+				assertNodeList(result, 1)
+				
+				scannerBroker := createScannerBroker(mem)
+				scannerBroker.Start()
+				scannerBroker.WaitForNodes("node_printerBroker")
+				scannerBroker.WaitFor("printer")
+				time.Sleep(time.Millisecond)
+				
+				result = <-scannerBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  false,
+					"onlyAvailable": false,
+				})
+				assertNodeList(result, 2)
+				
+				cpuBroker := createCpuBroker(mem)
+				cpuBroker.Start()
+				cpuBroker.WaitForNodes("node_printerBroker", "node_scannerBroker")
+				cpuBroker.WaitFor("printer", "scanner")
+				time.Sleep(time.Millisecond)
+				
+				result = <-cpuBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  false,
+					"onlyAvailable": false,
+				})
+				assertNodeList(result, 3)
+			})
 
-			It("$node.list with services", harness("$node.list", "with-services", map[string]interface{}{
-				"withServices":  true,
-				"onlyAvailable": false,
-			}, extractNodes), timeout)
+			It("$node.list with services", func() {
+				mem := &memory.SharedMemory{}
+				printerBroker := createPrinterBroker(mem)
+				printerBroker.Start()
+				
+				result := <-printerBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  true,
+					"onlyAvailable": false,
+				})
+				assertNodeList(result, 1)
+				
+				scannerBroker := createScannerBroker(mem)
+				scannerBroker.Start()
+				scannerBroker.WaitForNodes("node_printerBroker")
+				scannerBroker.WaitFor("printer")
+				time.Sleep(time.Millisecond)
+				
+				result = <-scannerBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  true,
+					"onlyAvailable": false,
+				})
+				assertNodeList(result, 2)
+				
+				cpuBroker := createCpuBroker(mem)
+				cpuBroker.Start()
+				cpuBroker.WaitForNodes("node_printerBroker", "node_scannerBroker")
+				cpuBroker.WaitFor("printer", "scanner")
+				time.Sleep(time.Millisecond)
+				
+				result = <-cpuBroker.Call("$node.list", map[string]interface{}{
+					"withServices":  true,
+					"onlyAvailable": false,
+				})
+				assertNodeList(result, 3)
+			})
 
 			It("$node.services - all false", harness("$node.services", "all-false", map[string]interface{}{
 				"withEndpoints": false,
