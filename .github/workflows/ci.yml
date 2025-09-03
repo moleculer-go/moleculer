@@ -16,10 +16,10 @@ jobs:
         ports:
           - 4222:4222
         options: >-
-          --health-cmd "nc -z localhost 4222"
+          --health-cmd "timeout 5s bash -c '</dev/tcp/localhost/4222'"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-timeout 10s
+          --health-retries 10
         env:
           NATS_STREAMING_SERVER_OPTS: "-mc 0"
       
@@ -28,10 +28,10 @@ jobs:
         ports:
           - 5672:5672
         options: >-
-          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-cmd "timeout 5s bash -c '</dev/tcp/localhost/5672'"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-timeout 10s
+          --health-retries 10
         env:
           RABBITMQ_DEFAULT_USER: guest
           RABBITMQ_DEFAULT_PASS: guest
@@ -41,10 +41,10 @@ jobs:
         ports:
           - 9092:9092
         options: >-
-          --health-cmd "kafka-topics.sh --list --bootstrap-server localhost:9092"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
+          --health-cmd "timeout 10s bash -c '</dev/tcp/localhost/9092'"
+          --health-interval 15s
+          --health-timeout 15s
+          --health-retries 15
         env:
           ADVERTISED_HOST: localhost
           ADVERTISED_PORT: 9092
