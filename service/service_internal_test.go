@@ -15,7 +15,6 @@ import (
 
 var logger = log.WithField("Unit Test", true)
 
-
 var _ = Describe("Service", func() {
 
 	It("isInternalEvent() should reconized internal events", func() {
@@ -171,14 +170,14 @@ var _ = Describe("Service", func() {
 		// Test that mixins are applied collectively
 		Expect(merged.Actions).Should(HaveLen(2))
 		Expect(merged.Events).Should(HaveLen(2))
-		
+
 		actionNames := make([]string, len(merged.Actions))
 		for i, action := range merged.Actions {
 			actionNames[i] = action.Name
 		}
 		Expect(actionNames).Should(ContainElement("tide"))
 		Expect(actionNames).Should(ContainElement("rotate"))
-		
+
 		eventNames := make([]string, len(merged.Events))
 		for i, event := range merged.Events {
 			eventNames[i] = event.Name

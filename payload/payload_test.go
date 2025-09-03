@@ -13,8 +13,6 @@ import (
 	. "github.com/moleculer-go/moleculer/payload"
 )
 
-
-
 var _ = Describe("Payload", func() {
 
 	It("Remove should remove fields from the payload and return a new copy", func() {
@@ -115,7 +113,7 @@ var _ = Describe("Payload", func() {
 		Expect(rawMap).Should(HaveKey("sub"))
 		Expect(rawMap["name"]).Should(Equal("John"))
 		Expect(rawMap["lastname"]).Should(Equal("Snow"))
-		
+
 		// Test CustomMap Bson() method
 		bsonMap := p.Bson()
 		Expect(bsonMap).Should(HaveKey("name"))
@@ -411,7 +409,7 @@ var _ = Describe("Payload", func() {
 		err := p.Error()
 		Expect(err).ShouldNot(BeNil())
 		Expect(err.Error()).Should(ContainSubstring("Custom error message"))
-		
+
 		// Test PayloadError ErrorPayload() method
 		errorPayload := p.ErrorPayload()
 		Expect(errorPayload).ShouldNot(BeNil())

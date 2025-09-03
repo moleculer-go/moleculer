@@ -13,8 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
-
 func hasKey(m map[string]moleculer.Payload, k string) bool {
 	_, foundKey := m[k]
 	return foundKey
@@ -356,14 +354,14 @@ var _ = Describe("Broker Internals", func() {
 			Expect(knownNodes).Should(ContainElement("VisualBroker"))
 			Expect(knownNodes).Should(ContainElement("AquaBroker"))
 			Expect(knownNodes).Should(ContainElement("StormBroker"))
-			
+
 			knownNodes = visualBroker.registry.KnownNodes()
 			Expect(knownNodes).Should(HaveLen(4))
 			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
 			Expect(knownNodes).Should(ContainElement("VisualBroker"))
 			Expect(knownNodes).Should(ContainElement("AquaBroker"))
 			Expect(knownNodes).Should(ContainElement("StormBroker"))
-			
+
 			knownNodes = soundsBroker.registry.KnownNodes()
 			Expect(knownNodes).Should(HaveLen(4))
 			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
@@ -388,7 +386,7 @@ var _ = Describe("Broker Internals", func() {
 			Expect(knownNodes).Should(ContainElement("AquaBroker"))
 			Expect(knownNodes).Should(ContainElement("SoundsBroker"))
 			Expect(knownNodes).Should(ContainElement("StormBroker"))
-			
+
 			knownNodes = visualBroker.registry.KnownNodes()
 			Expect(knownNodes).Should(HaveLen(4))
 			Expect(knownNodes).Should(ContainElement("VisualBroker"))

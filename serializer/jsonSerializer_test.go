@@ -15,8 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
-
 var _ = Describe("JSON Serializer", func() {
 
 	brokerDelegates := BrokerDelegates("test-node")
