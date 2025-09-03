@@ -137,10 +137,10 @@ func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
 	// Return payload buffer to pool
 	w.bufferPool.PutBuffer(payload)
 
-	if !isGossipMessage(msgType) {
-		socket.lastUsed = time.Now()
-		w.sockets[nodeID] = socket
-	}
+	// Update lastUsed for ANY message activity (including gossip/heartbeats)
+	// This ensures that nodes sending regular heartbeats are not considered "idle"
+	socket.lastUsed = time.Now()
+	w.sockets[nodeID] = socket
 	return err
 }
 
