@@ -467,3 +467,13 @@ func (t *AmqpTransporter) topicName(command string, nodeID string) string {
 	}
 	return strings.Join(parts, ".")
 }
+
+// GetMetrics returns transport-specific metrics
+func (t *AmqpTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":      "amqp",
+		"url":       t.opts.Url,
+		"prefix":    t.prefix,
+		"connected": t.connection != nil,
+	}
+}
