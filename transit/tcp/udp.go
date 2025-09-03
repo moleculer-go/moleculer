@@ -34,6 +34,7 @@ type UdpServer struct {
 
 type UdpServerOptions struct {
 	Port           int
+	DiscoveryPort  int
 	Multicast      string
 	MulticastTTL   int
 	BindAddress    string
@@ -270,7 +271,7 @@ func (u *UdpServer) startDiscovering() {
 		u.logger.Warn("Discovery already started.")
 		return
 	}
-	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod * time.Second)
+	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod)
 	go func() {
 		for range u.discoverTimer.C {
 			u.BroadcastDiscoveryMessage()
@@ -289,7 +290,9 @@ func (u *UdpServer) BroadcastDiscoveryMessage() {
 	u.discoveryCounter++
 	for _, server := range u.servers {
 		for _, target := range server.discoveryTargets {
-			destAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", target, u.opts.Port))
+			// Use configurable discovery port for sending discovery messages
+			// This ensures all services can discover each other regardless of their listening port
+			destAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", target, u.opts.DiscoveryPort))
 			if err != nil {
 				u.logger.Error("Error resolving UDP address:", err)
 				continue

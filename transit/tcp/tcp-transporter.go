@@ -36,8 +36,10 @@ type TCPOptions struct {
 	// Reusing UDP server socket
 	UdpReuseAddr bool
 
-	// UDP port
+	// UDP port for listening
 	UdpPort int
+	// UDP port for sending discovery messages
+	UdpDiscoveryPort int
 	// UDP bind address (if null, bind on all interfaces)
 	UdpBindAddress string
 	// UDP sending period (seconds)
@@ -229,6 +231,7 @@ func (transporter *TCPTransporter) startTcpServer() {
 func (transporter *TCPTransporter) startUDPServer() {
 	transporter.udpServer = NewUdpServer(UdpServerOptions{
 		Port:           transporter.options.UdpPort,
+		DiscoveryPort:  transporter.options.UdpDiscoveryPort,
 		BindAddress:    transporter.options.UdpBindAddress,
 		Multicast:      transporter.options.UdpMulticast,
 		MulticastTTL:   transporter.options.UdpMulticastTTL,

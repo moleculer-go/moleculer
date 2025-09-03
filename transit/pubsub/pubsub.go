@@ -229,46 +229,102 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 
 func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	pubsub.logger.Debug("createTCPTransporter()")
-	tcpTransporter := tcp.CreateTCPTransporter(tcp.TCPOptions{
-		// Enable UDP discovery
-		UdpDiscovery: true,
-		// Reusing UDP server socket
-		UdpReuseAddr: true,
 
-		// UDP port
-		UdpPort: 4445,
-		// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
-		UdpBindAddress: "",
-		// UDP sending period (seconds)
-		UdpPeriod: 30,
+	// Start with default options (matching JavaScript defaults)
+	tcpOpts := tcp.TCPOptions{
+		UdpDiscovery:     true,
+		UdpReuseAddr:     true,
+		UdpPort:          4445, // Default UDP listening port (matches JavaScript)
+		UdpDiscoveryPort: 4445, // Default UDP discovery port (standard Moleculer port)
+		UdpBindAddress:   "",
+		UdpPeriod:        30 * time.Second,
+		UdpMaxDiscovery:  0, // Unlimited
+		UdpMulticast:     "239.0.0.0",
+		UdpMulticastTTL:  1,
+		UdpBroadcast:     []string{},
+		Port:             0, // Random TCP port
+		Urls:             []string{},
+		UseHostname:      true,
+		GossipPeriod:     2, // 2 seconds
+		MaxConnections:   32,
+		MaxPacketSize:    1024 * 1024, // 1MB
+	}
 
-		// Multicast address.
-		UdpMulticast: "239.0.0.0",
-		// Multicast TTL setting
-		UdpMulticastTTL: 1,
+	// Merge with user-provided options if any
+	if pubsub.broker.Config.TCPOptions != nil {
+		config := pubsub.broker.Config.TCPOptions
+		pubsub.logger.Debug("Merging TCP options - UdpPort from config:", config.UdpPort, "default:", tcpOpts.UdpPort)
 
-		// Send broadcast (Boolean, String, Array<String>)
-		UdpBroadcast: []string{},
+		// Only override non-zero values from user config
+		if config.UdpPort != 0 {
+			tcpOpts.UdpPort = config.UdpPort
+			pubsub.logger.Debug("Updated UdpPort to:", tcpOpts.UdpPort)
+		}
+		if config.UdpDiscoveryPort != 0 {
+			tcpOpts.UdpDiscoveryPort = config.UdpDiscoveryPort
+			pubsub.logger.Debug("Updated UdpDiscoveryPort to:", tcpOpts.UdpDiscoveryPort)
+		}
+		if config.UdpBindAddress != "" {
+			tcpOpts.UdpBindAddress = config.UdpBindAddress
+		}
+		if config.UdpPeriod != 0 {
+			tcpOpts.UdpPeriod = config.UdpPeriod
+		}
+		if config.UdpMaxDiscovery != 0 {
+			tcpOpts.UdpMaxDiscovery = config.UdpMaxDiscovery
+		}
+		if config.UdpMulticast != "" {
+			tcpOpts.UdpMulticast = config.UdpMulticast
+		}
+		if config.UdpMulticastTTL != 0 {
+			tcpOpts.UdpMulticastTTL = config.UdpMulticastTTL
+		}
+		if len(config.UdpBroadcast) > 0 {
+			tcpOpts.UdpBroadcast = config.UdpBroadcast
+		}
+		if config.Port != 0 {
+			tcpOpts.Port = config.Port
+		}
+		if len(config.Urls) > 0 {
+			tcpOpts.Urls = config.Urls
+		}
+		if config.GossipPeriod != 0 {
+			tcpOpts.GossipPeriod = config.GossipPeriod
+		}
+		if config.MaxConnections != 0 {
+			tcpOpts.MaxConnections = config.MaxConnections
+		}
+		if config.MaxPacketSize != 0 {
+			tcpOpts.MaxPacketSize = config.MaxPacketSize
+		}
+		if config.Prefix != "" {
+			tcpOpts.Prefix = config.Prefix
+		}
+		if config.NodeId != "" {
+			tcpOpts.NodeId = config.NodeId
+		}
+		if config.Namespace != "" {
+			tcpOpts.Namespace = config.Namespace
+		}
+		if config.Logger != nil {
+			tcpOpts.Logger = config.Logger
+		}
 
-		// TCP server port.  0 means random port
-		Port: 0,
-		// Static remote nodes address list (when UDP discovery is not available)
-		Urls: []string{},
-		// Use hostname as preffered connection address
-		UseHostname: true,
+		// Boolean fields - use user value if explicitly set
+		// Note: In Go, we can't distinguish between false and unset for bools
+		// So we'll use the user's value if TCPOptions is provided
+		tcpOpts.UdpDiscovery = config.UdpDiscovery
+		tcpOpts.UdpReuseAddr = config.UdpReuseAddr
+		tcpOpts.UseHostname = config.UseHostname
+	}
 
-		// Gossip sending period in seconds
-		GossipPeriod: 2,
-		// Maximum enabled outgoing connections. If reach, close the old connections
-		MaxConnections: 32,
-		// Maximum TCP packet size
-		MaxPacketSize: 1 * 1024 * 1024,
+	// Set runtime-specific values (always override)
+	tcpOpts.Namespace = pubsub.broker.Config.Namespace
+	tcpOpts.NodeId = pubsub.broker.LocalNode().GetID()
+	tcpOpts.Logger = pubsub.logger.WithField("transport", "tcp")
+	tcpOpts.Serializer = pubsub.serializer
 
-		Namespace:  pubsub.broker.Config.Namespace,
-		NodeId:     pubsub.broker.LocalNode().GetID(),
-		Logger:     pubsub.logger.WithField("transport", "tcp"),
-		Serializer: pubsub.serializer,
-	})
+	tcpTransporter := tcp.CreateTCPTransporter(tcpOpts)
 	var transport transit.Transport = &tcpTransporter
 	return transport
 }
