@@ -227,7 +227,7 @@ func msgTypeToCommand(msgType int) string {
 	case PACKET_GOSSIP_HELLO:
 		return "GOSSIP_HELLO"
 	default:
-		return "???"
+		return "UNKNOWN"
 	}
 }
 func commandToMsgType(command string) int {
@@ -255,8 +255,8 @@ func commandToMsgType(command string) int {
 
 func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte) {
 	command := msgTypeToCommand(msgType)
-	if command == "???" {
-		transporter.logger.Error("Unknown command received - msgType: " + string(msgType))
+	if command == "UNKNOWN" {
+		transporter.logger.Error("Unknown command received - msgType: " + strconv.Itoa(msgType))
 		return
 	}
 	transporter.logger.Debug("Incoming message - command: " + command)
@@ -345,7 +345,7 @@ func addIpToList(ipList []string, address string) []string {
 // need to find where the TCP connection step happens.. is not happening here - where is this node info used ?
 func (transporter *TCPTransporter) onUdpMessage(nodeID, host string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
-		transporter.logger.Debug("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + string(port))
+		transporter.logger.Debug("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + strconv.Itoa(port))
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
 			transporter.logger.Debug("Unknown node. Register as offline node")
