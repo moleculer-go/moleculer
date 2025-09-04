@@ -37,7 +37,7 @@ type TcpReader struct {
 	connectionBuffers       map[net.Conn][]byte // Per-connection buffer state
 }
 
-func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFunc, disconnectNodeByAddress func(address string), logger *log.Entry, bufferPool *BufferPool, workerPool *WorkerPool) *TcpReader {
+func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFunc, disconnectNodeByAddress func(address string), logger *log.Entry, bufferPool *BufferPool, workerPool *WorkerPool, maxPacketSize int) *TcpReader {
 	return &TcpReader{
 		port:                    port,
 		sockets:                 make(map[net.Conn]bool),
@@ -48,6 +48,7 @@ func NewTcpReader(port int, onMessage OnMessageFunc, onConnection OnConnectionFu
 		disconnectNodeByAddress: disconnectNodeByAddress,
 		bufferPool:              bufferPool,
 		workerPool:              workerPool,
+		maxPacketSize:           maxPacketSize,
 	}
 }
 

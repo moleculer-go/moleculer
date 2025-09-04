@@ -43,6 +43,7 @@ type UdpServerOptions struct {
 	DiscoverPeriod time.Duration
 	MaxDiscovery   int
 	Discovery      bool
+	ReuseAddr      bool
 	Namespace      string
 	NodeID         string
 }
@@ -65,17 +66,20 @@ func (u *UdpServer) startServer(ip string, port int, multicast string, multicast
 
 	// Create a ListenConfig with socket options for multicast support
 	// This allows multiple processes to bind to the same UDP port (like Node.js reuseAddr)
-	lc := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				// Set SO_REUSEADDR to allow multiple processes to bind to the same address
-				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-				// Set SO_REUSEPORT to allow multiple processes to bind to the same port
-				// Note: SO_REUSEPORT is 0x0200 on Linux, but may not be available on all platforms
-				const SO_REUSEPORT = 0x0200
-				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, SO_REUSEPORT, 1)
-			})
-		},
+	var lc net.ListenConfig
+	if u.opts.ReuseAddr {
+		lc = net.ListenConfig{
+			Control: func(network, address string, c syscall.RawConn) error {
+				return c.Control(func(fd uintptr) {
+					// Set SO_REUSEADDR to allow multiple processes to bind to the same address
+					syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+					// Set SO_REUSEPORT to allow multiple processes to bind to the same port
+					// Note: SO_REUSEPORT is 0x0200 on Linux, but may not be available on all platforms
+					const SO_REUSEPORT = 0x0200
+					syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, SO_REUSEPORT, 1)
+				})
+			},
+		}
 	}
 
 	udpConn, err := lc.ListenPacket(nil, "udp4", udpAddr.String())

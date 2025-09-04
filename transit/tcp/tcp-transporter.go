@@ -2,7 +2,9 @@ package tcp
 
 import (
 	"errors"
+	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,10 +50,8 @@ type TCPOptions struct {
 	// Reusing UDP server socket
 	UdpReuseAddr bool
 
-	// UDP port for listening
+	// UDP port for listening and discovery
 	UdpPort int
-	// UDP port for sending discovery messages
-	UdpDiscoveryPort int
 	// UDP bind address (if null, bind on all interfaces)
 	UdpBindAddress string
 	// UDP sending period (seconds)
@@ -101,6 +101,24 @@ type TCPOptions struct {
 }
 
 func CreateTCPTransporter(options TCPOptions) *TCPTransporter {
+	// Validate and fix configuration options
+	if options.WorkerPoolSize <= 0 {
+		options.WorkerPoolSize = 20 // Default value
+		options.Logger.Warn("Invalid WorkerPoolSize, using default value of 20")
+	}
+	if options.MaxConnections <= 0 {
+		options.MaxConnections = 32 // Default value
+		options.Logger.Warn("Invalid MaxConnections, using default value of 32")
+	}
+	if options.MaxPacketSize <= 0 {
+		options.MaxPacketSize = 1024 * 1024 // Default 1MB
+		options.Logger.Warn("Invalid MaxPacketSize, using default value of 1MB")
+	}
+	if options.GossipPeriod <= 0 {
+		options.GossipPeriod = 2 // Default value
+		options.Logger.Warn("Invalid GossipPeriod, using default value of 2 seconds")
+	}
+
 	transport := TCPTransporter{options: options, logger: options.Logger}
 	transport.handlers = make(map[string][]transit.TransportHandler)
 	transport.serializer = options.Serializer
@@ -140,6 +158,11 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 			transporter.logger.Info("UDP discovery disabled")
 		}
 		transporter.startGossipTimer()
+
+		// Connect to static URLs if provided
+		if len(transporter.options.Urls) > 0 {
+			transporter.connectToStaticUrls()
+		}
 
 		// Start periodic metrics collection
 		if transporter.metricsCollector != nil {
@@ -299,7 +322,7 @@ func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
 func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.onTcpConnection, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
-	}), transporter.bufferPool, transporter.workerPool)
+	}), transporter.bufferPool, transporter.workerPool, transporter.options.MaxPacketSize)
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPWriter",
 	}), transporter.bufferPool, transporter.options.IdleConnectionTimeout)
@@ -318,7 +341,7 @@ func (transporter *TCPTransporter) startTcpServer() {
 func (transporter *TCPTransporter) startUDPServer() {
 	transporter.udpServer = NewUdpServer(UdpServerOptions{
 		Port:           transporter.options.UdpPort,
-		DiscoveryPort:  transporter.options.UdpDiscoveryPort,
+		DiscoveryPort:  transporter.options.UdpPort, // Use same port for discovery
 		BindAddress:    transporter.options.UdpBindAddress,
 		Multicast:      transporter.options.UdpMulticast,
 		MulticastTTL:   transporter.options.UdpMulticastTTL,
@@ -326,6 +349,7 @@ func (transporter *TCPTransporter) startUDPServer() {
 		DiscoverPeriod: transporter.options.UdpPeriod,
 		MaxDiscovery:   transporter.options.UdpMaxDiscovery,
 		Discovery:      transporter.options.UdpDiscovery,
+		ReuseAddr:      transporter.options.UdpReuseAddr,
 		NodeID:         transporter.options.NodeId,
 		Namespace:      transporter.options.Namespace,
 	}, transporter.registry, transporter.onUdpMessage, transporter.logger.WithFields(log.Fields{
@@ -337,6 +361,57 @@ func (transporter *TCPTransporter) startUDPServer() {
 		transporter.logger.Error("TCPTransporter.startUDPServer() Error starting UDP server:", err)
 	}
 
+}
+
+func (transporter *TCPTransporter) connectToStaticUrls() {
+	transporter.logger.Info("Connecting to static URLs:", transporter.options.Urls)
+
+	for _, url := range transporter.options.Urls {
+		// Parse URL (format: ip:port/node-id)
+		transporter.logger.Info("Connecting to static URL:", url)
+
+		// Actually establish the TCP connection
+		go func(addr string) {
+			time.Sleep(1 * time.Second) // Give time for TCP server to start
+			transporter.logger.Info("Attempting to connect to static node:", addr)
+
+			// Parse ip:port/node-id format
+			parts := strings.Split(addr, "/")
+			if len(parts) != 2 {
+				transporter.logger.Error("Invalid static URL format, expected ip:port/node-id, got:", addr)
+				return
+			}
+
+			hostPort := parts[0] // ip:port
+			nodeID := parts[1]   // node-id
+
+			// Parse host and port
+			host, portStr, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				transporter.logger.Error("Error parsing static URL host:port:", hostPort, "error:", err)
+				return
+			}
+
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				transporter.logger.Error("Error parsing port:", portStr, "error:", err)
+				return
+			}
+
+			// Create a temporary node entry for the static connection
+			transporter.registry.AddOfflineNode(nodeID, host, host, port)
+
+			// Try to connect to this node
+			err = transporter.tryToConnect(nodeID)
+			if err != nil {
+				transporter.logger.Error("Error connecting to static node:", addr, "error:", err)
+			} else {
+				transporter.logger.Info("Successfully connected to static node:", addr)
+				// Send gossip hello to exchange service information
+				transporter.sendGossipHello(nodeID)
+			}
+		}(url)
+	}
 }
 
 func addIpToList(ipList []string, address string) []string {
