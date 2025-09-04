@@ -11,7 +11,14 @@ import (
 )
 
 func (transporter *TCPTransporter) startGossipTimer() {
-	transporter.gossipTimer = time.NewTicker(time.Second * time.Duration(transporter.options.GossipPeriod))
+	// Ensure GossipPeriod is at least 1 second to avoid panic
+	gossipPeriod := transporter.options.GossipPeriod
+	if gossipPeriod <= 0 {
+		gossipPeriod = 2 // Default to 2 seconds
+		transporter.logger.Warn("Invalid GossipPeriod, using default value of 2 seconds")
+	}
+
+	transporter.gossipTimer = time.NewTicker(time.Second * time.Duration(gossipPeriod))
 	go func() {
 		for range transporter.gossipTimer.C {
 			transporter.sendGossipRequest("")

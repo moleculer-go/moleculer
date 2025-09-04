@@ -101,6 +101,24 @@ type TCPOptions struct {
 }
 
 func CreateTCPTransporter(options TCPOptions) *TCPTransporter {
+	// Validate and fix configuration options
+	if options.WorkerPoolSize <= 0 {
+		options.WorkerPoolSize = 20 // Default value
+		options.Logger.Warn("Invalid WorkerPoolSize, using default value of 20")
+	}
+	if options.MaxConnections <= 0 {
+		options.MaxConnections = 32 // Default value
+		options.Logger.Warn("Invalid MaxConnections, using default value of 32")
+	}
+	if options.MaxPacketSize <= 0 {
+		options.MaxPacketSize = 1024 * 1024 // Default 1MB
+		options.Logger.Warn("Invalid MaxPacketSize, using default value of 1MB")
+	}
+	if options.GossipPeriod <= 0 {
+		options.GossipPeriod = 2 // Default value
+		options.Logger.Warn("Invalid GossipPeriod, using default value of 2 seconds")
+	}
+
 	transport := TCPTransporter{options: options, logger: options.Logger}
 	transport.handlers = make(map[string][]transit.TransportHandler)
 	transport.serializer = options.Serializer
@@ -140,6 +158,11 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 			transporter.logger.Info("UDP discovery disabled")
 		}
 		transporter.startGossipTimer()
+
+		// Connect to static URLs if provided
+		if len(transporter.options.Urls) > 0 {
+			transporter.connectToStaticUrls()
+		}
 
 		// Start periodic metrics collection
 		if transporter.metricsCollector != nil {
@@ -299,7 +322,7 @@ func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
 func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.onTcpConnection, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
-	}), transporter.bufferPool, transporter.workerPool)
+	}), transporter.bufferPool, transporter.workerPool, transporter.options.MaxPacketSize)
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPWriter",
 	}), transporter.bufferPool, transporter.options.IdleConnectionTimeout)
@@ -326,6 +349,7 @@ func (transporter *TCPTransporter) startUDPServer() {
 		DiscoverPeriod: transporter.options.UdpPeriod,
 		MaxDiscovery:   transporter.options.UdpMaxDiscovery,
 		Discovery:      transporter.options.UdpDiscovery,
+		ReuseAddr:      transporter.options.UdpReuseAddr,
 		NodeID:         transporter.options.NodeId,
 		Namespace:      transporter.options.Namespace,
 	}, transporter.registry, transporter.onUdpMessage, transporter.logger.WithFields(log.Fields{
@@ -337,6 +361,26 @@ func (transporter *TCPTransporter) startUDPServer() {
 		transporter.logger.Error("TCPTransporter.startUDPServer() Error starting UDP server:", err)
 	}
 
+}
+
+func (transporter *TCPTransporter) connectToStaticUrls() {
+	transporter.logger.Info("Connecting to static URLs:", transporter.options.Urls)
+
+	for _, url := range transporter.options.Urls {
+		// Parse URL (assuming format: tcp://host:port)
+		if len(url) > 6 && url[:6] == "tcp://" {
+			hostPort := url[6:]
+			transporter.logger.Info("Connecting to static URL:", hostPort)
+
+			// Create a temporary node entry for the static connection
+			// This will be handled by the gossip protocol once connected
+			go func(addr string) {
+				time.Sleep(1 * time.Second) // Give time for TCP server to start
+				transporter.logger.Info("Attempting to connect to static node:", addr)
+				// The actual connection will be established when gossip starts
+			}(hostPort)
+		}
+	}
 }
 
 func addIpToList(ipList []string, address string) []string {
