@@ -23,9 +23,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-udp-enabled"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: true,
-				UdpPort:      4447, // Use different port to avoid conflicts
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": true,
+				"UdpPort":      4447, // Use different port to avoid conflicts
 			},
 		})
 
@@ -36,9 +36,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-udp-disabled"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: false,
-				Port:         5003, // Fixed port for direct connection
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": false,
+				"Port":         5003, // Fixed port for direct connection
 			},
 		})
 
@@ -74,9 +74,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-fixed-port"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: false,
-				Port:         5004, // Fixed port
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": false,
+				"Port":         5004, // Fixed port
 			},
 		})
 
@@ -87,9 +87,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-random-port"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: false,
-				Port:         0, // Random port
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": false,
+				"Port":         0, // Random port
 			},
 		})
 
@@ -121,9 +121,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-gossip-period"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: false,
-				GossipPeriod: 5, // 5 seconds
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": false,
+				"GossipPeriod": 5, // 5 seconds
 			},
 		})
 
@@ -149,9 +149,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-worker-pool"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery:   false,
-				WorkerPoolSize: 10, // Custom worker pool size
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery":   false,
+				"WorkerPoolSize": 10, // Custom worker pool size
 			},
 		})
 
@@ -177,9 +177,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-max-connections"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery:   false,
-				MaxConnections: 10, // Custom max connections
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery":   false,
+				"MaxConnections": 10, // Custom max connections
 			},
 		})
 
@@ -205,10 +205,10 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-connection-timeouts"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery:          false,
-				ConnectionTimeout:     10 * time.Second,
-				IdleConnectionTimeout: 20 * time.Second,
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery":          false,
+				"ConnectionTimeout":     10 * time.Second,
+				"IdleConnectionTimeout": 20 * time.Second,
 			},
 		})
 
@@ -234,16 +234,15 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-udp-options"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery:     true,
-				UdpPort:          4448,
-				UdpDiscoveryPort: 4448,
-				UdpBindAddress:   "127.0.0.1",
-				UdpPeriod:        5 * time.Second,
-				UdpMaxDiscovery:  5,
-				UdpMulticast:     "239.0.0.1",
-				UdpMulticastTTL:  2,
-				UdpBroadcast:     []string{"192.168.1.255"},
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery":    true,
+				"UdpPort":         4448,
+				"UdpBindAddress":  "127.0.0.1",
+				"UdpPeriod":       5 * time.Second,
+				"UdpMaxDiscovery": 5,
+				"UdpMulticast":    "239.0.0.1",
+				"UdpMulticastTTL": 2,
+				"UdpBroadcast":    []string{"192.168.1.255"},
 			},
 		})
 
@@ -269,9 +268,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-max-packet-size"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery:  false,
-				MaxPacketSize: 512 * 1024, // 512KB
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery":  false,
+				"MaxPacketSize": 512 * 1024, // 512KB
 			},
 		})
 
@@ -297,9 +296,9 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-use-hostname"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: false,
-				UseHostname:  true,
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": false,
+				"UseHostname":  true,
 			},
 		})
 
@@ -325,10 +324,10 @@ func TestTCPConfigOptions(t *testing.T) {
 			DiscoverNodeID: func() string {
 				return "test-static-urls"
 			},
-			TCPOptions: &moleculer.TCPConfig{
-				UdpDiscovery: false,
-				Port:         5005,
-				Urls:         []string{"tcp://127.0.0.1:5006"}, // Static connection
+			TCPOptions: map[string]interface{}{
+				"UdpDiscovery": false,
+				"Port":         5005,
+				"Urls":         []string{"tcp://127.0.0.1:5006"}, // Static connection
 			},
 		})
 
@@ -378,34 +377,34 @@ func TestTCPConfigValidation(t *testing.T) {
 	// Test with invalid configuration values
 	testCases := []struct {
 		name       string
-		config     *moleculer.TCPConfig
+		config     map[string]interface{}
 		shouldFail bool
 	}{
 		{
 			name: "Negative GossipPeriod",
-			config: &moleculer.TCPConfig{
-				GossipPeriod: -1,
+			config: map[string]interface{}{
+				"GossipPeriod": -1,
 			},
 			shouldFail: false, // Should not fail, but should use default
 		},
 		{
 			name: "Zero WorkerPoolSize",
-			config: &moleculer.TCPConfig{
-				WorkerPoolSize: 0,
+			config: map[string]interface{}{
+				"WorkerPoolSize": 0,
 			},
 			shouldFail: false, // Should not fail, but should use default
 		},
 		{
 			name: "Negative MaxConnections",
-			config: &moleculer.TCPConfig{
-				MaxConnections: -1,
+			config: map[string]interface{}{
+				"MaxConnections": -1,
 			},
 			shouldFail: false, // Should not fail, but should use default
 		},
 		{
 			name: "Negative MaxPacketSize",
-			config: &moleculer.TCPConfig{
-				MaxPacketSize: -1,
+			config: map[string]interface{}{
+				"MaxPacketSize": -1,
 			},
 			shouldFail: false, // Should not fail, but should use default
 		},

@@ -2,7 +2,9 @@ package tcp
 
 import (
 	"errors"
+	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,10 +50,8 @@ type TCPOptions struct {
 	// Reusing UDP server socket
 	UdpReuseAddr bool
 
-	// UDP port for listening
+	// UDP port for listening and discovery
 	UdpPort int
-	// UDP port for sending discovery messages
-	UdpDiscoveryPort int
 	// UDP bind address (if null, bind on all interfaces)
 	UdpBindAddress string
 	// UDP sending period (seconds)
@@ -341,7 +341,7 @@ func (transporter *TCPTransporter) startTcpServer() {
 func (transporter *TCPTransporter) startUDPServer() {
 	transporter.udpServer = NewUdpServer(UdpServerOptions{
 		Port:           transporter.options.UdpPort,
-		DiscoveryPort:  transporter.options.UdpDiscoveryPort,
+		DiscoveryPort:  transporter.options.UdpPort, // Use same port for discovery
 		BindAddress:    transporter.options.UdpBindAddress,
 		Multicast:      transporter.options.UdpMulticast,
 		MulticastTTL:   transporter.options.UdpMulticastTTL,
@@ -367,19 +367,50 @@ func (transporter *TCPTransporter) connectToStaticUrls() {
 	transporter.logger.Info("Connecting to static URLs:", transporter.options.Urls)
 
 	for _, url := range transporter.options.Urls {
-		// Parse URL (assuming format: tcp://host:port)
-		if len(url) > 6 && url[:6] == "tcp://" {
-			hostPort := url[6:]
-			transporter.logger.Info("Connecting to static URL:", hostPort)
+		// Parse URL (format: ip:port/node-id)
+		transporter.logger.Info("Connecting to static URL:", url)
+
+		// Actually establish the TCP connection
+		go func(addr string) {
+			time.Sleep(1 * time.Second) // Give time for TCP server to start
+			transporter.logger.Info("Attempting to connect to static node:", addr)
+
+			// Parse ip:port/node-id format
+			parts := strings.Split(addr, "/")
+			if len(parts) != 2 {
+				transporter.logger.Error("Invalid static URL format, expected ip:port/node-id, got:", addr)
+				return
+			}
+
+			hostPort := parts[0] // ip:port
+			nodeID := parts[1]   // node-id
+
+			// Parse host and port
+			host, portStr, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				transporter.logger.Error("Error parsing static URL host:port:", hostPort, "error:", err)
+				return
+			}
+
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				transporter.logger.Error("Error parsing port:", portStr, "error:", err)
+				return
+			}
 
 			// Create a temporary node entry for the static connection
-			// This will be handled by the gossip protocol once connected
-			go func(addr string) {
-				time.Sleep(1 * time.Second) // Give time for TCP server to start
-				transporter.logger.Info("Attempting to connect to static node:", addr)
-				// The actual connection will be established when gossip starts
-			}(hostPort)
-		}
+			transporter.registry.AddOfflineNode(nodeID, host, host, port)
+
+			// Try to connect to this node
+			err = transporter.tryToConnect(nodeID)
+			if err != nil {
+				transporter.logger.Error("Error connecting to static node:", addr, "error:", err)
+			} else {
+				transporter.logger.Info("Successfully connected to static node:", addr)
+				// Send gossip hello to exchange service information
+				transporter.sendGossipHello(nodeID)
+			}
+		}(url)
 	}
 }
 

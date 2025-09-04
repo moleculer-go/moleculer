@@ -312,9 +312,13 @@ func (transporter *TCPTransporter) onGossipResponse(payload moleculer.Payload) {
 			info, cpu, cpuSeq := parseGossipResponse(row)
 			transporter.logger.Trace("Parsed gossip response - info:", util.PrettyPrintMap(info.RawMap()), "cpu:", cpu, "cpuSeq:", cpuSeq)
 
-			if info != nil && (node != nil && node.GetSequence() < info.Get("seq").Int64()) {
+			if info != nil && (node == nil || node.GetSequence() < info.Get("seq").Int64()) {
 				transporter.logger.Debug("If we don't know it, or know, but has smaller seq, update 'info'")
-				transporter.logger.Trace("Current node sequence:", node.GetSequence(), "incoming sequence:", info.Get("seq").Int64())
+				currentSeq := int64(0)
+				if node != nil {
+					currentSeq = node.GetSequence()
+				}
+				transporter.logger.Trace("Current node sequence:", currentSeq, "incoming sequence:", info.Get("seq").Int64())
 				info = info.Add("sender", sender)
 				transporter.logger.Trace("Calling RemoteNodeInfoReceived with info:", util.PrettyPrintMap(info.RawMap()))
 				transporter.registry.RemoteNodeInfoReceived(info)
