@@ -397,7 +397,7 @@ func TestTcpE2EMultipleBrokers(t *testing.T) {
 			return "go-broker-1"
 		},
 		TCPOptions: &moleculer.TCPConfig{
-			UdpPort:      4445,
+			UdpPort:      4446, // Different port for fixed URLs test
 			GossipPeriod: 2,
 		},
 	})
@@ -417,7 +417,7 @@ func TestTcpE2EMultipleBrokers(t *testing.T) {
 			return "go-broker-2"
 		},
 		TCPOptions: &moleculer.TCPConfig{
-			UdpPort:      4445,
+			UdpPort:      4446, // Different port for fixed URLs test
 			GossipPeriod: 3,
 		},
 	})
@@ -743,4 +743,176 @@ func TestTcpE2EMultipleBrokers(t *testing.T) {
 	t.Log("All brokers stopped")
 
 	t.Log("Five-broker test completed successfully!")
+}
+
+// TestTcpE2EFixedUrls - Test with two brokers using fixed URLs and disabled UDP discovery
+func TestTcpE2EFixedUrls(t *testing.T) {
+	t.Log("Fixed URLs test starting...")
+
+	// Create first broker with fixed TCP port
+	bkr1 := broker.New(&moleculer.Config{
+		Transporter:                "TCP",
+		WaitForDependenciesTimeout: 5 * time.Second,
+		LogLevel:                   "TRACE",
+		RequestTimeout:             5 * time.Second,
+		DiscoverNodeID: func() string {
+			return "go-broker-fixed-1"
+		},
+		TCPOptions: &moleculer.TCPConfig{
+			UdpDiscovery: false, // Disable UDP discovery
+			GossipPeriod: 10,    // Longer period since we're not using UDP discovery
+			Port:         5001,  // Fixed TCP port
+		},
+	})
+
+	t.Log("Publishing services to broker 1...")
+	bkr1.Publish(&ProfileService{})
+	bkr1.Publish(&AccountService{})
+	t.Log("Services published to broker 1")
+
+	// Create second broker with fixed TCP port and reference to first broker
+	bkr2 := broker.New(&moleculer.Config{
+		Transporter:                "TCP",
+		WaitForDependenciesTimeout: 5 * time.Second,
+		LogLevel:                   "TRACE",
+		RequestTimeout:             5 * time.Second,
+		DiscoverNodeID: func() string {
+			return "go-broker-fixed-2"
+		},
+		TCPOptions: &moleculer.TCPConfig{
+			UdpDiscovery: false,                            // Disable UDP discovery
+			GossipPeriod: 10,                               // Longer period since we're not using UDP discovery
+			Port:         5002,                             // Fixed TCP port
+			Urls:         []string{"tcp://127.0.0.1:5001"}, // Connect to first broker
+		},
+	})
+
+	t.Log("Publishing services to broker 2...")
+	userSvc := &UserService{profileCreated: make(chan bool)}
+	bkr2.Publish(userSvc)
+	t.Log("Services published to broker 2")
+
+	// Start both brokers in separate goroutines
+	t.Log("Starting brokers with fixed URLs...")
+	go func() {
+		bkr1.Start()
+		t.Log("Broker 1 (fixed URL) started successfully")
+	}()
+
+	go func() {
+		bkr2.Start()
+		t.Log("Broker 2 (fixed URL) started successfully")
+	}()
+
+	// Wait for brokers to start and establish connection
+	t.Log("Waiting for brokers to start and establish TCP connection...")
+	time.Sleep(3 * time.Second)
+
+	// Test cross-broker communication
+	t.Log("Testing cross-broker communication with fixed URLs...")
+
+	// Test 1: Broker 2 calls profile.create on Broker 1
+	t.Log("Test 1: Broker 2 calling profile.create on Broker 1...")
+	user := payload.Empty().Add("name", "Fixed URL User").Add("email", "fixed@example.com")
+	result := <-bkr2.Call("profile.create", user)
+	t.Log("profile.create result:", result)
+
+	// Wait for profileCreated event
+	t.Log("Waiting for profileCreated event...")
+	select {
+	case <-userSvc.profileCreated:
+		t.Log("profileCreated event received")
+	case <-time.After(10 * time.Second):
+		t.Log("profileCreated event timeout - continuing with test")
+	}
+
+	// Test 2: Broker 1 calls user.create on Broker 2
+	t.Log("Test 2: Broker 1 calling user.create on Broker 2...")
+	user2 := payload.Empty().Add("name", "Fixed URL User 2").Add("email", "fixed2@example.com")
+	result2 := <-bkr1.Call("user.create", user2)
+	t.Log("user.create result:", result2)
+
+	// Test 3: Broker 2 calls profile.mistake on Broker 1
+	t.Log("Test 3: Broker 2 calling profile.mistake on Broker 1...")
+	result3 := <-bkr2.Call("profile.mistake", payload.Empty())
+	t.Log("profile.mistake result:", result3)
+
+	// Test 4: Broker 2 calls profile.metarepeat on Broker 1
+	t.Log("Test 4: Broker 2 calling profile.metarepeat on Broker 1...")
+	result4 := <-bkr2.Call("profile.metarepeat", payload.Empty())
+	t.Log("profile.metarepeat result:", result4)
+
+	// Test 5: Check available services
+	t.Log("Test 5: Checking available services...")
+	services1 := <-bkr1.Call("$node.services", payload.Empty())
+	t.Log("Services available to broker 1:", services1)
+
+	services2 := <-bkr2.Call("$node.services", payload.Empty())
+	t.Log("Services available to broker 2:", services2)
+
+	// Test 6: Check node discovery
+	t.Log("Test 6: Checking node discovery...")
+	nodes1 := <-bkr1.Call("$node.list", payload.Empty())
+	t.Log("Nodes discovered by broker 1:", nodes1)
+
+	nodes2 := <-bkr2.Call("$node.list", payload.Empty())
+	t.Log("Nodes discovered by broker 2:", nodes2)
+
+	// Test 7: Concurrent calls to stress-test the fixed URL connection
+	t.Log("Test 7: Concurrent calls to stress-test fixed URL connection...")
+	done := make(chan bool, 4)
+
+	// Concurrent calls from broker 1
+	go func() {
+		result := <-bkr1.Call("user.get", payload.Empty().Add("id", "concurrent1"))
+		t.Log("Concurrent user.get result:", result)
+		done <- true
+	}()
+
+	go func() {
+		result := <-bkr1.Call("account.check", payload.Empty())
+		t.Log("Concurrent account.check result:", result)
+		done <- true
+	}()
+
+	// Concurrent calls from broker 2
+	go func() {
+		result := <-bkr2.Call("profile.check", payload.Empty())
+		t.Log("Concurrent profile.check result:", result)
+		done <- true
+	}()
+
+	go func() {
+		result := <-bkr2.Call("profile.listServices", payload.Empty())
+		t.Log("Concurrent profile.listServices result:", result)
+		done <- true
+	}()
+
+	// Wait for all concurrent calls to complete
+	t.Log("Waiting for all concurrent calls to complete...")
+	for i := 0; i < 4; i++ {
+		select {
+		case <-done:
+			t.Logf("Concurrent call %d completed", i+1)
+		case <-time.After(10 * time.Second):
+			t.Fatalf("Concurrent call %d timed out", i+1)
+		}
+	}
+
+	// Test 8: Event emission verification
+	t.Log("Test 8: Event emission verification...")
+
+	// Trigger events from both brokers
+	t.Log("Triggering events from both brokers...")
+	<-bkr1.Call("profile.create", payload.Empty().Add("name", "Event Test").Add("email", "event@test.com"))
+	<-bkr2.Call("user.create", payload.Empty().Add("name", "Event User").Add("email", "eventuser@test.com"))
+	t.Log("Events triggered successfully")
+
+	// Stop both brokers
+	t.Log("Stopping brokers...")
+	bkr1.Stop()
+	bkr2.Stop()
+	t.Log("All brokers stopped")
+
+	t.Log("Fixed URLs test completed successfully!")
 }

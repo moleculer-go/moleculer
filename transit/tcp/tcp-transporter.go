@@ -133,7 +133,12 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 	endChan := make(chan error)
 	go func() {
 		transporter.startTcpServer()
-		transporter.startUDPServer()
+		// Only start UDP server if UDP discovery is enabled
+		if transporter.options.UdpDiscovery {
+			transporter.startUDPServer()
+		} else {
+			transporter.logger.Info("UDP discovery disabled")
+		}
 		transporter.startGossipTimer()
 
 		// Start periodic metrics collection
@@ -383,7 +388,10 @@ func (transporter *TCPTransporter) Disconnect() chan error {
 	go func() {
 		transporter.tcpReader.Close()
 		transporter.tcpWriter.Close()
-		transporter.udpServer.Close()
+		// Only close UDP server if it was started (UdpDiscovery enabled)
+		if transporter.udpServer != nil {
+			transporter.udpServer.Close()
+		}
 		if transporter.gossipTimer != nil {
 			transporter.gossipTimer.Stop()
 		}

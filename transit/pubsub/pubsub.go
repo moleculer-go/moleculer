@@ -256,60 +256,74 @@ func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	// Merge with user-provided options if any
 	if pubsub.broker.Config.TCPOptions != nil {
 		config := pubsub.broker.Config.TCPOptions
-		pubsub.logger.Debug("Merging TCP options - UdpPort from config:", config.UdpPort, "default:", tcpOpts.UdpPort)
+		pubsub.logger.Debug("Merging TCP options from user config")
 
-		// Only override non-zero values from user config
-		if config.UdpPort != 0 {
+		// Store default values for comparison
+		defaultUdpPort := tcpOpts.UdpPort
+		defaultUdpDiscoveryPort := tcpOpts.UdpDiscoveryPort
+		defaultWorkerPoolSize := tcpOpts.WorkerPoolSize
+		defaultConnectionTimeout := tcpOpts.ConnectionTimeout
+		defaultIdleConnectionTimeout := tcpOpts.IdleConnectionTimeout
+		defaultUdpPeriod := tcpOpts.UdpPeriod
+		defaultUdpMaxDiscovery := tcpOpts.UdpMaxDiscovery
+		defaultUdpMulticastTTL := tcpOpts.UdpMulticastTTL
+		defaultPort := tcpOpts.Port
+		defaultGossipPeriod := tcpOpts.GossipPeriod
+		defaultMaxConnections := tcpOpts.MaxConnections
+		defaultMaxPacketSize := tcpOpts.MaxPacketSize
+
+		// Only override if user specified a value different from default
+		if config.UdpPort != 0 && config.UdpPort != defaultUdpPort {
 			tcpOpts.UdpPort = config.UdpPort
 			pubsub.logger.Debug("Updated UdpPort to:", tcpOpts.UdpPort)
 		}
-		if config.UdpDiscoveryPort != 0 {
+		if config.UdpDiscoveryPort != 0 && config.UdpDiscoveryPort != defaultUdpDiscoveryPort {
 			tcpOpts.UdpDiscoveryPort = config.UdpDiscoveryPort
 			pubsub.logger.Debug("Updated UdpDiscoveryPort to:", tcpOpts.UdpDiscoveryPort)
 		}
-		if config.WorkerPoolSize != 0 {
+		if config.WorkerPoolSize != 0 && config.WorkerPoolSize != defaultWorkerPoolSize {
 			tcpOpts.WorkerPoolSize = config.WorkerPoolSize
 			pubsub.logger.Debug("Updated WorkerPoolSize to:", tcpOpts.WorkerPoolSize)
 		}
-		if config.ConnectionTimeout != 0 {
+		if config.ConnectionTimeout != 0 && config.ConnectionTimeout != defaultConnectionTimeout {
 			tcpOpts.ConnectionTimeout = config.ConnectionTimeout
 			pubsub.logger.Debug("Updated ConnectionTimeout to:", tcpOpts.ConnectionTimeout)
 		}
-		if config.IdleConnectionTimeout != 0 {
+		if config.IdleConnectionTimeout != 0 && config.IdleConnectionTimeout != defaultIdleConnectionTimeout {
 			tcpOpts.IdleConnectionTimeout = config.IdleConnectionTimeout
 			pubsub.logger.Debug("Updated IdleConnectionTimeout to:", tcpOpts.IdleConnectionTimeout)
 		}
 		if config.UdpBindAddress != "" {
 			tcpOpts.UdpBindAddress = config.UdpBindAddress
 		}
-		if config.UdpPeriod != 0 {
+		if config.UdpPeriod != 0 && config.UdpPeriod != defaultUdpPeriod {
 			tcpOpts.UdpPeriod = config.UdpPeriod
 		}
-		if config.UdpMaxDiscovery != 0 {
+		if config.UdpMaxDiscovery != 0 && config.UdpMaxDiscovery != defaultUdpMaxDiscovery {
 			tcpOpts.UdpMaxDiscovery = config.UdpMaxDiscovery
 		}
 		if config.UdpMulticast != "" {
 			tcpOpts.UdpMulticast = config.UdpMulticast
 		}
-		if config.UdpMulticastTTL != 0 {
+		if config.UdpMulticastTTL != 0 && config.UdpMulticastTTL != defaultUdpMulticastTTL {
 			tcpOpts.UdpMulticastTTL = config.UdpMulticastTTL
 		}
 		if len(config.UdpBroadcast) > 0 {
 			tcpOpts.UdpBroadcast = config.UdpBroadcast
 		}
-		if config.Port != 0 {
+		if config.Port != 0 && config.Port != defaultPort {
 			tcpOpts.Port = config.Port
 		}
 		if len(config.Urls) > 0 {
 			tcpOpts.Urls = config.Urls
 		}
-		if config.GossipPeriod != 0 {
+		if config.GossipPeriod != 0 && config.GossipPeriod != defaultGossipPeriod {
 			tcpOpts.GossipPeriod = config.GossipPeriod
 		}
-		if config.MaxConnections != 0 {
+		if config.MaxConnections != 0 && config.MaxConnections != defaultMaxConnections {
 			tcpOpts.MaxConnections = config.MaxConnections
 		}
-		if config.MaxPacketSize != 0 {
+		if config.MaxPacketSize != 0 && config.MaxPacketSize != defaultMaxPacketSize {
 			tcpOpts.MaxPacketSize = config.MaxPacketSize
 		}
 		if config.Prefix != "" {
