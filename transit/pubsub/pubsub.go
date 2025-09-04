@@ -229,47 +229,133 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 
 func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	pubsub.logger.Debug("createTCPTransporter()")
-	tcpTransporter := tcp.CreateTCPTransporter(tcp.TCPOptions{
-		// Enable UDP discovery
-		UdpDiscovery: true,
-		// Reusing UDP server socket
-		UdpReuseAddr: true,
 
-		// UDP port
-		UdpPort: 4445,
-		// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
-		UdpBindAddress: "",
-		// UDP sending period (seconds)
-		UdpPeriod: 30,
+	// Start with default options (matching JavaScript defaults)
+	tcpOpts := tcp.TCPOptions{
+		UdpDiscovery:          true,
+		UdpReuseAddr:          true,
+		UdpPort:               4445, // Default UDP listening port (matches JavaScript)
+		UdpDiscoveryPort:      4445, // Default UDP discovery port (standard Moleculer port)
+		UdpBindAddress:        "",
+		UdpPeriod:             30 * time.Second,
+		UdpMaxDiscovery:       0,                // Unlimited
+		WorkerPoolSize:        20,               // Default worker pool size
+		ConnectionTimeout:     30 * time.Second, // Default connection timeout
+		IdleConnectionTimeout: 60 * time.Second, // Default idle connection timeout
+		UdpMulticast:          "239.0.0.0",
+		UdpMulticastTTL:       1,
+		UdpBroadcast:          []string{},
+		Port:                  0, // Random TCP port
+		Urls:                  []string{},
+		UseHostname:           true,
+		GossipPeriod:          2, // 2 seconds
+		MaxConnections:        32,
+		MaxPacketSize:         1024 * 1024, // 1MB
+	}
 
-		// Multicast address.
-		UdpMulticast: "239.0.0.0",
-		// Multicast TTL setting
-		UdpMulticastTTL: 1,
+	// Merge with user-provided options if any
+	if pubsub.broker.Config.TCPOptions != nil {
+		config := pubsub.broker.Config.TCPOptions
+		pubsub.logger.Debug("Merging TCP options from user config")
 
-		// Send broadcast (Boolean, String, Array<String>)
-		UdpBroadcast: []string{},
+		// Store default values for comparison
+		defaultUdpPort := tcpOpts.UdpPort
+		defaultUdpDiscoveryPort := tcpOpts.UdpDiscoveryPort
+		defaultWorkerPoolSize := tcpOpts.WorkerPoolSize
+		defaultConnectionTimeout := tcpOpts.ConnectionTimeout
+		defaultIdleConnectionTimeout := tcpOpts.IdleConnectionTimeout
+		defaultUdpPeriod := tcpOpts.UdpPeriod
+		defaultUdpMaxDiscovery := tcpOpts.UdpMaxDiscovery
+		defaultUdpMulticastTTL := tcpOpts.UdpMulticastTTL
+		defaultPort := tcpOpts.Port
+		defaultGossipPeriod := tcpOpts.GossipPeriod
+		defaultMaxConnections := tcpOpts.MaxConnections
+		defaultMaxPacketSize := tcpOpts.MaxPacketSize
 
-		// TCP server port.  0 means random port
-		Port: 0,
-		// Static remote nodes address list (when UDP discovery is not available)
-		Urls: []string{},
-		// Use hostname as preffered connection address
-		UseHostname: true,
+		// Only override if user specified a value different from default
+		if config.UdpPort != 0 && config.UdpPort != defaultUdpPort {
+			tcpOpts.UdpPort = config.UdpPort
+			pubsub.logger.Debug("Updated UdpPort to:", tcpOpts.UdpPort)
+		}
+		if config.UdpDiscoveryPort != 0 && config.UdpDiscoveryPort != defaultUdpDiscoveryPort {
+			tcpOpts.UdpDiscoveryPort = config.UdpDiscoveryPort
+			pubsub.logger.Debug("Updated UdpDiscoveryPort to:", tcpOpts.UdpDiscoveryPort)
+		}
+		if config.WorkerPoolSize != 0 && config.WorkerPoolSize != defaultWorkerPoolSize {
+			tcpOpts.WorkerPoolSize = config.WorkerPoolSize
+			pubsub.logger.Debug("Updated WorkerPoolSize to:", tcpOpts.WorkerPoolSize)
+		}
+		if config.ConnectionTimeout != 0 && config.ConnectionTimeout != defaultConnectionTimeout {
+			tcpOpts.ConnectionTimeout = config.ConnectionTimeout
+			pubsub.logger.Debug("Updated ConnectionTimeout to:", tcpOpts.ConnectionTimeout)
+		}
+		if config.IdleConnectionTimeout != 0 && config.IdleConnectionTimeout != defaultIdleConnectionTimeout {
+			tcpOpts.IdleConnectionTimeout = config.IdleConnectionTimeout
+			pubsub.logger.Debug("Updated IdleConnectionTimeout to:", tcpOpts.IdleConnectionTimeout)
+		}
+		if config.UdpBindAddress != "" {
+			tcpOpts.UdpBindAddress = config.UdpBindAddress
+		}
+		if config.UdpPeriod != 0 && config.UdpPeriod != defaultUdpPeriod {
+			tcpOpts.UdpPeriod = config.UdpPeriod
+		}
+		if config.UdpMaxDiscovery != 0 && config.UdpMaxDiscovery != defaultUdpMaxDiscovery {
+			tcpOpts.UdpMaxDiscovery = config.UdpMaxDiscovery
+		}
+		if config.UdpMulticast != "" {
+			tcpOpts.UdpMulticast = config.UdpMulticast
+		}
+		if config.UdpMulticastTTL != 0 && config.UdpMulticastTTL != defaultUdpMulticastTTL {
+			tcpOpts.UdpMulticastTTL = config.UdpMulticastTTL
+		}
+		if len(config.UdpBroadcast) > 0 {
+			tcpOpts.UdpBroadcast = config.UdpBroadcast
+		}
+		if config.Port != 0 && config.Port != defaultPort {
+			tcpOpts.Port = config.Port
+		}
+		if len(config.Urls) > 0 {
+			tcpOpts.Urls = config.Urls
+		}
+		if config.GossipPeriod != 0 && config.GossipPeriod != defaultGossipPeriod {
+			tcpOpts.GossipPeriod = config.GossipPeriod
+		}
+		if config.MaxConnections != 0 && config.MaxConnections != defaultMaxConnections {
+			tcpOpts.MaxConnections = config.MaxConnections
+		}
+		if config.MaxPacketSize != 0 && config.MaxPacketSize != defaultMaxPacketSize {
+			tcpOpts.MaxPacketSize = config.MaxPacketSize
+		}
+		if config.Prefix != "" {
+			tcpOpts.Prefix = config.Prefix
+		}
+		if config.NodeId != "" {
+			tcpOpts.NodeId = config.NodeId
+		}
+		if config.Namespace != "" {
+			tcpOpts.Namespace = config.Namespace
+		}
+		if config.Logger != nil {
+			tcpOpts.Logger = config.Logger
+		}
 
-		// Gossip sending period in seconds
-		GossipPeriod: 2,
-		// Maximum enabled outgoing connections. If reach, close the old connections
-		MaxConnections: 32,
-		// Maximum TCP packet size
-		MaxPacketSize: 1 * 1024 * 1024,
+		// Boolean fields - use user value if explicitly set
+		// Note: In Go, we can't distinguish between false and unset for bools
+		// So we'll use the user's value if TCPOptions is provided
+		tcpOpts.UdpDiscovery = config.UdpDiscovery
+		tcpOpts.UdpReuseAddr = config.UdpReuseAddr
+		tcpOpts.UseHostname = config.UseHostname
+	}
 
-		Namespace:  pubsub.broker.Config.Namespace,
-		NodeId:     pubsub.broker.LocalNode().GetID(),
-		Logger:     pubsub.logger.WithField("transport", "tcp"),
-		Serializer: pubsub.serializer,
-	})
-	var transport transit.Transport = &tcpTransporter
+	// Set runtime-specific values (always override)
+	tcpOpts.Namespace = pubsub.broker.Config.Namespace
+	tcpOpts.NodeId = pubsub.broker.LocalNode().GetID()
+	tcpOpts.Logger = pubsub.logger.WithField("transport", "tcp")
+	tcpOpts.Serializer = pubsub.serializer
+	tcpOpts.BrokerDelegates = pubsub.broker
+
+	tcpTransporter := tcp.CreateTCPTransporter(tcpOpts)
+	var transport transit.Transport = tcpTransporter
 	return transport
 }
 
@@ -790,4 +876,9 @@ func (pubsub *PubSub) Connect(registry moleculer.Registry) chan error {
 
 func (pubsub *PubSub) Ready() {
 
+}
+
+// GetTransport returns the underlying transport for metrics access
+func (pubsub *PubSub) GetTransport() transit.Transport {
+	return pubsub.transport
 }

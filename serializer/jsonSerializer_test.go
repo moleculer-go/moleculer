@@ -1,11 +1,9 @@
 package serializer_test
 
 import (
-	"os"
 	"strings"
 	"time"
 
-	"github.com/moleculer-go/cupaloy/v2"
 	"github.com/moleculer-go/moleculer"
 
 	"github.com/moleculer-go/moleculer/context"
@@ -16,8 +14,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
-
-var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
 var _ = Describe("JSON Serializer", func() {
 
@@ -34,7 +30,14 @@ var _ = Describe("JSON Serializer", func() {
 			"Winter":   "is coming!",
 		})
 
-		Expect(snap.SnapshotMulti("Remove()", p.Remove("Winter", "name"))).ShouldNot(HaveOccurred())
+		// Test Remove() method
+		result := p.Remove("Winter", "name")
+		Expect(result.RawMap()).Should(HaveKey("faction"))
+		Expect(result.RawMap()).Should(HaveKey("lastname"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("Winter"))
+		Expect(result.RawMap()).ShouldNot(HaveKey("name"))
+		Expect(result.RawMap()["faction"]).Should(Equal("Stark"))
+		Expect(result.RawMap()["lastname"]).Should(Equal("Snow"))
 	})
 
 	It("Bson should return a bson map", func() {
@@ -49,7 +52,16 @@ var _ = Describe("JSON Serializer", func() {
 
 		bs := p.Bson()
 
-		Expect(snap.SnapshotMulti("Bson()", bs)).ShouldNot(HaveOccurred())
+		// Test Bson() method
+		Expect(bs).ShouldNot(BeNil())
+		Expect(bs).Should(HaveKey("name"))
+		Expect(bs).Should(HaveKey("lastname"))
+		Expect(bs).Should(HaveKey("faction"))
+		Expect(bs).Should(HaveKey("Winter"))
+		Expect(bs["name"]).Should(Equal("John"))
+		Expect(bs["lastname"]).Should(Equal("Snow"))
+		Expect(bs["faction"]).Should(Equal("Stark"))
+		Expect(bs["Winter"]).Should(Equal("is coming!"))
 	})
 
 	It("Add should add fields to payload", func() {
@@ -67,7 +79,19 @@ var _ = Describe("JSON Serializer", func() {
 			"pageSize": 15,
 		})
 
-		Expect(snap.SnapshotMulti("Add()", m)).ShouldNot(HaveOccurred())
+		// Test Add() method
+		Expect(m.RawMap()).Should(HaveKey("name"))
+		Expect(m.RawMap()).Should(HaveKey("lastname"))
+		Expect(m.RawMap()).Should(HaveKey("faction"))
+		Expect(m.RawMap()).Should(HaveKey("Winter"))
+		Expect(m.RawMap()).Should(HaveKey("page"))
+		Expect(m.RawMap()).Should(HaveKey("pageSize"))
+		Expect(m.RawMap()["name"]).Should(Equal("John"))
+		Expect(m.RawMap()["lastname"]).Should(Equal("Snow"))
+		Expect(m.RawMap()["faction"]).Should(Equal("Stark"))
+		Expect(m.RawMap()["Winter"]).Should(Equal("is coming!"))
+		Expect(m.RawMap()["page"]).Should(Equal(float64(1)))
+		Expect(m.RawMap()["pageSize"]).Should(Equal(float64(15)))
 	})
 
 	It("Should handle each return type", func() {
@@ -199,7 +223,15 @@ var _ = Describe("JSON Serializer", func() {
 		message = serializer.BytesToPayload(&json)
 		Expect(message.Error()).Should(BeNil())
 
-		Expect(snap.SnapshotMulti("RawMap()", message.RawMap())).ShouldNot(HaveOccurred())
+		// Test RawMap() method
+		rawMap := message.RawMap()
+		Expect(rawMap).ShouldNot(BeNil())
+		Expect(rawMap).Should(HaveKey("rootMap"))
+		rootMap := rawMap["rootMap"].(map[string]interface{})
+		Expect(rootMap).Should(HaveKey("text"))
+		Expect(rootMap).Should(HaveKey("textList"))
+		Expect(rootMap).Should(HaveKey("objList"))
+		Expect(rootMap["text"]).Should(Equal("shit happened!"))
 	})
 
 	It("Should convert between context and Transit Message", func() {

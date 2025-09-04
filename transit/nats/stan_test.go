@@ -2,6 +2,7 @@ package nats_test
 
 import (
 	"os"
+	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/util"
@@ -16,7 +17,13 @@ import (
 )
 
 var StanTestHost = os.Getenv("STAN_HOST")
+
 var _ = Describe("NATS Streaming Transit", func() {
+	BeforeEach(func() {
+		if StanTestHost == "" {
+			Skip("STAN_HOST environment variable not set - skipping STAN tests")
+		}
+	})
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
 	logger := contextA.Logger()
@@ -113,6 +120,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 			loopNumber++
 
+			// Ensure all brokers are properly stopped and cleaned up
+			stopBrokers(userBroker, contactBroker, profileBroker)
+			// Additional delay between loops to prevent "too many channels" error
+			time.Sleep(200 * time.Millisecond)
+
 		}, numberOfLoops)
 
 	})
@@ -128,7 +140,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		transporter := nats.CreateStanTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {
@@ -170,7 +183,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateStanTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).ShouldNot(Succeed())
 	})
 
 	It("Should not fail on double disconnect", func() {
@@ -187,7 +201,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateStanTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 	})

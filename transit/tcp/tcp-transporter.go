@@ -3,9 +3,11 @@ package tcp
 import (
 	"errors"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/metrics"
 	payloadPkg "github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit"
@@ -27,6 +29,16 @@ type TCPTransporter struct {
 	validateMsg transit.ValidateMsgFunc
 	serializer  serializer.Serializer
 	handlers    map[string][]transit.TransportHandler
+
+	// Memory management components
+	bufferPool        *BufferPool
+	connectionManager *ConnectionManager
+	workerPool        *WorkerPool
+	metrics           *Metrics
+	handlersLock      sync.RWMutex
+
+	// Metrics collector for events
+	metricsCollector *metrics.TransportMetricsCollector
 }
 
 type TCPOptions struct {
@@ -36,14 +48,24 @@ type TCPOptions struct {
 	// Reusing UDP server socket
 	UdpReuseAddr bool
 
-	// UDP port
+	// UDP port for listening
 	UdpPort int
+	// UDP port for sending discovery messages
+	UdpDiscoveryPort int
 	// UDP bind address (if null, bind on all interfaces)
 	UdpBindAddress string
 	// UDP sending period (seconds)
 	UdpPeriod time.Duration
 
 	UdpMaxDiscovery int
+
+	// Memory management options
+	// Worker pool size for connection handling
+	WorkerPoolSize int
+	// Connection timeout duration
+	ConnectionTimeout time.Duration
+	// Idle connection cleanup interval
+	IdleConnectionTimeout time.Duration
 
 	// Multicast address.
 	UdpMulticast string
@@ -73,14 +95,36 @@ type TCPOptions struct {
 	Logger      *log.Entry
 	Serializer  serializer.Serializer
 	ValidateMsg transit.ValidateMsgFunc
+
+	// Broker delegates for metrics
+	BrokerDelegates *moleculer.BrokerDelegates
 }
 
-func CreateTCPTransporter(options TCPOptions) TCPTransporter {
+func CreateTCPTransporter(options TCPOptions) *TCPTransporter {
 	transport := TCPTransporter{options: options, logger: options.Logger}
 	transport.handlers = make(map[string][]transit.TransportHandler)
 	transport.serializer = options.Serializer
+
+	// Initialize memory management components
+	transport.bufferPool = NewBufferPool()
+	transport.connectionManager = NewConnectionManager(options.ConnectionTimeout)
+	transport.workerPool = NewWorkerPool(options.WorkerPoolSize)
+	transport.metrics = NewMetrics()
 	transport.validateMsg = options.ValidateMsg
-	return transport
+
+	// Initialize metrics collector if broker delegates are available
+	if options.BrokerDelegates != nil {
+		transport.metricsCollector = metrics.NewTransportMetricsCollector(options.BrokerDelegates, &transport)
+
+		// Set up buffer pool event callback
+		transport.bufferPool.SetBufferEventCallback(func(eventType string, size int) {
+			transport.metricsCollector.EmitBufferPoolEvent(eventType, size, map[string]interface{}{
+				"pool_size": size,
+			})
+		})
+	}
+
+	return &transport
 }
 
 func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan error {
@@ -89,8 +133,19 @@ func (transporter *TCPTransporter) Connect(registry moleculer.Registry) chan err
 	endChan := make(chan error)
 	go func() {
 		transporter.startTcpServer()
-		transporter.startUDPServer()
+		// Only start UDP server if UDP discovery is enabled
+		if transporter.options.UdpDiscovery {
+			transporter.startUDPServer()
+		} else {
+			transporter.logger.Info("UDP discovery disabled")
+		}
 		transporter.startGossipTimer()
+
+		// Start periodic metrics collection
+		if transporter.metricsCollector != nil {
+			transporter.metricsCollector.StartPeriodicCollection(30 * time.Second)
+		}
+
 		endChan <- nil
 	}()
 	return endChan
@@ -110,14 +165,44 @@ const (
 )
 
 func (transporter *TCPTransporter) onTcpConnection(fromAddrss string, host string, port int) {
+	transporter.logger.Trace("onTcpConnection called with fromAddrss:", fromAddrss, "host:", host, "port:", port)
 	node := transporter.registry.GetNodeByAddress(fromAddrss)
 	if node != nil {
+		transporter.logger.Trace("Found node by address:", node.GetID(), "isLocal:", node.IsLocal())
+		// Mark the remote node as available when TCP connection is established
+		if !node.IsLocal() {
+			node.Available()
+			transporter.logger.Trace("Marked remote node as available:", node.GetID())
+		}
+
+		// Track the connection
+		transporter.connectionManager.RegisterConnection(node.GetID())
+		transporter.metrics.IncrementConnectionCount()
+
+		// Emit connection event
+		if transporter.metricsCollector != nil {
+			transporter.metricsCollector.EmitConnectionEvent("connected", node.GetID(), map[string]interface{}{
+				"address": fromAddrss,
+				"host":    host,
+				"port":    port,
+			})
+		}
+
 		payload := payloadPkg.Empty().Add("sender", node.GetID())
 		transporter.onGossipRequest(payload)
+	} else {
+		transporter.logger.Trace("No node found by address:", fromAddrss)
 	}
 }
 
 func (transporter *TCPTransporter) onTcpMessage(fromAddrss string, msgType int, msgBytes *[]byte) {
+	// Track message activity
+	node := transporter.registry.GetNodeByAddress(fromAddrss)
+	if node != nil {
+		transporter.connectionManager.UpdateConnectionActivity(node.GetID())
+		transporter.metrics.RecordMessage(len(*msgBytes))
+	}
+
 	switch msgType {
 	case PACKET_GOSSIP_HELLO:
 		transporter.onGossipHello(fromAddrss, transporter.serializer.BytesToPayload(msgBytes))
@@ -157,7 +242,7 @@ func msgTypeToCommand(msgType int) string {
 	case PACKET_GOSSIP_HELLO:
 		return "GOSSIP_HELLO"
 	default:
-		return "???"
+		return "UNKNOWN"
 	}
 }
 func commandToMsgType(command string) int {
@@ -185,14 +270,18 @@ func commandToMsgType(command string) int {
 
 func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte) {
 	command := msgTypeToCommand(msgType)
-	if command == "???" {
-		transporter.logger.Error("Unknown command received - msgType: " + string(msgType))
+	if command == "UNKNOWN" {
+		transporter.logger.Error("Unknown command received - msgType: " + strconv.Itoa(msgType))
 		return
 	}
 	transporter.logger.Debug("Incoming message - command: " + command)
 	message := transporter.serializer.BytesToPayload(msgBytes)
 	// if transporter.validateMsg(message) {
-	if handlers, ok := transporter.handlers[command]; ok {
+	transporter.handlersLock.RLock()
+	handlers, ok := transporter.handlers[command]
+	transporter.handlersLock.RUnlock()
+
+	if ok {
 		for _, handler := range handlers {
 			handler(message)
 		}
@@ -210,10 +299,10 @@ func (transporter *TCPTransporter) disconnectNodeByAddress(address string) {
 func (transporter *TCPTransporter) startTcpServer() {
 	transporter.tcpReader = NewTcpReader(transporter.options.Port, transporter.onTcpMessage, transporter.onTcpConnection, transporter.disconnectNodeByAddress, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPReader",
-	}))
+	}), transporter.bufferPool, transporter.workerPool)
 	transporter.tcpWriter = NewTcpWriter(transporter.options.MaxConnections, transporter.logger.WithFields(log.Fields{
 		"TCPTransporter": "TCPWriter",
-	}))
+	}), transporter.bufferPool, transporter.options.IdleConnectionTimeout)
 
 	port, err := transporter.tcpReader.Listen()
 	if err != nil {
@@ -229,6 +318,7 @@ func (transporter *TCPTransporter) startTcpServer() {
 func (transporter *TCPTransporter) startUDPServer() {
 	transporter.udpServer = NewUdpServer(UdpServerOptions{
 		Port:           transporter.options.UdpPort,
+		DiscoveryPort:  transporter.options.UdpDiscoveryPort,
 		BindAddress:    transporter.options.UdpBindAddress,
 		Multicast:      transporter.options.UdpMulticast,
 		MulticastTTL:   transporter.options.UdpMulticastTTL,
@@ -270,7 +360,7 @@ func addIpToList(ipList []string, address string) []string {
 // need to find where the TCP connection step happens.. is not happening here - where is this node info used ?
 func (transporter *TCPTransporter) onUdpMessage(nodeID, host string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
-		transporter.logger.Debug("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + string(port))
+		transporter.logger.Debug("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + strconv.Itoa(port))
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
 			transporter.logger.Debug("Unknown node. Register as offline node")
@@ -287,6 +377,8 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, host string, port int) {
 		}
 		node.UpdateInfo(map[string]interface{}{
 			"udpAddress": host,
+			"host":       host,
+			"port":       port,
 		})
 	}
 }
@@ -296,16 +388,31 @@ func (transporter *TCPTransporter) Disconnect() chan error {
 	go func() {
 		transporter.tcpReader.Close()
 		transporter.tcpWriter.Close()
-		transporter.udpServer.Close()
+		// Only close UDP server if it was started (UdpDiscovery enabled)
+		if transporter.udpServer != nil {
+			transporter.udpServer.Close()
+		}
 		if transporter.gossipTimer != nil {
 			transporter.gossipTimer.Stop()
 		}
+
+		// Stop memory management components
+		if transporter.connectionManager != nil {
+			transporter.connectionManager.Stop()
+		}
+		if transporter.workerPool != nil {
+			transporter.workerPool.Stop()
+		}
+
 		endChan <- nil
 	}()
 	return endChan
 }
 
 func (transporter *TCPTransporter) Subscribe(command, nodeID string, handler transit.TransportHandler) {
+	transporter.handlersLock.Lock()
+	defer transporter.handlersLock.Unlock()
+
 	if _, ok := transporter.handlers[command]; !ok {
 		transporter.handlers[command] = make([]transit.TransportHandler, 0)
 	}
@@ -386,6 +493,31 @@ func (transporter *TCPTransporter) SetPrefix(prefix string) {
 
 func (transporter *TCPTransporter) SetNodeID(nodeID string) {
 	transporter.options.NodeId = nodeID
+}
+
+// GetMetrics returns performance and memory metrics
+func (transporter *TCPTransporter) GetMetrics() map[string]interface{} {
+	metrics := transporter.metrics.GetStats()
+
+	// Add connection manager stats
+	if transporter.connectionManager != nil {
+		connStats := transporter.connectionManager.GetConnectionStats()
+		for k, v := range connStats {
+			metrics["connection_"+k] = v
+		}
+	}
+
+	// Add buffer pool stats
+	if transporter.bufferPool != nil {
+		metrics["buffer_pool_active"] = true
+	}
+
+	// Add worker pool stats
+	if transporter.workerPool != nil {
+		metrics["worker_pool_active"] = true
+	}
+
+	return metrics
 }
 
 func (transporter *TCPTransporter) SetSerializer(serializer serializer.Serializer) {

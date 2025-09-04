@@ -109,6 +109,15 @@ func (transporter *StanTransporter) SetSerializer(serializer serializer.Serializ
 	// Ignored while transporter initialized in pubsub function
 }
 
+func (transporter *StanTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":       "stan",
+		"active":     transporter.connection != nil,
+		"cluster_id": transporter.clusterID,
+		"client_id":  transporter.clientID,
+	}
+}
+
 func (transporter *StanTransporter) Subscribe(command string, nodeID string, handler transit.TransportHandler) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Subscribe() No connection :( -> command: ", command, " nodeID: ", nodeID)
@@ -136,8 +145,9 @@ func (transporter *StanTransporter) Subscribe(command string, nodeID string, han
 func (transporter *StanTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if transporter.connection == nil {
 		msg := fmt.Sprint("stan.Publish() No connection :( -> command: ", command, " nodeID: ", nodeID)
-		transporter.logger.Warn(msg)
-		panic(errors.New(msg))
+		transporter.logger.Error(msg)
+		// Don't panic during shutdown - just log and return
+		return
 	}
 	topic := topicName(transporter, command, nodeID)
 	transporter.logger.Trace("stan.Publish() command: ", command, " nodeID: ", nodeID, " message: \n", message, "\n - end")

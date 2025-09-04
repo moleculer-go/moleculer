@@ -30,4 +30,7 @@ type Transport interface {
 	SetPrefix(prefix string)
 	SetNodeID(nodeID string)
 	SetSerializer(serializer serializer.Serializer)
+
+	// GetMetrics returns transport-specific metrics (optional)
+	GetMetrics() map[string]interface{}
 }

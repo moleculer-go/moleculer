@@ -121,6 +121,9 @@ func mergeConfigs(baseConfig moleculer.Config, userConfig []*moleculer.Config) m
 			if config.Stopped != nil {
 				baseConfig.Stopped = config.Stopped
 			}
+			if config.TCPOptions != nil {
+				baseConfig.TCPOptions = config.TCPOptions
+			}
 		}
 	}
 	return baseConfig

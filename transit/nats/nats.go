@@ -45,6 +45,16 @@ func natsOptions(options NATSOptions) *nats.Options {
 	if options.MaxReconnect != 0 {
 		opts.MaxReconnect = options.MaxReconnect
 	}
+	// Set reasonable defaults to help prevent "too many channels" errors
+	if opts.MaxReconnect == 0 {
+		opts.MaxReconnect = -1 // Allow unlimited reconnects by default
+	}
+	if opts.ReconnectWait == 0 {
+		opts.ReconnectWait = 2 * time.Second
+	}
+	if opts.Timeout == 0 {
+		opts.Timeout = 10 * time.Second
+	}
 	return &opts
 }
 
@@ -126,8 +136,9 @@ func (t *NatsTransporter) Subscribe(command, nodeID string, handler transit.Tran
 func (t *NatsTransporter) Publish(command, nodeID string, message moleculer.Payload) {
 	if t.conn == nil {
 		msg := fmt.Sprint("nats.Publish() No connection :( -> command: ", command, " nodeID: ", nodeID)
-		t.logger.Warn(msg)
-		panic(errors.New(msg))
+		t.logger.Error(msg)
+		// Don't panic during shutdown - just log and return
+		return
 	}
 
 	topic := t.topicName(command, nodeID)
@@ -149,4 +160,12 @@ func (t *NatsTransporter) SetNodeID(nodeID string) {
 
 func (t *NatsTransporter) SetSerializer(serializer serializer.Serializer) {
 	// Ignored while transporter initialized in pubsub function
+}
+
+func (t *NatsTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":   "nats",
+		"active": t.conn != nil,
+		"url":    t.opts.Url,
+	}
 }

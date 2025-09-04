@@ -114,7 +114,7 @@ type mockTransporter struct {
 	PublishCalled   bool
 }
 
-func (t *mockTransporter) Connect() chan error {
+func (t *mockTransporter) Connect(registry moleculer.Registry) chan error {
 	return nil
 }
 
@@ -136,4 +136,11 @@ func (t *mockTransporter) SetNodeID(string) {
 }
 
 func (t *mockTransporter) SetSerializer(serializer.Serializer) {
+}
+
+func (t *mockTransporter) GetMetrics() map[string]interface{} {
+	return map[string]interface{}{
+		"type":   "mock",
+		"active": true,
+	}
 }
