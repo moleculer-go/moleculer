@@ -160,8 +160,16 @@ const (
 )
 
 func (transporter *TCPTransporter) onTcpConnection(fromAddrss string, host string, port int) {
+	transporter.logger.Trace("onTcpConnection called with fromAddrss:", fromAddrss, "host:", host, "port:", port)
 	node := transporter.registry.GetNodeByAddress(fromAddrss)
 	if node != nil {
+		transporter.logger.Trace("Found node by address:", node.GetID(), "isLocal:", node.IsLocal())
+		// Mark the remote node as available when TCP connection is established
+		if !node.IsLocal() {
+			node.Available()
+			transporter.logger.Trace("Marked remote node as available:", node.GetID())
+		}
+
 		// Track the connection
 		transporter.connectionManager.RegisterConnection(node.GetID())
 		transporter.metrics.IncrementConnectionCount()
@@ -177,6 +185,8 @@ func (transporter *TCPTransporter) onTcpConnection(fromAddrss string, host strin
 
 		payload := payloadPkg.Empty().Add("sender", node.GetID())
 		transporter.onGossipRequest(payload)
+	} else {
+		transporter.logger.Trace("No node found by address:", fromAddrss)
 	}
 }
 
@@ -362,6 +372,8 @@ func (transporter *TCPTransporter) onUdpMessage(nodeID, host string, port int) {
 		}
 		node.UpdateInfo(map[string]interface{}{
 			"udpAddress": host,
+			"host":       host,
+			"port":       port,
 		})
 	}
 }

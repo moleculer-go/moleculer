@@ -130,11 +130,19 @@ func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
 	copy(payload, header)
 	copy(payload[len(header):], msgBytes)
 
-	// Return header to pool
-	w.bufferPool.PutBuffer(header)
+	// Trace log for debugging CRC issues
+	w.logger.Tracef("TCP WRITER - Sending message to %s: msgType=%d, payloadSize=%d, header[0]=%d, header[1-5]=%v",
+		nodeID, msgType, payloadSize, header[0], header[1:6])
+	first20 := 20
+	if len(payload) < 20 {
+		first20 = len(payload)
+	}
+	w.logger.Tracef("TCP WRITER - First 20 bytes of payload: %v", payload[:first20])
+
 	_, err := socket.conn.Write(payload)
 
-	// Return payload buffer to pool
+	// Return buffers to pool AFTER write operation completes
+	w.bufferPool.PutBuffer(header)
 	w.bufferPool.PutBuffer(payload)
 
 	// Update lastUsed for ANY message activity (including gossip/heartbeats)

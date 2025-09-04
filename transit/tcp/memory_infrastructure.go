@@ -78,6 +78,11 @@ func (bp *BufferPool) PutBuffer(buf []byte) {
 	}
 
 	capacity := cap(buf)
+	// Clear the buffer to prevent data leakage between uses
+	for i := range buf {
+		buf[i] = 0
+	}
+
 	switch {
 	case capacity <= 1024:
 		bp.smallPool.Put(buf[:1024])

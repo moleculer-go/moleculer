@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"math/rand"
+	"net"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -37,8 +38,9 @@ func (transporter *TCPTransporter) getRandomNode(nodes []moleculer.Node) molecul
 func (transporter *TCPTransporter) sendGossip(nodeID string, payload moleculer.Payload) {
 	node := transporter.registry.GetNodeByID(nodeID)
 	if !node.IsLocal() {
-		transporter.logger.Trace("Sending gossip request to "+node.GetID(), "payload:", util.PrettyPrintMap(payload.RawMap()))
+		transporter.logger.Trace("GOSSIP SEND - About to send gossip to nodeID:", nodeID, "payload size:", len(util.PrettyPrintMap(payload.RawMap())))
 		transporter.Publish(msgTypeToCommand(PACKET_GOSSIP_REQ), node.GetID(), payload)
+		transporter.logger.Trace("GOSSIP SEND - Gossip sent successfully to nodeID:", nodeID)
 	}
 }
 
@@ -62,11 +64,23 @@ func (transporter *TCPTransporter) onGossipHello(fromAddrss string, payload mole
 	node := transporter.registry.GetNodeByID(sender)
 	if node == nil {
 		transporter.logger.Debug("Unknown node. Register as offline node - sender: ", sender)
-		node = transporter.registry.AddOfflineNode(sender, hostname, fromAddrss, port)
+		// Extract just the IP address from the full address
+		ipAddress, _, err := net.SplitHostPort(fromAddrss)
+		if err != nil {
+			// If splitting fails, use the full address as fallback
+			ipAddress = fromAddrss
+		}
+		node = transporter.registry.AddOfflineNode(sender, hostname, ipAddress, port)
 	}
 	if node.GetUdpAddress() == "" {
+		// Extract just the IP address from the full address
+		host, _, err := net.SplitHostPort(fromAddrss)
+		if err != nil {
+			// If splitting fails, use the full address as fallback
+			host = fromAddrss
+		}
 		node.UpdateInfo(map[string]interface{}{
-			"udpAddress": fromAddrss,
+			"udpAddress": host,
 		})
 	}
 	node.Available()
@@ -287,12 +301,27 @@ func (transporter *TCPTransporter) onGossipResponse(payload moleculer.Payload) {
 				return true
 			}
 			row := online.Get(nodeID).Array()
+			transporter.logger.Trace("Parsing gossip response row for nodeID:", nodeID, "row:", util.PrettyPrintMap(row))
 			info, cpu, cpuSeq := parseGossipResponse(row)
+			transporter.logger.Trace("Parsed gossip response - info:", util.PrettyPrintMap(info.RawMap()), "cpu:", cpu, "cpuSeq:", cpuSeq)
 
 			if info != nil && (node != nil && node.GetSequence() < info.Get("seq").Int64()) {
 				transporter.logger.Debug("If we don't know it, or know, but has smaller seq, update 'info'")
+				transporter.logger.Trace("Current node sequence:", node.GetSequence(), "incoming sequence:", info.Get("seq").Int64())
 				info = info.Add("sender", sender)
+				transporter.logger.Trace("Calling RemoteNodeInfoReceived with info:", util.PrettyPrintMap(info.RawMap()))
 				transporter.registry.RemoteNodeInfoReceived(info)
+				transporter.logger.Trace("RemoteNodeInfoReceived completed for nodeID:", nodeID)
+			} else {
+				currentSeq := int64(0)
+				if node != nil {
+					currentSeq = node.GetSequence()
+				}
+				incomingSeq := int64(0)
+				if info != nil {
+					incomingSeq = info.Get("seq").Int64()
+				}
+				transporter.logger.Trace("Skipping node update - info is nil or sequence not newer. node:", node != nil, "info:", info != nil, "currentSeq:", currentSeq, "incomingSeq:", incomingSeq)
 			}
 			if node != nil && cpuSeq > node.GetCpuSequence() {
 				transporter.logger.Debug("If we know it and has smaller cpuSeq, update 'cpu'")

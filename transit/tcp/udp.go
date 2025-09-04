@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/net/ipv4"
@@ -62,15 +63,33 @@ func (u *UdpServer) startServer(ip string, port int, multicast string, multicast
 		return err
 	}
 
-	udpConn, err := net.ListenUDP("udp4", udpAddr)
+	// Create a ListenConfig with socket options for multicast support
+	// This allows multiple processes to bind to the same UDP port (like Node.js reuseAddr)
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				// Set SO_REUSEADDR to allow multiple processes to bind to the same address
+				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+				// Set SO_REUSEPORT to allow multiple processes to bind to the same port
+				// Note: SO_REUSEPORT is 0x0200 on Linux, but may not be available on all platforms
+				const SO_REUSEPORT = 0x0200
+				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, SO_REUSEPORT, 1)
+			})
+		},
+	}
+
+	udpConn, err := lc.ListenPacket(nil, "udp4", udpAddr.String())
 	if err != nil {
 		u.logger.Warnf("Unable to listen on UDP address: %s\n", err)
 		return err
 	}
+
+	// Cast to UDPConn for multicast operations
+	udpConnUDP := udpConn.(*net.UDPConn)
 	var packetConn *ipv4.PacketConn
 	if multicast != "" {
 		u.logger.Infof("UDP Multicast Server is listening on %s:%d. Membership:  %s \n", ip, port, multicast)
-		packetConn, err = u.joinMulticastGroup(multicast, udpConn, multicastTTL, ip, port)
+		packetConn, err = u.joinMulticastGroup(multicast, udpConnUDP, multicastTTL, ip, port)
 		if err != nil {
 			u.logger.Error("Error joining multicast group:", err)
 			return err
@@ -80,7 +99,8 @@ func (u *UdpServer) startServer(ip string, port int, multicast string, multicast
 		u.logger.Infof("UDP Broadcast Server is listening on %s:%d\n", ip, port)
 	}
 
-	u.servers = append(u.servers, &UdpServerEntry{udpConn, packetConn, discoveryTargets})
+	u.servers = append(u.servers, &UdpServerEntry{udpConnUDP, packetConn, discoveryTargets})
+	u.logger.Debugf("UDP server started successfully on %s:%d with %d discovery targets\n", ip, port, len(discoveryTargets))
 	return nil
 }
 
@@ -151,6 +171,29 @@ func (u *UdpServer) getAllIPs() []string {
 
 func (u *UdpServer) Start() error {
 	if u.opts.Multicast != "" {
+		// Check if we're using localhost - if so, use broadcast instead of multicast
+		ips := u.getAllIPs()
+		hasLocalhost := false
+		for _, ip := range ips {
+			if ip == "127.0.0.1" || ip == "::1" {
+				hasLocalhost = true
+				break
+			}
+		}
+
+		if hasLocalhost {
+			u.logger.Debug("Localhost detected - using broadcast instead of multicast for better localhost compatibility")
+			broadcastAddrss := u.getBroadcastAddresses()
+			// Add localhost broadcast for localhost discovery
+			broadcastAddrss = append(broadcastAddrss, "127.0.0.1")
+			u.logger.Debug("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, "Broadcasting to all interfaces - broadcastAddrss: ", broadcastAddrss)
+			err := u.startServer(u.opts.BindAddress, u.opts.Port, "", 0, broadcastAddrss)
+			if err != nil {
+				return err
+			}
+			// Continue to start message handling goroutines
+		}
+
 		if u.opts.BindAddress != "" {
 			u.logger.Debug("Multicast + BindAddress options specified - Binding to a specific interface:", u.opts.BindAddress)
 			// Bind only one interface
@@ -158,7 +201,6 @@ func (u *UdpServer) Start() error {
 		}
 		//list all interfaces and the ip addresses of each interface
 		u.logger.Debug("Multicast option specified - listing all interfaces and the ip addresses of each interface")
-		ips := u.getAllIPs()
 		for _, ip := range ips {
 			u.logger.Debug("Starting UDP server on IP:", ip, "Port:", u.opts.Port, "Multicast:", u.opts.Multicast, "MulticastTTL:", u.opts.MulticastTTL)
 			err := u.startServer(ip, u.opts.Port, u.opts.Multicast, u.opts.MulticastTTL, []string{u.opts.Multicast})
@@ -207,11 +249,43 @@ func (u *UdpServer) getBroadcastAddresses() []string {
 					// Calculate the broadcast address by inverting the netmask and OR'ing it with the IP address
 					ip := ipnet.IP.To4()
 					mask := ipnet.Mask
-					broadcast := net.IPv4(0, 0, 0, 0)
-					for i := range ip {
-						broadcast[i] = ip[i] | ^mask[i]
+					// Calculate broadcast address bytes
+					var broadcastBytes [4]byte
+					// Ensure mask is 4 bytes for IPv4
+					if len(mask) == 4 {
+						for i := 0; i < 4; i++ {
+							broadcastBytes[i] = ip[i] | ^mask[i]
+						}
+					} else {
+						// Handle variable length masks
+						for i := 0; i < len(ip) && i < len(mask); i++ {
+							broadcastBytes[i] = ip[i] | ^mask[i]
+						}
 					}
+					// Create proper IPv4 address from calculated bytes
+					broadcast := net.IPv4(broadcastBytes[0], broadcastBytes[1], broadcastBytes[2], broadcastBytes[3])
+					u.logger.Debugf("Interface %s: IP=%s, Mask=%s (len=%d), Broadcast=%s", iface.Name, ip.String(), mask.String(), len(mask), broadcast.String())
+
+					// Log bytes using proper formatting - use actual lengths, not hardcoded values
+					ipBytes := make([]interface{}, len(ip))
+					maskBytes := make([]interface{}, len(mask))
+					broadcastBytesLog := make([]interface{}, len(broadcastBytes))
+					for i := 0; i < len(ip); i++ {
+						ipBytes[i] = ip[i]
+					}
+					for i := 0; i < len(mask); i++ {
+						maskBytes[i] = mask[i]
+					}
+					for i := 0; i < len(broadcastBytes); i++ {
+						broadcastBytesLog[i] = broadcastBytes[i]
+					}
+					u.logger.Debugf("  IP bytes: %v, Mask bytes: %v, Broadcast bytes: %v", ipBytes, maskBytes, broadcastBytesLog)
+
+					// Use proper Go networking API to get string representation
 					list = append(list, broadcast.String())
+				} else {
+					// Skip IPv6 addresses for now
+					u.logger.Debugf("Skipping IPv6 address: %s", ipnet.IP.String())
 				}
 			}
 		}
