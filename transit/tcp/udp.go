@@ -186,11 +186,11 @@ func (u *UdpServer) Start() error {
 		}
 
 		if hasLocalhost {
-			u.logger.Debug("Localhost detected - using broadcast instead of multicast for better localhost compatibility")
+			u.logger.Trace("Localhost detected - using broadcast instead of multicast for better localhost compatibility")
 			broadcastAddrss := u.getBroadcastAddresses()
 			// Add localhost broadcast for localhost discovery
 			broadcastAddrss = append(broadcastAddrss, "127.0.0.1")
-			u.logger.Debug("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, "Broadcasting to all interfaces - broadcastAddrss: ", broadcastAddrss)
+			u.logger.Trace("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, "Broadcasting to all interfaces - broadcastAddrss: ", broadcastAddrss)
 			err := u.startServer(u.opts.BindAddress, u.opts.Port, "", 0, broadcastAddrss)
 			if err != nil {
 				return err
@@ -199,25 +199,25 @@ func (u *UdpServer) Start() error {
 		}
 
 		if u.opts.BindAddress != "" {
-			u.logger.Debug("Multicast + BindAddress options specified - Binding to a specific interface:", u.opts.BindAddress)
+			u.logger.Trace("Multicast + BindAddress options specified - Binding to a specific interface:", u.opts.BindAddress)
 			// Bind only one interface
 			return u.startServer(u.opts.BindAddress, u.opts.Port, u.opts.Multicast, u.opts.MulticastTTL, []string{u.opts.Multicast})
 		}
 		//list all interfaces and the ip addresses of each interface
-		u.logger.Debug("Multicast option specified - listing all interfaces and the ip addresses of each interface")
+		u.logger.Trace("Multicast option specified - listing all interfaces and the ip addresses of each interface")
 		for _, ip := range ips {
-			u.logger.Debug("Starting UDP server on IP:", ip, "Port:", u.opts.Port, "Multicast:", u.opts.Multicast, "MulticastTTL:", u.opts.MulticastTTL)
+			u.logger.Trace("Starting UDP server on IP:", ip, "Port:", u.opts.Port, "Multicast:", u.opts.Multicast, "MulticastTTL:", u.opts.MulticastTTL)
 			err := u.startServer(ip, u.opts.Port, u.opts.Multicast, u.opts.MulticastTTL, []string{u.opts.Multicast})
 			if err != nil {
 				u.logger.Error("Error starting server on IP:", ip, err)
 			}
 		}
 	} else if len(u.opts.BroadcastAddrs) > 0 {
-		u.logger.Debug("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, " BroadcastAddrs option specified - Broadcasting to the specified addresses - BroadcastAddrs:", u.opts.BroadcastAddrs)
+		u.logger.Trace("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, " BroadcastAddrs option specified - Broadcasting to the specified addresses - BroadcastAddrs:", u.opts.BroadcastAddrs)
 		return u.startServer(u.opts.BindAddress, u.opts.Port, "", 0, u.opts.BroadcastAddrs)
 	} else {
 		broadcastAddrss := u.getBroadcastAddresses()
-		u.logger.Debug("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, "No Multicast or BroadcastAddrs options specified - Broadcasting to all interfaces - broadcastAddrss: ", broadcastAddrss)
+		u.logger.Trace("Starting UDP server on IP (BindAddress):", u.opts.BindAddress, "Port:", u.opts.Port, "No Multicast or BroadcastAddrs options specified - Broadcasting to all interfaces - broadcastAddrss: ", broadcastAddrss)
 		return u.startServer(u.opts.BindAddress, u.opts.Port, "", 0, broadcastAddrss)
 	}
 
@@ -337,7 +337,7 @@ func (u *UdpServer) handleIncomingMessagesForServer(server *UdpServerEntry) {
 
 		u.onUdpMessage(nodeID, addr.IP.String(), port)
 	}
-	u.logger.Debug("handleIncomingMessagesForServer() stopped")
+	u.logger.Trace("handleIncomingMessagesForServer() stopped")
 }
 
 func (u *UdpServer) startDiscovering() {
@@ -364,7 +364,7 @@ func (u *UdpServer) startDiscovering() {
 func (u *UdpServer) BroadcastDiscoveryMessage() {
 	node := u.registry.GetLocalNode()
 	message := fmt.Sprintf("%s|%s|%d", u.opts.Namespace, node.GetID(), node.GetPort())
-	u.logger.Debug("Broadcasting discovery message:", message)
+	u.logger.Trace("Broadcasting discovery message:", message)
 	u.discoveryCounter++
 	for _, server := range u.servers {
 		for _, target := range server.discoveryTargets {
@@ -378,7 +378,7 @@ func (u *UdpServer) BroadcastDiscoveryMessage() {
 			if _, err := server.conn.WriteToUDP([]byte(message), destAddr); err != nil {
 				u.logger.Error("Error broadcasting discovery message to:", destAddr, " error:", err)
 			} else {
-				u.logger.Debug("Discovery message sent to:", destAddr)
+				u.logger.Trace("Discovery message sent to:", destAddr)
 			}
 		}
 	}

@@ -221,7 +221,7 @@ func (w *TcpWriter) cleanupIdleConnections() {
 	now := time.Now()
 	for nodeID, socket := range w.sockets {
 		if now.Sub(socket.lastUsed) > w.idleTimeout {
-			w.logger.Debug("Closing idle connection for nodeID:", nodeID)
+			w.logger.Trace("Closing idle connection for nodeID:", nodeID)
 			socket.conn.Close()
 			delete(w.sockets, nodeID)
 		}

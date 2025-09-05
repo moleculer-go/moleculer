@@ -297,7 +297,7 @@ func (transporter *TCPTransporter) incomingMessage(msgType int, msgBytes *[]byte
 		transporter.logger.Error("Unknown command received - msgType: " + strconv.Itoa(msgType))
 		return
 	}
-	transporter.logger.Debug("Incoming message - command: " + command)
+	transporter.logger.Trace("Incoming message - command: " + command)
 	message := transporter.serializer.BytesToPayload(msgBytes)
 	// if transporter.validateMsg(message) {
 	transporter.handlersLock.RLock()
@@ -435,10 +435,10 @@ func addIpToList(ipList []string, address string) []string {
 // need to find where the TCP connection step happens.. is not happening here - where is this node info used ?
 func (transporter *TCPTransporter) onUdpMessage(nodeID, host string, port int) {
 	if nodeID != "" && nodeID != transporter.options.NodeId {
-		transporter.logger.Debug("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + strconv.Itoa(port))
+		transporter.logger.Trace("UDP discovery received from " + host + " nodeId: " + nodeID + " port: " + strconv.Itoa(port))
 		node := transporter.registry.GetNodeByID(nodeID)
 		if node == nil {
-			transporter.logger.Debug("Unknown node. Register as offline node")
+			transporter.logger.Trace("Unknown node. Register as offline node")
 			node = transporter.registry.AddOfflineNode(nodeID, host, host, port)
 			transporter.sendGossipHello(nodeID)
 
@@ -532,7 +532,9 @@ func (transporter *TCPTransporter) Publish(command, nodeID string, message molec
 		//handled by the gossip protocol
 		return
 	}
-	transporter.logger.Trace("TCPTransporter.Publish() command: "+command+" to nodeID: "+nodeID, " message: ", util.PrettyPrintMap(message.RawMap()))
+	if log.GetLevel() >= log.TraceLevel {
+		transporter.logger.Trace("TCPTransporter.Publish() command: "+command+" to nodeID: "+nodeID, " message: ", util.PrettyPrintMap(message.RawMap()))
+	}
 
 	msgType := commandToMsgType(command)
 	if msgType == -1 {
