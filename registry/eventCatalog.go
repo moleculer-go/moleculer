@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
@@ -67,7 +68,27 @@ func (eventCatalog *EventCatalog) Add(event service.Event, service *service.Serv
 	if !exists {
 		list = []EventEntry{entry}
 	} else {
-		list = append(list.([]EventEntry), entry)
+		existingList := list.([]EventEntry)
+		// Check if this exact entry already exists to prevent memory leak
+		for _, existingEntry := range existingList {
+			if existingEntry.targetNodeID == entry.targetNodeID &&
+				existingEntry.service.Name() == entry.service.Name() &&
+				existingEntry.isLocal == entry.isLocal {
+				// Exact duplicate found, replace it instead of adding another
+				// This allows updates while preventing memory leaks
+				for i, e := range existingList {
+					if e.targetNodeID == entry.targetNodeID &&
+						e.service.Name() == entry.service.Name() &&
+						e.isLocal == entry.isLocal {
+						existingList[i] = entry
+						eventCatalog.events.Store(name, existingList)
+						return
+					}
+				}
+			}
+		}
+		// No exact duplicate found, append the new entry
+		list = append(existingList, entry)
 	}
 	eventCatalog.events.Store(name, list)
 }
@@ -150,8 +171,14 @@ func (eventCatalog *EventCatalog) Find(name string, groups []string, preferLocal
 	}
 	eventCatalog.logger.Trace("event: ", name, " started: ", events)
 
+	// Sort events by nodeID to ensure deterministic order
+	eventList := events.([]EventEntry)
+	sort.Slice(eventList, func(i, j int) bool {
+		return eventList[i].targetNodeID < eventList[j].targetNodeID
+	})
+
 	entryGroups := make(map[string][]EventEntry)
-	for _, entry := range events.([]EventEntry) {
+	for _, entry := range eventList {
 		if localOnly && !entry.isLocal {
 			continue
 		}
