@@ -74,7 +74,7 @@ func NewRedisTransporter(config *RedisConfig) *RedisTransporter {
 // Connect establishes connection to Redis
 func (r *RedisTransporter) Connect(registry moleculer.Registry) chan error {
 	result := make(chan error, 1)
-	
+
 	go func() {
 		// Test connection
 		_, err := r.client.Ping(r.ctx).Result()
@@ -95,7 +95,7 @@ func (r *RedisTransporter) Connect(registry moleculer.Registry) chan error {
 // Disconnect closes Redis connection
 func (r *RedisTransporter) Disconnect() chan error {
 	result := make(chan error, 1)
-	
+
 	go func() {
 		if r.subscriber != nil {
 			r.subscriber.Close()

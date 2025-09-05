@@ -22,7 +22,7 @@ var _ = ginkgo.Describe("Redis Transporter", func() {
 
 	ginkgo.BeforeEach(func() {
 		ctx = context.Background()
-		
+
 		// Create Redis client for testing
 		client = redis.NewClient(&redis.Options{
 			Addr: "localhost:6379",
@@ -55,21 +55,21 @@ var _ = ginkgo.Describe("Redis Transporter", func() {
 		ginkgo.It("should connect to Redis", func() {
 			// Mock registry for testing - use nil for now
 			errChan := transporter.Connect(nil)
-			
+
 			select {
 			case err := <-errChan:
 				gomega.Expect(err).To(gomega.BeNil())
 			case <-time.After(5 * time.Second):
 				ginkgo.Fail("Connection timeout")
 			}
-			
+
 			gomega.Expect(transporter.IsConnected()).To(gomega.BeTrue())
 		})
 
 		ginkgo.It("should disconnect from Redis", func() {
 			// Mock registry for testing - use nil for now
 			errChan := transporter.Connect(nil)
-			
+
 			select {
 			case err := <-errChan:
 				gomega.Expect(err).To(gomega.BeNil())
@@ -84,7 +84,7 @@ var _ = ginkgo.Describe("Redis Transporter", func() {
 			case <-time.After(5 * time.Second):
 				ginkgo.Fail("Disconnection timeout")
 			}
-			
+
 			gomega.Expect(transporter.IsConnected()).To(gomega.BeFalse())
 		})
 	})
@@ -114,7 +114,7 @@ var _ = ginkgo.Describe("Redis Transporter", func() {
 		ginkgo.BeforeEach(func() {
 			// Mock registry for testing - use nil for now
 			errChan := transporter.Connect(nil)
-			
+
 			select {
 			case err := <-errChan:
 				gomega.Expect(err).To(gomega.BeNil())
