@@ -21,14 +21,14 @@ jobs:
 
     - name: Install Ginkgo
       run: |
-        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Build
       run: go build
 
     - name: Run core tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace -skipPackage=amqp,kafka,nats,redis,tcp
+      run: ginkgo -r --keepGoing --cover --trace -skipPackage=amqp,kafka,nats,redis,tcp
 
     - name: Install gover
       run: go get github.com/modocache/gover
@@ -71,10 +71,8 @@ jobs:
 
     - name: Install Ginkgo
       run: |
-        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
-
-    
+        go install github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Wait for NATS
       run: |
@@ -93,7 +91,7 @@ jobs:
         echo "NATS_HOST=localhost" >> $GITHUB_ENV
 
     - name: Run NATS tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/nats
+      run: ginkgo -r --keepGoing --cover --trace ./transit/nats
 
   # AMQP/RabbitMQ tests
   amqp-tests:
@@ -123,15 +121,15 @@ jobs:
 
     - name: Install Ginkgo
       run: |
-        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Set environment variables
       run: |
         echo "AMQP_HOST=guest:guest@localhost" >> $GITHUB_ENV
 
     - name: Run AMQP tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/amqp
+      run: ginkgo -r --keepGoing --cover --trace ./transit/amqp
 
   # Kafka tests
   kafka-tests:
@@ -178,15 +176,15 @@ jobs:
 
     - name: Install Ginkgo
       run: |
-        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Set environment variables
       run: |
         echo "KAFKA_HOST=localhost" >> $GITHUB_ENV
 
     - name: Run Kafka tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/kafka
+      run: ginkgo -r --keepGoing --cover --trace ./transit/kafka
 
   # Redis tests
   redis-tests:
@@ -213,8 +211,8 @@ jobs:
 
     - name: Install Ginkgo
       run: |
-        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Set environment variables
       run: |
@@ -222,7 +220,7 @@ jobs:
         echo "REDIS_PORT=6379" >> $GITHUB_ENV
 
     - name: Run Redis tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/redis
+      run: ginkgo -r --keepGoing --cover --trace ./transit/redis
 
   # TCP tests
   tcp-tests:
@@ -238,11 +236,11 @@ jobs:
 
     - name: Install Ginkgo
       run: |
-        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Run TCP tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/tcp
+      run: ginkgo -r --keepGoing --cover --trace ./transit/tcp
 
   # Node.js compatibility tests (optional)
   # nodejs-compatibility:
