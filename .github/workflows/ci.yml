@@ -28,7 +28,7 @@ jobs:
       run: go build
 
     - name: Run core tests
-      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace -skipPackage=amqp,kafka,nats
+      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace -skipPackage=amqp,kafka,nats,redis,tcp
 
     - name: Install gover
       run: go get github.com/modocache/gover
@@ -38,7 +38,7 @@ jobs:
 
     - name: Upload coverage to Codecov
       if: success()
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage.txt
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -187,6 +187,62 @@ jobs:
 
     - name: Run Kafka tests
       run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/kafka
+
+  # Redis tests
+  redis-tests:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install Ginkgo
+      run: |
+        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+
+    - name: Set environment variables
+      run: |
+        echo "REDIS_HOST=redis" >> $GITHUB_ENV
+        echo "REDIS_PORT=6379" >> $GITHUB_ENV
+
+    - name: Run Redis tests
+      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/redis
+
+  # TCP tests
+  tcp-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install Ginkgo
+      run: |
+        go get github.com/onsi/ginkgo/ginkgo@v1.16.2
+        go get github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
+
+    - name: Run TCP tests
+      run: go run github.com/onsi/ginkgo/ginkgo -r --keepGoing --cover --trace ./transit/tcp
 
   # Node.js compatibility tests (optional)
   # nodejs-compatibility:
