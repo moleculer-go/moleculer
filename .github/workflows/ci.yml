@@ -22,7 +22,6 @@ jobs:
     - name: Install Ginkgo
       run: |
         go install github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Build
       run: go build
@@ -72,7 +71,6 @@ jobs:
     - name: Install Ginkgo
       run: |
         go install github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Wait for NATS
       run: |
@@ -122,7 +120,6 @@ jobs:
     - name: Install Ginkgo
       run: |
         go install github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Set environment variables
       run: |
@@ -177,7 +174,6 @@ jobs:
     - name: Install Ginkgo
       run: |
         go install github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Set environment variables
       run: |
@@ -212,7 +208,6 @@ jobs:
     - name: Install Ginkgo
       run: |
         go install github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Set environment variables
       run: |
@@ -237,7 +232,6 @@ jobs:
     - name: Install Ginkgo
       run: |
         go install github.com/onsi/ginkgo/ginkgo@v1.16.2
-        go install github.com/onsi/ginkgo/ginkgo/outline@v1.16.2
 
     - name: Run TCP tests
       run: ginkgo -r --keepGoing --cover --trace ./transit/tcp
