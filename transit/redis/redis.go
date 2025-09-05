@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-redis/redis/v8"
@@ -128,12 +127,9 @@ func (r *RedisTransporter) Subscribe(command, nodeID string, handler transit.Tra
 			select {
 			case msg := <-ch:
 				if msg != nil {
-					var payload moleculer.Payload
-					if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil {
-						r.logger.Error("Failed to unmarshal message:", err)
-						continue
-					}
-
+					// Use the configured serializer instead of hardcoded JSON
+					payloadBytes := []byte(msg.Payload)
+					payload := r.serializer.BytesToPayload(&payloadBytes)
 					handler(payload)
 				}
 			case <-r.ctx.Done():
@@ -150,10 +146,10 @@ func (r *RedisTransporter) Publish(command, nodeID string, message moleculer.Pay
 		return
 	}
 
-	jsonData := r.serializer.PayloadToBytes(message)
+	serializedData := r.serializer.PayloadToBytes(message)
 
 	channel := r.getChannelName(command, nodeID)
-	err := r.client.Publish(r.ctx, channel, jsonData).Err()
+	err := r.client.Publish(r.ctx, channel, serializedData).Err()
 	if err != nil {
 		r.logger.Error("Failed to publish message:", err)
 	}
