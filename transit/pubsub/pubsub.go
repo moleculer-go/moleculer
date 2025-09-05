@@ -229,47 +229,224 @@ func (pubsub *PubSub) createNatsTransporter() transit.Transport {
 
 func (pubsub *PubSub) createTCPTransporter() transit.Transport {
 	pubsub.logger.Debug("createTCPTransporter()")
-	tcpTransporter := tcp.CreateTCPTransporter(tcp.TCPOptions{
-		// Enable UDP discovery
-		UdpDiscovery: true,
-		// Reusing UDP server socket
-		UdpReuseAddr: true,
 
-		// UDP port
-		UdpPort: 4445,
-		// UDP bind address (if empty + UdpMulticast is specified, bind on all interfaces)
-		UdpBindAddress: "",
-		// UDP sending period (seconds)
-		UdpPeriod: 30,
+	// Start with default options (matching JavaScript defaults)
+	tcpOpts := tcp.TCPOptions{
+		UdpDiscovery:          true,
+		UdpReuseAddr:          true,
+		UdpPort:               4445, // Default UDP listening and discovery port (matches JavaScript)
+		UdpBindAddress:        "",
+		UdpPeriod:             30 * time.Second,
+		UdpMaxDiscovery:       0,                // Unlimited
+		WorkerPoolSize:        20,               // Default worker pool size
+		ConnectionTimeout:     30 * time.Second, // Default connection timeout
+		IdleConnectionTimeout: 60 * time.Second, // Default idle connection timeout
+		UdpMulticast:          "239.0.0.0",
+		UdpMulticastTTL:       1,
+		UdpBroadcast:          []string{},
+		Port:                  0, // Random TCP port
+		Urls:                  []string{},
+		UseHostname:           true,
+		GossipPeriod:          2, // 2 seconds
+		MaxConnections:        32,
+		MaxPacketSize:         1024 * 1024, // 1MB
+	}
 
-		// Multicast address.
-		UdpMulticast: "239.0.0.0",
-		// Multicast TTL setting
-		UdpMulticastTTL: 1,
+	// Merge with user-provided options if any
+	if pubsub.broker.Config.TCPOptions != nil {
+		userOptions := pubsub.broker.Config.TCPOptions
+		pubsub.logger.Debug("Merging TCP options from user config map")
 
-		// Send broadcast (Boolean, String, Array<String>)
-		UdpBroadcast: []string{},
+		// Helper function to safely get values from map
+		getString := func(key string) (string, bool) {
+			if val, exists := userOptions[key]; exists {
+				if str, ok := val.(string); ok {
+					return str, true
+				}
+			}
+			return "", false
+		}
 
-		// TCP server port.  0 means random port
-		Port: 0,
-		// Static remote nodes address list (when UDP discovery is not available)
-		Urls: []string{},
-		// Use hostname as preffered connection address
-		UseHostname: true,
+		getInt := func(key string) (int, bool) {
+			if val, exists := userOptions[key]; exists {
+				switch v := val.(type) {
+				case int:
+					return v, true
+				case int64:
+					return int(v), true
+				case float64:
+					return int(v), true
+				}
+			}
+			return 0, false
+		}
 
-		// Gossip sending period in seconds
-		GossipPeriod: 2,
-		// Maximum enabled outgoing connections. If reach, close the old connections
-		MaxConnections: 32,
-		// Maximum TCP packet size
-		MaxPacketSize: 1 * 1024 * 1024,
+		getBool := func(key string) (bool, bool) {
+			if val, exists := userOptions[key]; exists {
+				if b, ok := val.(bool); ok {
+					return b, true
+				}
+			}
+			return false, false
+		}
 
-		Namespace:  pubsub.broker.Config.Namespace,
-		NodeId:     pubsub.broker.LocalNode().GetID(),
-		Logger:     pubsub.logger.WithField("transport", "tcp"),
-		Serializer: pubsub.serializer,
-	})
-	var transport transit.Transport = &tcpTransporter
+		getDuration := func(key string) (time.Duration, bool) {
+			if val, exists := userOptions[key]; exists {
+				switch v := val.(type) {
+				case time.Duration:
+					return v, true
+				case int:
+					return time.Duration(v), true
+				case int64:
+					return time.Duration(v), true
+				case float64:
+					return time.Duration(v), true
+				case string:
+					if d, err := time.ParseDuration(v); err == nil {
+						return d, true
+					}
+				}
+			}
+			return 0, false
+		}
+
+		getStringSlice := func(key string) ([]string, bool) {
+			if val, exists := userOptions[key]; exists {
+				if slice, ok := val.([]string); ok {
+					return slice, true
+				}
+				// Handle []interface{} case
+				if slice, ok := val.([]interface{}); ok {
+					result := make([]string, len(slice))
+					for i, v := range slice {
+						if str, ok := v.(string); ok {
+							result[i] = str
+						} else {
+							return nil, false
+						}
+					}
+					return result, true
+				}
+			}
+			return nil, false
+		}
+
+		// Apply user options only if they exist in the map
+		if val, exists := getBool("UdpDiscovery"); exists {
+			tcpOpts.UdpDiscovery = val
+			pubsub.logger.Debug("Updated UdpDiscovery to:", tcpOpts.UdpDiscovery)
+		}
+
+		if val, exists := getBool("UdpReuseAddr"); exists {
+			tcpOpts.UdpReuseAddr = val
+			pubsub.logger.Debug("Updated UdpReuseAddr to:", tcpOpts.UdpReuseAddr)
+		}
+
+		if val, exists := getInt("UdpPort"); exists {
+			tcpOpts.UdpPort = val
+			pubsub.logger.Debug("Updated UdpPort to:", tcpOpts.UdpPort)
+		}
+
+		if val, exists := getString("UdpBindAddress"); exists {
+			tcpOpts.UdpBindAddress = val
+			pubsub.logger.Debug("Updated UdpBindAddress to:", tcpOpts.UdpBindAddress)
+		}
+
+		if val, exists := getDuration("UdpPeriod"); exists {
+			tcpOpts.UdpPeriod = val
+			pubsub.logger.Debug("Updated UdpPeriod to:", tcpOpts.UdpPeriod)
+		}
+
+		if val, exists := getInt("UdpMaxDiscovery"); exists {
+			tcpOpts.UdpMaxDiscovery = val
+			pubsub.logger.Debug("Updated UdpMaxDiscovery to:", tcpOpts.UdpMaxDiscovery)
+		}
+
+		if val, exists := getString("UdpMulticast"); exists {
+			tcpOpts.UdpMulticast = val
+			pubsub.logger.Debug("Updated UdpMulticast to:", tcpOpts.UdpMulticast)
+		}
+
+		if val, exists := getInt("UdpMulticastTTL"); exists {
+			tcpOpts.UdpMulticastTTL = val
+			pubsub.logger.Debug("Updated UdpMulticastTTL to:", tcpOpts.UdpMulticastTTL)
+		}
+
+		if val, exists := getStringSlice("UdpBroadcast"); exists {
+			tcpOpts.UdpBroadcast = val
+			pubsub.logger.Debug("Updated UdpBroadcast to:", tcpOpts.UdpBroadcast)
+		}
+
+		if val, exists := getInt("Port"); exists {
+			tcpOpts.Port = val
+			pubsub.logger.Debug("Updated Port to:", tcpOpts.Port)
+		}
+
+		if val, exists := getStringSlice("Urls"); exists {
+			tcpOpts.Urls = val
+			pubsub.logger.Debug("Updated Urls to:", tcpOpts.Urls)
+		}
+
+		if val, exists := getBool("UseHostname"); exists {
+			tcpOpts.UseHostname = val
+			pubsub.logger.Debug("Updated UseHostname to:", tcpOpts.UseHostname)
+		}
+
+		if val, exists := getInt("GossipPeriod"); exists {
+			tcpOpts.GossipPeriod = val
+			pubsub.logger.Debug("Updated GossipPeriod to:", tcpOpts.GossipPeriod)
+		}
+
+		if val, exists := getInt("MaxConnections"); exists {
+			tcpOpts.MaxConnections = val
+			pubsub.logger.Debug("Updated MaxConnections to:", tcpOpts.MaxConnections)
+		}
+
+		if val, exists := getInt("MaxPacketSize"); exists {
+			tcpOpts.MaxPacketSize = val
+			pubsub.logger.Debug("Updated MaxPacketSize to:", tcpOpts.MaxPacketSize)
+		}
+
+		if val, exists := getInt("WorkerPoolSize"); exists {
+			tcpOpts.WorkerPoolSize = val
+			pubsub.logger.Debug("Updated WorkerPoolSize to:", tcpOpts.WorkerPoolSize)
+		}
+
+		if val, exists := getDuration("ConnectionTimeout"); exists {
+			tcpOpts.ConnectionTimeout = val
+			pubsub.logger.Debug("Updated ConnectionTimeout to:", tcpOpts.ConnectionTimeout)
+		}
+
+		if val, exists := getDuration("IdleConnectionTimeout"); exists {
+			tcpOpts.IdleConnectionTimeout = val
+			pubsub.logger.Debug("Updated IdleConnectionTimeout to:", tcpOpts.IdleConnectionTimeout)
+		}
+
+		if val, exists := getString("Prefix"); exists {
+			tcpOpts.Prefix = val
+			pubsub.logger.Debug("Updated Prefix to:", tcpOpts.Prefix)
+		}
+
+		if val, exists := getString("NodeId"); exists {
+			tcpOpts.NodeId = val
+			pubsub.logger.Debug("Updated NodeId to:", tcpOpts.NodeId)
+		}
+
+		if val, exists := getString("Namespace"); exists {
+			tcpOpts.Namespace = val
+			pubsub.logger.Debug("Updated Namespace to:", tcpOpts.Namespace)
+		}
+	}
+
+	// Set runtime-specific values (always override)
+	tcpOpts.Namespace = pubsub.broker.Config.Namespace
+	tcpOpts.NodeId = pubsub.broker.LocalNode().GetID()
+	tcpOpts.Logger = pubsub.logger.WithField("transport", "tcp")
+	tcpOpts.Serializer = pubsub.serializer
+	tcpOpts.BrokerDelegates = pubsub.broker
+
+	tcpTransporter := tcp.CreateTCPTransporter(tcpOpts)
+	var transport transit.Transport = tcpTransporter
 	return transport
 }
 
@@ -790,4 +967,9 @@ func (pubsub *PubSub) Connect(registry moleculer.Registry) chan error {
 
 func (pubsub *PubSub) Ready() {
 
+}
+
+// GetTransport returns the underlying transport for metrics access
+func (pubsub *PubSub) GetTransport() transit.Transport {
+	return pubsub.transport
 }

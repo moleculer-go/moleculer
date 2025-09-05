@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer/payload"
+	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,12 +27,22 @@ func natsTestHost() string {
 
 var NatsTestHost = natsTestHost()
 
+// createRegistryMock creates a mock registry for testing
+func createRegistryMock() moleculer.Registry {
+	localNode := &test.NodeMock{ID: "test-node"}
+	return &test.RegistryMock{
+		LocalNodeResult: localNode,
+		Nodes:           make(map[string]moleculer.Node),
+	}
+}
+
 var _ = Describe("NATS Streaming Transit", func() {
 	//log.SetLevel(log.TraceLevel)
 	brokerDelegates := BrokerDelegates()
 	contextA := context.BrokerContext(brokerDelegates)
 	url := "nats://" + NatsTestHost + ":4222"
 
+	logLevel := "error"
 	stringSize := 50
 	arraySize := 100
 	var longList []interface{}
@@ -41,7 +52,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	}
 
 	Describe("Remote Calls", func() {
-		logLevel := "fatal"
+
 		transporter := "nats://" + NatsTestHost + ":4222"
 
 		var userBroker, profileBroker *broker.ServiceBroker
@@ -98,7 +109,7 @@ var _ = Describe("NATS Streaming Transit", func() {
 	})
 
 	Describe("Start / Stop Cycles.", func() {
-		logLevel := "error"
+
 		numberOfLoops := 5
 		loopNumber := 0
 		Measure("Creation of multiple brokers with connect/disconnect cycles running on nats transporter.", func(bench Benchmarker) {
@@ -135,6 +146,9 @@ var _ = Describe("NATS Streaming Transit", func() {
 			})
 
 			bench.Time("local calls", func() {
+				// Add a small delay to ensure brokers are fully connected
+				time.Sleep(50 * time.Millisecond)
+
 				result := <-userBroker.Call("user.update", longList)
 				Expect(len(result.StringArray())).Should(Equal(arraySize + 1))
 
@@ -176,6 +190,11 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 			loopNumber++
 
+			// Ensure all brokers are properly stopped and cleaned up
+			stopBrokers(userBroker, contactBroker, profileBroker)
+			// Additional delay between loops to prevent "too many channels" error
+			time.Sleep(200 * time.Millisecond)
+
 		}, numberOfLoops)
 
 	})
@@ -194,7 +213,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).ShouldNot(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).ShouldNot(Succeed())
 	})
 
 	It("Should not fail on double disconnect", func() {
@@ -211,7 +231,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 		}
 		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 		Expect(<-transporter.Disconnect()).Should(Succeed())
 	})
@@ -245,7 +266,8 @@ var _ = Describe("NATS Streaming Transit", func() {
 
 		transporter := nats.CreateNatsTransporter(options)
 		transporter.SetPrefix("MOL")
-		Expect(<-transporter.Connect()).Should(Succeed())
+		registry := createRegistryMock()
+		Expect(<-transporter.Connect(registry)).Should(Succeed())
 
 		received := make(chan bool)
 		transporter.Subscribe("topicA", "node1", func(message moleculer.Payload) {

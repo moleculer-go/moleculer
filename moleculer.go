@@ -147,6 +147,63 @@ type Config struct {
 	Stopped                    func()
 
 	Services map[string]interface{}
+
+	// TCP transporter options (map-based for user flexibility)
+	TCPOptions map[string]interface{}
+}
+
+// TCPConfig holds TCP transporter configuration options
+type TCPConfig struct {
+	// Enable UDP discovery
+	UdpDiscovery bool
+	// Reusing UDP server socket
+	UdpReuseAddr bool
+
+	// UDP port for listening and discovery (defaults to 4445 for compatibility)
+	UdpPort int
+	// UDP bind address (if null, bind on all interfaces)
+	UdpBindAddress string
+	// UDP sending period (seconds)
+	UdpPeriod time.Duration
+
+	UdpMaxDiscovery int
+
+	// Memory management options
+	// Worker pool size for connection handling (default: 20)
+	WorkerPoolSize int
+	// Connection timeout duration (default: 30 seconds)
+	ConnectionTimeout time.Duration
+	// Idle connection cleanup interval (default: 60 seconds)
+	IdleConnectionTimeout time.Duration
+
+	// Multicast address.
+	UdpMulticast string
+	// Multicast TTL setting
+	UdpMulticastTTL int
+
+	// Send broadcast (Boolean, String, Array<String>)
+	UdpBroadcast      []string
+	UdpBroadcastAddrs []string
+	// TCP server port. 0 means random port
+	Port int
+	// Static remote nodes address list (when UDP discovery is not available)
+	Urls []string
+	// Use hostname as preffered connection address
+	UseHostname bool
+
+	// Gossip sending period in seconds
+	GossipPeriod int
+	// Maximum enabled outgoing connections. If reach, close the old connections
+	MaxConnections int
+	// Maximum TCP packet size
+	MaxPacketSize int
+
+	Prefix      string
+	NodeId      string
+	Namespace   string
+	Logger      *log.Entry
+	Serializer  interface{} // Will be set to the actual serializer type
+	ValidateMsg interface{} // Will be set to the actual validate function type
 }
 
 var DefaultConfig = Config{
@@ -176,6 +233,34 @@ var DefaultConfig = Config{
 	RequestTimeout:            3 * time.Second,
 	MCallTimeout:              5 * time.Second,
 	WaitForNeighboursInterval: 200 * time.Millisecond,
+
+	// Default TCP options (matching JavaScript defaults)
+	TCPOptions: map[string]interface{}{
+		"UdpDiscovery":          true,
+		"UdpReuseAddr":          true,
+		"UdpPort":               4445, // Default UDP listening and discovery port (matches JavaScript)
+		"UdpBindAddress":        "",
+		"UdpPeriod":             30 * time.Second,
+		"UdpMaxDiscovery":       0,                // Unlimited
+		"WorkerPoolSize":        20,               // Default worker pool size
+		"ConnectionTimeout":     30 * time.Second, // Default connection timeout
+		"IdleConnectionTimeout": 60 * time.Second, // Default idle connection timeout
+		"UdpMulticast":          "239.0.0.0",
+		"UdpMulticastTTL":       1,
+		"UdpBroadcast":          []string{},
+		"Port":                  0, // Random TCP port
+		"Urls":                  []string{},
+		"UseHostname":           true,
+		"GossipPeriod":          2, // 2 seconds
+		"MaxConnections":        32,
+		"MaxPacketSize":         1024 * 1024, // 1MB
+		"Prefix":                "",
+		"NodeId":                "",
+		"Namespace":             "",
+		"Logger":                nil, // Will be set by broker
+		"Serializer":            nil, // Will be set by broker
+		"ValidateMsg":           nil, // Will be set by broker
+	},
 }
 
 // discoverNodeID - should return the node id for this machine

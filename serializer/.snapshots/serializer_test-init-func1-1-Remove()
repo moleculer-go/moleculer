@@ -1,4 +1,0 @@
-(serializer.JSONPayload) (len=2) {
-  "faction": Stark,
-  "lastname": Snow,
-}

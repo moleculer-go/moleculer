@@ -103,6 +103,7 @@ var _ = Describe("Broker", func() {
 		bkrRemote.Publish(service)
 		bkrRemote.Start()
 
+		bkrRemote.WaitForNodes("do-broker")
 		bkrRemote.WaitFor("do")
 		result = <-bkrRemote.Call("remote.panic", true)
 

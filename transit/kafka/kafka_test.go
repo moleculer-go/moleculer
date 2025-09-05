@@ -9,6 +9,7 @@ import (
 	"github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/serializer"
+	"github.com/moleculer-go/moleculer/test"
 	"github.com/moleculer-go/moleculer/transit/kafka"
 	"github.com/moleculer-go/moleculer/transit/nats"
 	"github.com/moleculer-go/moleculer/util"
@@ -23,6 +24,10 @@ func kafkaTestHost() string {
 		return "127.0.0.1"
 	}
 	return env
+}
+
+func createRegistryMock() moleculer.Registry {
+	return &test.RegistryMock{}
 }
 
 var KafkaTestHost = kafkaTestHost()
@@ -107,7 +112,8 @@ var _ = Describe("Test Kafka Transit", func() {
 			}
 			transporter := kafka.CreateKafkaTransporter(options)
 			transporter.SetPrefix("MOL")
-			Expect(<-transporter.Connect()).Should(Succeed())
+			registry := createRegistryMock()
+			Expect(<-transporter.Connect(registry)).Should(Succeed())
 			Expect(<-transporter.Disconnect()).Should(Succeed())
 			Expect(<-transporter.Disconnect()).Should(Succeed())
 		})
@@ -132,7 +138,8 @@ var _ = Describe("Test Kafka Transit", func() {
 			}
 			transporter := nats.CreateNatsTransporter(options)
 			transporter.SetPrefix("MOL")
-			Expect(<-transporter.Connect()).ShouldNot(Succeed())
+			registry := createRegistryMock()
+			Expect(<-transporter.Connect(registry)).ShouldNot(Succeed())
 		})
 
 		It("Should connect, subscribe, publish and disconnect", func() {
@@ -160,7 +167,8 @@ var _ = Describe("Test Kafka Transit", func() {
 			transporter.SetSerializer(serializer)
 			transporter.SetPrefix("MOL")
 			transporter.SetNodeID(node)
-			Expect(<-transporter.Connect()).Should(Succeed())
+			registry := createRegistryMock()
+			Expect(<-transporter.Connect(registry)).Should(Succeed())
 
 			received := make(chan bool)
 			done := make(chan bool)

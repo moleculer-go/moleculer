@@ -1,11 +1,9 @@
 package registry_test
 
 import (
-	"os"
 	"sync"
 	"time"
 
-	"github.com/moleculer-go/cupaloy/v2"
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
@@ -16,7 +14,6 @@ import (
 )
 
 var logLevel = "fatal"
-var snap = cupaloy.New(cupaloy.FailOnUpdate(os.Getenv("UPDATE_SNAPSHOTS") == "true"))
 
 func createPrinterBroker(mem *memory.SharedMemory) broker.ServiceBroker {
 	broker := broker.New(&moleculer.Config{
