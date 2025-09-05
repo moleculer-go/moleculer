@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 
@@ -123,7 +124,16 @@ func (actionCatalog *ActionCatalog) Add(action service.Action, serv *service.Ser
 	if !exists {
 		list = []ActionEntry{entry}
 	} else {
-		list = append(list.([]ActionEntry), entry)
+		existingList := list.([]ActionEntry)
+		// Check if this node already has an entry for this action to prevent memory leak
+		for _, existingEntry := range existingList {
+			if existingEntry.targetNodeID == entry.targetNodeID {
+				// Node already has this action, don't add duplicate
+				return
+			}
+		}
+		// Only append if not found
+		list = append(existingList, entry)
 	}
 	actionCatalog.actions.Store(name, list)
 }
@@ -201,6 +211,12 @@ func (actionCatalog *ActionCatalog) Next(actionName string, stg strategy.Strateg
 		actionCatalog.logger.Debug("actionCatalog.Next() action not found: ", actionName, "  actionCatalog.actions: ", actionCatalog.actions)
 		return nil
 	}
+
+	// Sort by nodeID to ensure deterministic order for load balancing
+	sort.Slice(actions, func(i, j int) bool {
+		return actions[i].targetNodeID < actions[j].targetNodeID
+	})
+
 	nodes := make([]strategy.Selector, len(actions))
 	for index, action := range actions {
 		nodes[index] = action
