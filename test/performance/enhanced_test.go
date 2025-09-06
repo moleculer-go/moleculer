@@ -19,6 +19,8 @@ import (
 // configureLogger configures the logger level for enhanced tests
 func configureLogger(level string) {
 	switch level {
+	case "TRACE":
+		log.SetLevel(log.TraceLevel)
 	case "DEBUG":
 		log.SetLevel(log.DebugLevel)
 	case "INFO":
@@ -228,17 +230,27 @@ func (ebc *EnhancedBrokerCluster) Start() error {
 
 	log.WithField("expected_services", expectedServices).Info("Waiting for services to be discovered")
 
-	// Wait for all services to be discovered
-	log.WithField("expected_services", expectedServices).Info("Waiting for all services to be discovered")
-	err := ebc.brokers[0].WaitFor(expectedServices...)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"expected_services": expectedServices,
-			"error":             err,
-		}).Warn("Some services not discovered within timeout, continuing anyway")
-	} else {
-		log.Info("All services discovered successfully")
+	// Each broker needs to wait for ALL remote services to be discovered
+	// This ensures cross-broker calls will work
+	for brokerIndex, broker := range ebc.brokers {
+		log.WithField("broker_index", brokerIndex).Info("Waiting for remote services to be discovered on this broker")
+
+		// Each broker waits for all services (including its own and remote ones)
+		err := broker.WaitFor(expectedServices...)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"broker_index":      brokerIndex,
+				"expected_services": expectedServices,
+				"error":             err,
+			}).Warn("Some services not discovered within timeout on this broker, continuing anyway")
+		} else {
+			log.WithField("broker_index", brokerIndex).Info("All services discovered successfully on this broker")
+		}
 	}
+
+	// Additional wait to ensure all services are fully registered and ready
+	log.Info("Additional wait to ensure all services are fully registered...")
+	time.Sleep(2 * time.Second)
 
 	// Log registered services for debugging
 	log.Info("Checking registered services across all brokers")
@@ -794,7 +806,7 @@ func DefaultEnhancedTestConfig() *EnhancedTestConfig {
 // TestEnhancedPerformance tests the enhanced performance system
 func TestEnhancedPerformance(t *testing.T) {
 	// Configure logger for debugging
-	configureLogger("DEBUG")
+	configureLogger("TRACE")
 
 	log.Info("Starting TestEnhancedPerformance")
 
@@ -941,6 +953,68 @@ func TestEnhancedPerformance(t *testing.T) {
 	if !result.Success {
 		t.Errorf("Test failed: %v", result.ValidationResults.ValidationErrors)
 	}
+
+	// **NEW: Add specific assertions for action chain completion**
+	t.Run("ActionChainCompletion", func(t *testing.T) {
+		// Assert that all expected actions are present
+		expectedActionCount := len(config.CallChainConfig)
+		actualActionCount := len(result.ActionResults)
+		if actualActionCount != expectedActionCount {
+			t.Errorf("Action chain incomplete: expected %d actions, got %d", expectedActionCount, actualActionCount)
+		}
+
+		// Assert that the first action is service-0.action-0
+		if len(result.ActionResults) > 0 {
+			firstAction := result.ActionResults[0].ActionName
+			expectedFirstAction := "service-0.action-0"
+			if firstAction != expectedFirstAction {
+				t.Errorf("Action chain order incorrect: expected first action %s, got %s", expectedFirstAction, firstAction)
+			}
+		}
+
+		// Assert that the last action is service-11.action-0
+		if len(result.ActionResults) > 0 {
+			lastAction := result.ActionResults[len(result.ActionResults)-1].ActionName
+			expectedLastAction := fmt.Sprintf("service-%d.action-0", len(config.CallChainConfig)-1)
+			if lastAction != expectedLastAction {
+				t.Errorf("Action chain order incorrect: expected last action %s, got %s", expectedLastAction, lastAction)
+			}
+		}
+
+		// Assert that all actions have valid random values
+		for _, actionResult := range result.ActionResults {
+			if actionResult.RandomValue == 0 {
+				t.Errorf("Invalid random value for %s: got %d", actionResult.ActionName, actionResult.RandomValue)
+			}
+		}
+
+		// Assert that all actions have the expected payload sizes
+		for _, actionResult := range result.ActionResults {
+			if callConfig, exists := config.CallChainConfig[actionResult.ActionName]; exists {
+				expectedSize := callConfig.ReturnPayloadSize
+				actualSize := len(actionResult.Payload)
+				if actualSize != expectedSize {
+					t.Errorf("Payload size mismatch for %s: expected %d, got %d",
+						actionResult.ActionName, expectedSize, actualSize)
+				}
+			}
+		}
+	})
+
+	// **NEW: Add specific assertions for event aggregation**
+	t.Run("EventAggregation", func(t *testing.T) {
+		// Assert that we received events for all actions
+		expectedEventCount := len(result.ActionResults)
+		actualEventCount := len(result.EventResults)
+		if actualEventCount != expectedEventCount {
+			t.Errorf("Event count mismatch: expected %d events, got %d", expectedEventCount, actualEventCount)
+		}
+
+		// Assert that action and event results match
+		if !result.ValidationResults.ActionEventMatch {
+			t.Errorf("Action-Event mismatch: %v", result.ValidationResults.ValidationErrors)
+		}
+	})
 }
 
 // runEnhancedTest runs the enhanced test
@@ -1147,14 +1221,89 @@ func runEnhancedTest(cluster *EnhancedBrokerCluster, config *EnhancedTestConfig)
 
 // validateResults validates the test results
 func validateResults(actionResults []ActionResult, eventResults []ActionResult, config *EnhancedTestConfig) *ValidationResults {
-	// Count total actions called - this is the number of services in the chain
-	// For a linear chain, each service calls the next one, so total = number of services
-	totalActionsCalled := len(config.CallChainConfig)
+	// Count total actions called - this should be the actual number of actions in the result
+	// The action chain should return results from ALL services in the chain
+	totalActionsCalled := len(actionResults)
 
 	validation := &ValidationResults{
 		TotalActionsCalled:  totalActionsCalled,
 		TotalEventsReceived: len(eventResults),
 		ValidationErrors:    make([]string, 0),
+	}
+
+	// Check if action chain completed properly
+	expectedActions := len(config.CallChainConfig)
+	if totalActionsCalled != expectedActions {
+		validation.ValidationErrors = append(validation.ValidationErrors,
+			fmt.Sprintf("Action chain incomplete: expected %d actions, got %d", expectedActions, totalActionsCalled))
+	}
+
+	// **NEW: Verify that all expected actions are present in the result**
+	expectedActionNames := make(map[string]bool)
+	for actionName := range config.CallChainConfig {
+		expectedActionNames[actionName] = true
+	}
+
+	actualActionNames := make(map[string]bool)
+	for _, result := range actionResults {
+		actualActionNames[result.ActionName] = true
+	}
+
+	// Check for missing actions
+	for expectedAction := range expectedActionNames {
+		if !actualActionNames[expectedAction] {
+			validation.ValidationErrors = append(validation.ValidationErrors,
+				fmt.Sprintf("Missing action in chain result: %s", expectedAction))
+		}
+	}
+
+	// Check for unexpected actions
+	for actualAction := range actualActionNames {
+		if !expectedActionNames[actualAction] {
+			validation.ValidationErrors = append(validation.ValidationErrors,
+				fmt.Sprintf("Unexpected action in chain result: %s", actualAction))
+		}
+	}
+
+	// **NEW: Verify action chain order (first action should be service-0.action-0)**
+	if len(actionResults) > 0 {
+		firstAction := actionResults[0].ActionName
+		expectedFirstAction := "service-0.action-0"
+		if firstAction != expectedFirstAction {
+			validation.ValidationErrors = append(validation.ValidationErrors,
+				fmt.Sprintf("Action chain order incorrect: expected first action %s, got %s", expectedFirstAction, firstAction))
+		}
+	}
+
+	// **NEW: Verify action chain order (last action should be service-11.action-0)**
+	if len(actionResults) > 0 {
+		lastAction := actionResults[len(actionResults)-1].ActionName
+		expectedLastAction := fmt.Sprintf("service-%d.action-0", len(config.CallChainConfig)-1)
+		if lastAction != expectedLastAction {
+			validation.ValidationErrors = append(validation.ValidationErrors,
+				fmt.Sprintf("Action chain order incorrect: expected last action %s, got %s", expectedLastAction, lastAction))
+		}
+	}
+
+	// **NEW: Verify that each action has the expected payload size**
+	for _, actionResult := range actionResults {
+		if callConfig, exists := config.CallChainConfig[actionResult.ActionName]; exists {
+			expectedSize := callConfig.ReturnPayloadSize
+			actualSize := len(actionResult.Payload)
+			if actualSize != expectedSize {
+				validation.ValidationErrors = append(validation.ValidationErrors,
+					fmt.Sprintf("Payload size mismatch for %s: expected %d, got %d",
+						actionResult.ActionName, expectedSize, actualSize))
+			}
+		}
+	}
+
+	// **NEW: Verify that each action has a valid random value**
+	for _, actionResult := range actionResults {
+		if actionResult.RandomValue == 0 {
+			validation.ValidationErrors = append(validation.ValidationErrors,
+				fmt.Sprintf("Invalid random value for %s: got %d", actionResult.ActionName, actionResult.RandomValue))
+		}
 	}
 
 	// Sort both lists for comparison
@@ -1259,16 +1408,25 @@ func TestEnhancedPerformanceWithDifferentTransporters(t *testing.T) {
 
 			log.WithField("expected_services", expectedServices).Info("Waiting for services to be discovered")
 
-			// Wait for all services to be discovered
-			log.WithField("expected_services", expectedServices).Info("Waiting for all services to be discovered")
-			waitErr := cluster.GetBroker(0).WaitFor(expectedServices...)
-			if waitErr != nil {
-				log.WithFields(log.Fields{
-					"expected_services": expectedServices,
-					"error":             waitErr,
-				}).Warn("Some services not discovered within timeout, continuing anyway")
-			} else {
-				log.Info("All services discovered successfully")
+			// Each broker needs to wait for ALL remote services to be discovered
+			// This ensures cross-broker calls will work
+			for brokerIndex := 0; brokerIndex < config.BrokerCount; brokerIndex++ {
+				broker := cluster.GetBroker(brokerIndex)
+				if broker != nil {
+					log.WithField("broker_index", brokerIndex).Info("Waiting for remote services to be discovered on this broker")
+
+					// Each broker waits for all services (including its own and remote ones)
+					waitErr := broker.WaitFor(expectedServices...)
+					if waitErr != nil {
+						log.WithFields(log.Fields{
+							"broker_index":      brokerIndex,
+							"expected_services": expectedServices,
+							"error":             waitErr,
+						}).Warn("Some services not discovered within timeout on this broker, continuing anyway")
+					} else {
+						log.WithField("broker_index", brokerIndex).Info("All services discovered successfully on this broker")
+					}
+				}
 			}
 
 			// Run the test
