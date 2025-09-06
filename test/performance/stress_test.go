@@ -59,7 +59,7 @@ type StressTestResult struct {
 	ErrorRate              float64
 	PeakMemoryUsage        uint64
 	FinalMemoryUsage       uint64
-	MemoryGrowth           uint64
+	MemoryGrowth           int64
 	PeakGoroutineCount     int
 	FinalGoroutineCount    int
 	GoroutineLeak          int
@@ -403,7 +403,7 @@ func runStressTestInternal(t *testing.T, config *StressTestConfig) *StressTestRe
 		ErrorRate:              errorRate,
 		PeakMemoryUsage:        peakMemory,
 		FinalMemoryUsage:       finalMem.HeapAlloc,
-		MemoryGrowth:           finalMem.HeapAlloc - initialMem.HeapAlloc,
+		MemoryGrowth:           int64(finalMem.HeapAlloc) - int64(initialMem.HeapAlloc),
 		PeakGoroutineCount:     finalGoroutines,
 		FinalGoroutineCount:    finalGoroutines,
 		GoroutineLeak:          finalGoroutines - initialGoroutines,

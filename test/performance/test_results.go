@@ -10,31 +10,19 @@ import (
 
 // TestResult represents the result of a single test run
 type TestResult struct {
-	TestName      string                 `json:"test_name"`
-	Transporter   string                 `json:"transporter,omitempty"`
-	Timestamp     time.Time              `json:"timestamp"`
-	Duration      time.Duration          `json:"duration_ms"`
-	Success       bool                   `json:"success"`
-	Error         string                 `json:"error,omitempty"`
-	Metrics       map[string]interface{} `json:"metrics"`
-	MemoryStats   *MemoryStats           `json:"memory_stats,omitempty"`
-	Configuration map[string]interface{} `json:"configuration,omitempty"`
-	TestSettings  *TestSettings          `json:"test_settings,omitempty"`
-}
-
-// TestSettings represents the configuration and parameters used in a test
-type TestSettings struct {
-	TransporterType    string                 `json:"transporter_type"`
-	TransporterConfig  map[string]interface{} `json:"transporter_config"`
-	BrokerCount        int                    `json:"broker_count"`
-	ServicesPerBroker  int                    `json:"services_per_broker"`
-	ActionsPerService  int                    `json:"actions_per_service"`
-	EventsPerService   int                    `json:"events_per_service"`
-	TestDuration       time.Duration          `json:"test_duration_ms"`
-	ConcurrencyLevel   int                    `json:"concurrency_level"`
-	MemoryThreshold    int64                  `json:"memory_threshold_bytes"`
-	GoroutineThreshold int                    `json:"goroutine_threshold"`
-	OtherSettings      map[string]interface{} `json:"other_settings,omitempty"`
+	TestName          string                 `json:"test_name"`
+	Transporter       string                 `json:"transporter,omitempty"`
+	Timestamp         time.Time              `json:"timestamp"`
+	Duration          time.Duration          `json:"duration_ms"`
+	Success           bool                   `json:"success"`
+	Error             string                 `json:"error,omitempty"`
+	Metrics           map[string]interface{} `json:"metrics"`
+	MemoryStats       *MemoryStats           `json:"memory_stats,omitempty"`
+	Configuration     map[string]interface{} `json:"configuration,omitempty"`
+	TestSettings      *TestSettings          `json:"test_settings,omitempty"`
+	ActionResults     []ActionResult         `json:"action_results,omitempty"`
+	EventResults      []ActionResult         `json:"event_results,omitempty"`
+	ValidationResults *ValidationResults     `json:"validation_results,omitempty"`
 }
 
 // TestSuiteResult represents results for a complete test suite

@@ -24,24 +24,6 @@ type MultiBrokerTestConfig struct {
 	LogLevel          string
 }
 
-// MemoryStats tracks memory usage during multi-broker tests
-type MemoryStats struct {
-	InitialHeap    uint64
-	PeakHeap       uint64
-	FinalHeap      uint64
-	HeapGrowth     uint64
-	GoroutineCount int
-	Measurements   []MemoryMeasurement
-}
-
-// MemoryMeasurement represents a single memory measurement
-type MemoryMeasurement struct {
-	Timestamp      time.Time
-	HeapSize       uint64
-	GoroutineCount int
-	BrokerCount    int
-}
-
 // measureMemory captures current memory statistics
 func measureMemory() MemoryStats {
 	var m runtime.MemStats
@@ -52,28 +34,8 @@ func measureMemory() MemoryStats {
 		FinalHeap:      m.HeapAlloc,
 		HeapGrowth:     0,
 		GoroutineCount: runtime.NumGoroutine(),
-		Measurements:   make([]MemoryMeasurement, 0),
+		Measurements:   make([]Measurement, 0),
 	}
-}
-
-// updateMemoryStats updates memory statistics
-func (ms *MemoryStats) update(brokerCount int) {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	ms.FinalHeap = m.HeapAlloc
-	ms.HeapGrowth = ms.FinalHeap - ms.InitialHeap
-	ms.GoroutineCount = runtime.NumGoroutine()
-	if m.HeapAlloc > ms.PeakHeap {
-		ms.PeakHeap = m.HeapAlloc
-	}
-
-	// Record measurement
-	ms.Measurements = append(ms.Measurements, MemoryMeasurement{
-		Timestamp:      time.Now(),
-		HeapSize:       m.HeapAlloc,
-		GoroutineCount: runtime.NumGoroutine(),
-		BrokerCount:    brokerCount,
-	})
 }
 
 // DefaultMultiBrokerConfig returns default configuration
