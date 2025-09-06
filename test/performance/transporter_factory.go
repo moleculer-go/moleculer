@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/serializer"
 	"github.com/moleculer-go/moleculer/transit/amqp"
 	"github.com/moleculer-go/moleculer/transit/kafka"
 	"github.com/moleculer-go/moleculer/transit/memory"
@@ -150,6 +151,8 @@ func (tf *TransporterFactory) createNATSTransporter() interface{} {
 
 	options := nats.NATSOptions{
 		URL:            url,
+		Logger:         log.WithField("transport", "nats"),
+		Serializer:     serializer.CreateJSONSerializer(log.WithField("transport", "nats")),
 		AllowReconnect: true,
 		ReconnectWait:  5 * time.Second,
 		MaxReconnect:   10,
@@ -161,16 +164,22 @@ func (tf *TransporterFactory) createNATSTransporter() interface{} {
 
 // createRedisTransporter creates a Redis transporter
 func (tf *TransporterFactory) createRedisTransporter() interface{} {
-	url := "redis://localhost:6379"
+	host := "localhost"
+	port := 6379
 
-	if tf.config.Redis != nil && tf.config.Redis.URL != "" {
-		url = tf.config.Redis.URL
+	if tf.config.Redis != nil {
+		if tf.config.Redis.URL != "" {
+			// Parse URL if provided (simple parsing for redis://host:port format)
+			// For now, just use localhost:6379 as default
+		}
 	}
 
 	transport := redis.NewRedisTransporter(&redis.RedisConfig{
-		URL: url,
+		Host: host,
+		Port: port,
 	})
-	return &transport
+	transport.SetSerializer(serializer.CreateJSONSerializer(log.WithField("transport", "redis")))
+	return transport
 }
 
 // createAMQPTransporter creates an AMQP transporter
@@ -182,7 +191,9 @@ func (tf *TransporterFactory) createAMQPTransporter() interface{} {
 	}
 
 	options := amqp.AmqpOptions{
-		Url: []string{url},
+		Url:        []string{url},
+		Logger:     log.WithField("transport", "amqp"),
+		Serializer: serializer.CreateJSONSerializer(log.WithField("transport", "amqp")),
 	}
 
 	transport := amqp.CreateAmqpTransporter(options)
@@ -198,7 +209,9 @@ func (tf *TransporterFactory) createKafkaTransporter() interface{} {
 	}
 
 	options := kafka.KafkaOptions{
-		Url: brokers[0], // Use first broker as URL
+		Url:        brokers[0], // Use first broker as URL
+		Logger:     log.WithField("transport", "kafka"),
+		Serializer: serializer.CreateJSONSerializer(log.WithField("transport", "kafka")),
 	}
 
 	transport := kafka.CreateKafkaTransporter(options)

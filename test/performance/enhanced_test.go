@@ -1191,7 +1191,7 @@ func validateResults(actionResults []ActionResult, eventResults []ActionResult, 
 
 // TestEnhancedPerformanceWithDifferentTransporters tests with different transporters
 func TestEnhancedPerformanceWithDifferentTransporters(t *testing.T) {
-	transporters := []string{"Memory", "TCP"}
+	transporters := []string{"Memory", "TCP", "NATS", "AMQP", "Kafka", "Redis"}
 
 	for _, transporterType := range transporters {
 		t.Run(transporterType, func(t *testing.T) {
