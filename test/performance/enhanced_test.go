@@ -3,6 +3,7 @@ package performance
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
@@ -553,22 +554,41 @@ func (ebc *EnhancedBrokerCluster) handleAction(ctx moleculer.Context, params mol
 
 		// Parse result
 		var actionResults []ActionResult
-		if resultArray := result.MapArray(); len(resultArray) > 0 {
-			for _, item := range resultArray {
-				if actionName, ok := item["action_name"].(string); ok {
-					randomValue := int64(0)
-					if rv, ok := item["random_value"].(int64); ok {
-						randomValue = rv
+
+		// Try to unmarshal the result directly as []ActionResult
+		if rawBytes := result.ByteArray(); len(rawBytes) > 0 {
+			if err := json.Unmarshal(rawBytes, &actionResults); err != nil {
+				log.WithError(err).Warn("Failed to unmarshal result as []ActionResult")
+			} else {
+				log.WithField("unmarshaled_count", len(actionResults)).Info("Successfully unmarshaled action results in handler")
+			}
+		}
+
+		// If that didn't work, try to parse as array
+		if len(actionResults) == 0 {
+			if resultArray := result.Array(); len(resultArray) > 0 {
+				for _, item := range resultArray {
+					// Try to unmarshal the item as ActionResult directly
+					var actionResult ActionResult
+					if itemBytes := item.ByteArray(); len(itemBytes) > 0 {
+						if err := json.Unmarshal(itemBytes, &actionResult); err == nil {
+							actionResults = append(actionResults, actionResult)
+							continue
+						}
 					}
-					payload := []byte{}
-					if p, ok := item["payload"].([]byte); ok {
-						payload = p
+
+					// Fallback: try Payload.Get() methods
+					actionName := item.Get("action_name").String()
+					randomValue := item.Get("random_value").Int64()
+					payload := item.Get("payload").ByteArray()
+
+					if actionName != "" || randomValue != 0 || len(payload) > 0 {
+						actionResults = append(actionResults, ActionResult{
+							ActionName:  actionName,
+							RandomValue: randomValue,
+							Payload:     payload,
+						})
 					}
-					actionResults = append(actionResults, ActionResult{
-						ActionName:  actionName,
-						RandomValue: randomValue,
-						Payload:     payload,
-					})
 				}
 			}
 		}
@@ -614,7 +634,17 @@ func (ebc *EnhancedBrokerCluster) handleAction(ctx moleculer.Context, params mol
 		"total_results": len(allResults),
 	}).Info("Action handling completed")
 
-	return allResults
+	// Convert ActionResult structs to maps for better Moleculer serialization
+	var resultMaps []map[string]interface{}
+	for _, result := range allResults {
+		resultMaps = append(resultMaps, map[string]interface{}{
+			"action_name":  result.ActionName,
+			"random_value": result.RandomValue,
+			"payload":      result.Payload,
+		})
+	}
+
+	return resultMaps
 }
 
 // generateRandomPayload generates a random payload of specified size
@@ -805,8 +835,8 @@ func DefaultEnhancedTestConfig() *EnhancedTestConfig {
 
 // TestEnhancedPerformance tests the enhanced performance system
 func TestEnhancedPerformance(t *testing.T) {
-	// Configure logger for production
-	configureLogger("WARN")
+	// Configure logger for debugging
+	configureLogger("TRACE")
 
 	log.Info("Starting TestEnhancedPerformance")
 
@@ -1097,26 +1127,58 @@ func runEnhancedTest(cluster *EnhancedBrokerCluster, config *EnhancedTestConfig)
 
 	// Parse action results
 	var actionResults []ActionResult
-	// Convert result to the expected type
-	if resultArray := result.MapArray(); len(resultArray) > 0 {
-		// Convert map array to ActionResult slice
-		for _, item := range resultArray {
-			if actionName, ok := item["action_name"].(string); ok {
-				randomValue := int64(0)
-				if rv, ok := item["random_value"].(int64); ok {
-					randomValue = rv
+	// The action handler returns []ActionResult directly, not a map array
+	if resultArray := result.Array(); len(resultArray) > 0 {
+		log.WithField("result_array_length", len(resultArray)).Info("Parsing action results from array")
+		// Convert array to ActionResult slice
+		for i, item := range resultArray {
+			log.WithFields(log.Fields{
+				"index":     i,
+				"item_type": fmt.Sprintf("%T", item),
+				"item_raw":  fmt.Sprintf("%+v", item),
+			}).Info("Processing result item")
+
+			// Try to unmarshal the item as ActionResult directly
+			var actionResult ActionResult
+			if itemBytes := item.ByteArray(); len(itemBytes) > 0 {
+				if err := json.Unmarshal(itemBytes, &actionResult); err != nil {
+					log.WithError(err).Info("Failed to unmarshal item as ActionResult")
+				} else {
+					log.WithField("unmarshaled_action", actionResult).Info("Successfully unmarshaled action result")
+					actionResults = append(actionResults, actionResult)
+					continue
 				}
-				payload := []byte{}
-				if p, ok := item["payload"].([]byte); ok {
-					payload = p
-				}
-				actionResults = append(actionResults, ActionResult{
-					ActionName:  actionName,
-					RandomValue: randomValue,
-					Payload:     payload,
-				})
 			}
+
+			// Fallback: Convert the Payload item to ActionResult
+			actionName := item.Get("action_name").String()
+			randomValue := item.Get("random_value").Int64()
+			payload := item.Get("payload").ByteArray()
+
+			log.WithFields(log.Fields{
+				"action_name":  actionName,
+				"random_value": randomValue,
+				"payload_size": len(payload),
+			}).Info("Parsed action result via Get methods")
+
+			actionResults = append(actionResults, ActionResult{
+				ActionName:  actionName,
+				RandomValue: randomValue,
+				Payload:     payload,
+			})
 		}
+	} else {
+		log.Warn("No result array found, trying to parse as single ActionResult")
+		// Try to parse as a single ActionResult
+		actionName := result.Get("action_name").String()
+		randomValue := result.Get("random_value").Int64()
+		payload := result.Get("payload").ByteArray()
+
+		actionResults = append(actionResults, ActionResult{
+			ActionName:  actionName,
+			RandomValue: randomValue,
+			Payload:     payload,
+		})
 	}
 
 	log.WithFields(log.Fields{
