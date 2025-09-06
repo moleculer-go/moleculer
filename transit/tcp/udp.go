@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -298,8 +299,11 @@ func (u *UdpServer) getBroadcastAddresses() []string {
 }
 
 func (u *UdpServer) firstDiscoveryMessage() {
-	//wait for 1 second before sending the first discovery message
-	time.Sleep(time.Second)
+	// Add jitter to avoid race conditions when multiple nodes start simultaneously
+	// Jitter range: 0-600ms to spread out discovery messages
+	jitter := time.Duration(rand.Intn(600)) * time.Millisecond
+	u.logger.Tracef("First discovery message jitter: %v", jitter)
+	time.Sleep(jitter)
 	u.BroadcastDiscoveryMessage()
 }
 
@@ -349,7 +353,14 @@ func (u *UdpServer) startDiscovering() {
 		u.logger.Warn("Discovery already started.")
 		return
 	}
-	u.discoverTimer = time.NewTicker(u.opts.DiscoverPeriod)
+
+	// Add jitter to the discovery period to avoid synchronized discovery messages
+	// This prevents multiple nodes from broadcasting at exactly the same time
+	jitter := time.Duration(rand.Intn(600)) * time.Millisecond
+	discoverPeriodWithJitter := u.opts.DiscoverPeriod + jitter
+	u.logger.Tracef("Discovery period with jitter: %v (base: %v, jitter: %v)", discoverPeriodWithJitter, u.opts.DiscoverPeriod, jitter)
+
+	u.discoverTimer = time.NewTicker(discoverPeriodWithJitter)
 	go func() {
 		for range u.discoverTimer.C {
 			u.BroadcastDiscoveryMessage()

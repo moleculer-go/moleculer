@@ -212,9 +212,33 @@ func (ebc *EnhancedBrokerCluster) Start() error {
 
 	log.WithField("total_brokers", len(ebc.brokers)).Info("All brokers started successfully")
 
-	// Wait for service discovery to complete
+	// Wait for service discovery to complete using WaitFor
 	log.Info("Waiting for service discovery to complete...")
-	time.Sleep(3 * time.Second)
+
+	// Wait for all expected services to be discovered
+	expectedServices := make([]string, 0)
+	for _, services := range ebc.config.ServiceDistribution {
+		expectedServices = append(expectedServices, services...)
+	}
+
+	// Add event aggregator services
+	for serviceName := range ebc.config.EventAggregatorConfig {
+		expectedServices = append(expectedServices, serviceName)
+	}
+
+	log.WithField("expected_services", expectedServices).Info("Waiting for services to be discovered")
+
+	// Wait for all services to be discovered
+	log.WithField("expected_services", expectedServices).Info("Waiting for all services to be discovered")
+	err := ebc.brokers[0].WaitFor(expectedServices...)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"expected_services": expectedServices,
+			"error":             err,
+		}).Warn("Some services not discovered within timeout, continuing anyway")
+	} else {
+		log.Info("All services discovered successfully")
+	}
 
 	// Log registered services for debugging
 	log.Info("Checking registered services across all brokers")
@@ -261,7 +285,8 @@ func (ebc *EnhancedBrokerCluster) createBrokerConfig(brokerIndex int) *moleculer
 		transporterType = TransporterMemory
 	}
 
-	return CreateTestConfig(transporterType, fmt.Sprintf("broker-%d", brokerIndex))
+	config := CreateTestConfig(transporterType, fmt.Sprintf("broker-%d", brokerIndex))
+	return config
 }
 
 // addServiceToBroker adds a service to a broker
@@ -413,11 +438,16 @@ func (ebc *EnhancedBrokerCluster) handleAction(ctx moleculer.Context, params mol
 							"actions_value": callConfigMap["actions"],
 						}).Info("Actions not found or wrong type")
 					}
+					// Handle both int and float64 types from JSON unmarshaling
 					if returnSize, ok := callConfigMap["return_payload_size"].(int); ok {
 						callConfig.ReturnPayloadSize = returnSize
+					} else if returnSizeFloat, ok := callConfigMap["return_payload_size"].(float64); ok {
+						callConfig.ReturnPayloadSize = int(returnSizeFloat)
 					}
 					if paramSize, ok := callConfigMap["parameter_payload_size"].(int); ok {
 						callConfig.ParameterPayloadSize = paramSize
+					} else if paramSizeFloat, ok := callConfigMap["parameter_payload_size"].(float64); ok {
+						callConfig.ParameterPayloadSize = int(paramSizeFloat)
 					}
 					actionConfig.Config[key] = callConfig
 					log.WithFields(log.Fields{
@@ -1213,8 +1243,33 @@ func TestEnhancedPerformanceWithDifferentTransporters(t *testing.T) {
 				t.Fatalf("Failed to start enhanced broker cluster with %s: %v", transporterType, err)
 			}
 
-			// Wait for brokers to be ready
-			time.Sleep(3 * time.Second)
+			// Wait for brokers to be ready using WaitFor
+			log.Info("Waiting for service discovery to complete...")
+
+			// Wait for all expected services to be discovered
+			expectedServices := make([]string, 0)
+			for _, services := range config.ServiceDistribution {
+				expectedServices = append(expectedServices, services...)
+			}
+
+			// Add event aggregator services
+			for serviceName := range config.EventAggregatorConfig {
+				expectedServices = append(expectedServices, serviceName)
+			}
+
+			log.WithField("expected_services", expectedServices).Info("Waiting for services to be discovered")
+
+			// Wait for all services to be discovered
+			log.WithField("expected_services", expectedServices).Info("Waiting for all services to be discovered")
+			waitErr := cluster.GetBroker(0).WaitFor(expectedServices...)
+			if waitErr != nil {
+				log.WithFields(log.Fields{
+					"expected_services": expectedServices,
+					"error":             waitErr,
+				}).Warn("Some services not discovered within timeout, continuing anyway")
+			} else {
+				log.Info("All services discovered successfully")
+			}
 
 			// Run the test
 			startTime := time.Now()

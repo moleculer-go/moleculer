@@ -118,23 +118,28 @@ func (tf *TransporterFactory) createMemoryTransporter() interface{} {
 
 // createTCPTransporter creates a TCP transporter
 func (tf *TransporterFactory) createTCPTransporter() interface{} {
-	port := 3000
-	host := "localhost"
-
-	if tf.config.TCP != nil {
-		if tf.config.TCP.Port > 0 {
-			port = tf.config.TCP.Port
-		}
-		if tf.config.TCP.Host != "" {
-			host = tf.config.TCP.Host
-		}
-	}
-
+	// Use default TCP configuration with UDP discovery
 	options := tcp.TCPOptions{
-		UdpDiscovery:   true,
-		UdpPort:        port,
-		UdpBindAddress: host,
-		Logger:         log.WithField("transport", "tcp"),
+		UdpDiscovery:          true,
+		UdpReuseAddr:          true,
+		UdpPort:               4445, // Default UDP listening and discovery port
+		UdpBindAddress:        "",
+		UdpPeriod:             2 * time.Second,  // Fast discovery for tests
+		UdpMaxDiscovery:       0,                // Unlimited
+		WorkerPoolSize:        20,               // Default worker pool size
+		ConnectionTimeout:     30 * time.Second, // Default connection timeout
+		IdleConnectionTimeout: 60 * time.Second, // Default idle connection timeout
+		UdpMulticast:          "239.0.0.0",
+		UdpMulticastTTL:       1,
+		UdpBroadcast:          []string{},
+		Port:                  0, // Random TCP port
+		Urls:                  []string{},
+		UseHostname:           true,
+		GossipPeriod:          2, // 2 seconds
+		MaxConnections:        32,
+		MaxPacketSize:         1024 * 1024, // 1MB
+		Logger:                log.WithField("transport", "tcp"),
+		Serializer:            serializer.CreateJSONSerializer(log.WithField("transport", "tcp")),
 	}
 
 	transport := tcp.CreateTCPTransporter(options)

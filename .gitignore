@@ -17,3 +17,5 @@
 .DS_Store
 
 # registry/.snapshots/  # Commented out - snapshots should be committed for consistent testing
+test/performance/test_results/
+test/performance/stress_memory.prof
