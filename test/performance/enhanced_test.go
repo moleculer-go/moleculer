@@ -805,8 +805,8 @@ func DefaultEnhancedTestConfig() *EnhancedTestConfig {
 
 // TestEnhancedPerformance tests the enhanced performance system
 func TestEnhancedPerformance(t *testing.T) {
-	// Configure logger for debugging
-	configureLogger("TRACE")
+	// Configure logger for production
+	configureLogger("WARN")
 
 	log.Info("Starting TestEnhancedPerformance")
 
