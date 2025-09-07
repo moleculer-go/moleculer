@@ -192,22 +192,22 @@ func TestUnifiedTestRunMemoryOnly(t *testing.T) {
 	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
 }
 
-func TestUnifiedTestMinimal(t *testing.T) {
-	// Load the minimal test configuration
-	config, err := LoadUnifiedTestConfig("configs/minimal_test.json")
+func TestUnifiedTestBasic(t *testing.T) {
+	// Load the basic test configuration
+	config, err := LoadUnifiedTestConfig("configs/basic_test.json")
 	if err != nil {
 		t.Fatalf("Failed to load test configuration: %v", err)
 	}
 
-	// Create and run the test
+	// Create and run the test with TCP transporter (skip Memory for now)
 	test := NewUnifiedTest(config)
-	result, err := test.Run(config.TransporterTypes[0])
+	result, err := test.Run("TCP")
 	if err != nil {
-		t.Logf("Minimal test run failed: %v", err)
+		t.Logf("Basic test run failed: %v", err)
 		return
 	}
 
-	t.Logf("Minimal test completed successfully:")
+	t.Logf("Basic test completed successfully:")
 	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
 	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
 	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)

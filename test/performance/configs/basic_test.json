@@ -147,5 +147,5 @@
     },
     "test_timeout_seconds": 30,
     "test_cycles": 1,
-    "log_level": "INFO"
+    "log_level": "TRACE"
 }
