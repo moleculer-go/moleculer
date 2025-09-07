@@ -19,12 +19,12 @@ import (
 type TransporterType string
 
 const (
-	TransporterMemory TransporterType = "memory"
-	TransporterTCP    TransporterType = "tcp"
-	TransporterNATS   TransporterType = "nats"
-	TransporterRedis  TransporterType = "redis"
-	TransporterAMQP   TransporterType = "amqp"
-	TransporterKafka  TransporterType = "kafka"
+	TransporterMemory TransporterType = "Memory"
+	TransporterTCP    TransporterType = "TCP"
+	TransporterNATS   TransporterType = "NATS"
+	TransporterRedis  TransporterType = "Redis"
+	TransporterAMQP   TransporterType = "AMQP"
+	TransporterKafka  TransporterType = "Kafka"
 )
 
 // TransporterConfig holds configuration for different transporters

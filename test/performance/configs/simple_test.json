@@ -1,0 +1,39 @@
+{
+    "test_name": "Simple Discovery Test",
+    "test_description": "Simple test with 3 brokers and 3 services to verify discovery works across brokers",
+    "transporter_types": ["TCP"],
+    "transporter_config": {
+        "TCP": {
+            "port": 0
+        }
+    },
+    "broker_count": 3,
+    "total_services": 3,
+    "actions_per_service": 2,
+    "call_chain_config": {
+        "service-0.action-0": {
+            "actions": ["service-1.action-0"],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 1,
+            "expected_event_count": 2
+        },
+        "service-1.action-0": {
+            "actions": ["service-2.action-0"],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 1,
+            "expected_event_count": 2
+        },
+        "service-2.action-0": {
+            "actions": [],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 0,
+            "expected_event_count": 1
+        }
+    },
+    "test_timeout_seconds": 30,
+    "test_cycles": 1,
+    "log_level": "TRACE"
+}

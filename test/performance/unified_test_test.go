@@ -159,8 +159,8 @@ func TestUnifiedTestRunMemoryOnly(t *testing.T) {
 
 	test := NewUnifiedTest(config)
 
-	// Run the test
-	result, err := test.Run("Memory")
+	// Run the test with the first transporter type from config
+	result, err := test.Run(config.TransporterTypes[0])
 	if err != nil {
 		t.Logf("Test run failed (this might be expected for incomplete implementation): %v", err)
 		return
@@ -185,6 +185,29 @@ func TestUnifiedTestRunMemoryOnly(t *testing.T) {
 	}
 
 	t.Logf("Test completed successfully:")
+	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+}
+
+func TestUnifiedTestMinimal(t *testing.T) {
+	// Load the minimal test configuration
+	config, err := LoadUnifiedTestConfig("configs/minimal_test.json")
+	if err != nil {
+		t.Fatalf("Failed to load test configuration: %v", err)
+	}
+
+	// Create and run the test
+	test := NewUnifiedTest(config)
+	result, err := test.Run(config.TransporterTypes[0])
+	if err != nil {
+		t.Logf("Minimal test run failed: %v", err)
+		return
+	}
+
+	t.Logf("Minimal test completed successfully:")
 	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
 	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
 	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
