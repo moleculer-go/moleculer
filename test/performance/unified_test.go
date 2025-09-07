@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -423,18 +424,37 @@ func (ut *UnifiedTest) runDiscoveryPhase() error {
 
 	log.WithField("broker_count", ut.config.BrokerCount).Info("Creating and starting brokers")
 
-	// Create and start all brokers
+	// Create all brokers first
 	for i := 0; i < ut.config.BrokerCount; i++ {
 		log.WithField("broker_index", i).Debug("Creating broker")
 		broker := ut.createBroker(i)
 		ut.brokers = append(ut.brokers, broker)
-
-		log.WithField("broker_index", i).Debug("Starting broker")
-		broker.Start()
-		log.WithField("broker_index", i).Debug("Broker started successfully")
 	}
 
-	log.Info("All brokers created and started")
+	log.Info("All brokers created, starting them in separate goroutines")
+
+	// Start all brokers in separate goroutines to avoid deadlocks
+	var wg sync.WaitGroup
+
+	for i, broker := range ut.brokers {
+		wg.Add(1)
+		go func(brokerIndex int, bkr interface{}) {
+			defer wg.Done()
+
+			log.WithField("broker_index", brokerIndex).Debug("Starting broker in goroutine")
+			if startable, ok := bkr.(interface{ Start() }); ok {
+				startable.Start()
+				log.WithField("broker_index", brokerIndex).Debug("Broker started successfully in goroutine")
+			} else {
+				log.WithField("broker_index", brokerIndex).Error("Broker does not have Start method")
+			}
+		}(i, broker)
+	}
+
+	// Wait for all brokers to start
+	wg.Wait()
+
+	log.Info("All brokers started successfully in separate goroutines")
 
 	// Wait for service discovery to complete
 	// Give brokers time to discover each other's services through the transport layer
@@ -584,6 +604,16 @@ func (ut *UnifiedTest) findRootAction() string {
 	}).Trace("📊 Analyzed all action dependencies")
 
 	// Find an action that is not in the called actions list
+	// First, explicitly check for service-0.action-0 as the conventional root
+	if _, exists := ut.config.CallChainConfig["service-0.action-0"]; exists && !calledActions["service-0.action-0"] {
+		log.WithFields(log.Fields{
+			"root_action":    "service-0.action-0",
+			"called_actions": calledActions,
+		}).Trace("🎯 Found conventional root action: service-0.action-0")
+		return "service-0.action-0"
+	}
+
+	// If service-0.action-0 doesn't exist or is called by others, find any other root
 	for actionName := range ut.config.CallChainConfig {
 		if !calledActions[actionName] {
 			log.WithFields(log.Fields{
@@ -853,6 +883,15 @@ func (ut *UnifiedTest) validateActionChainResults(report *ValidationReport) bool
 		"final_result":      finalResult,
 	}).Info("Final result structure")
 
+	// Additional debug: check if finalResult has the expected structure
+	if resultMap, ok := finalResult.(map[string]interface{}); ok {
+		log.WithFields(log.Fields{
+			"result_keys":     getMapKeys(resultMap),
+			"has_action_name": resultMap["action_name"] != nil,
+			"has_sub_results": resultMap["sub_results"] != nil,
+		}).Info("Final result map analysis")
+	}
+
 	// Check that all expected actions are present in the final result
 	missingActions := make([]string, 0)
 	for _, expectedAction := range expectedActions {
@@ -880,6 +919,15 @@ func (ut *UnifiedTest) validateActionChainResults(report *ValidationReport) bool
 
 	log.Info("Action chain results validation completed")
 	return true
+}
+
+// Helper function to get map keys for debugging
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // validatePayloadSizes validates that all payload sizes match expectations
@@ -1098,6 +1146,11 @@ func (ut *UnifiedTest) extractActionsFromResult(result interface{}) []string {
 	actions := make([]string, 0)
 	ut.extractActionsRecursive(result, &actions)
 
+	log.WithFields(log.Fields{
+		"raw_actions_found": actions,
+		"raw_actions_count": len(actions),
+	}).Debug("Raw actions extracted from result")
+
 	// Deduplicate actions - only keep unique actions
 	uniqueActions := make([]string, 0)
 	seen := make(map[string]bool)
@@ -1107,6 +1160,11 @@ func (ut *UnifiedTest) extractActionsFromResult(result interface{}) []string {
 			uniqueActions = append(uniqueActions, action)
 		}
 	}
+
+	log.WithFields(log.Fields{
+		"unique_actions_found": uniqueActions,
+		"unique_actions_count": len(uniqueActions),
+	}).Debug("Unique actions after deduplication")
 
 	return uniqueActions
 }
