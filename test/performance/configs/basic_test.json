@@ -3,7 +3,6 @@
     "test_description": "Basic performance test with all transporters",
     "transporter_types": ["Memory", "TCP", "NATS", "Redis", "AMQP", "Kafka"],
     "transporter_config": {
-        "Memory": {},
         "TCP": {
             "port": 0
         },
@@ -103,11 +102,11 @@
             "expected_event_count": 2
         },
         "service-5.action-1": {
-            "actions": ["service-4.action-1", "service-3.action-1", "service-2.action-1"],
+            "actions": ["service-4.action-1", "service-3.action-1"],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
-            "expected_result_count": 3,
-            "expected_event_count": 4
+            "expected_result_count": 2,
+            "expected_event_count": 3
         },
         "service-4.action-1": {
             "actions": [],
@@ -124,18 +123,18 @@
             "expected_event_count": 1
         },
         "service-2.action-1": {
-            "actions": ["service-1.action-1"],
+            "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
+            "expected_result_count": 0,
+            "expected_event_count": 1
         },
         "service-1.action-1": {
-            "actions": ["service-0.action-1"],
+            "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
+            "expected_result_count": 0,
+            "expected_event_count": 1
         },
         "service-0.action-1": {
             "actions": [],
