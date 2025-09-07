@@ -1,0 +1,35 @@
+{
+    "test_name": "Debug Test",
+    "test_description": "Simple debug test with Memory transporter only",
+    "transporter_types": ["Memory"],
+    "transporter_config": {
+        "Memory": {}
+    },
+    "broker_count": 9,
+    "total_services": 9,
+    "actions_per_service": 3,
+    "call_chain_config": {
+        "service-0.action-0": {
+            "actions": ["service-1.action-0"],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 1,
+            "expected_event_count": 2
+        },
+        "service-1.action-0": {
+            "actions": [],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 0,
+            "expected_event_count": 1
+        }
+    },
+    "event_aggregator_config": {
+        "broker-2": ["service-0.action-0-event", "service-1.action-0-event"],
+        "broker-5": ["service-0.action-0-event", "service-1.action-0-event"],
+        "broker-8": ["service-0.action-0-event", "service-1.action-0-event"]
+    },
+    "test_timeout_seconds": 30,
+    "test_cycles": 1,
+    "log_level": "TRACE"
+}

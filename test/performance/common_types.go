@@ -45,6 +45,8 @@ type EnhancedTestResult struct {
 	Transporter       string                 `json:"transporter"`
 	Timestamp         time.Time              `json:"timestamp"`
 	DurationSeconds   float64                `json:"duration_seconds"`
+	DiscoveryTimeMs   float64                `json:"discovery_time_ms"`
+	ExecutionTimeMs   float64                `json:"execution_time_ms"`
 	Success           bool                   `json:"success"`
 	Error             string                 `json:"error,omitempty"`
 	Metrics           map[string]interface{} `json:"metrics"`
