@@ -579,6 +579,9 @@ func (ut *UnifiedTest) runExecutionPhase() error {
 		log.Debug(fmt.Sprintf("Completed execution cycle %d", cycle))
 	}
 
+	// Collect event results from all aggregators
+	ut.collectEventResults()
+
 	ut.executionTime = time.Since(startTime)
 	log.Info(fmt.Sprintf("Execution phase completed in %d ms", ut.executionTime.Nanoseconds()/1e6))
 	return nil
@@ -855,9 +858,7 @@ func (ut *UnifiedTest) validateResults() *ValidationReport {
 		"ActionOrderCorrect":       report.ActionOrderCorrect,
 	}).Debug("Debug: Before CallChainComplete calculation")
 
-	// Store the intermediate call chain completion result (fix circular dependency)
-	callChainCompleteIntermediate := report.ExpectedActionsExecuted && report.ActionOrderCorrect
-	report.CallChainComplete = callChainCompleteIntermediate
+	// Call chain completion is already validated above - no need to override
 
 	log.WithFields(log.Fields{
 		"CallChainComplete_after": report.CallChainComplete,
@@ -1084,13 +1085,25 @@ func (ut *UnifiedTest) validateCallChainCompletion(report *ValidationReport) boo
 		return false
 	}
 
-	// Check that the root action completed successfully
-	rootResult := ut.actionResults[0]
-	if rootResult.Error != nil {
-		report.ValidationErrors = append(report.ValidationErrors,
-			fmt.Sprintf("Root action failed: %v", rootResult.Error))
-		log.Error(fmt.Sprintf("❌ Root action failed: %v", rootResult.Error))
-		return false
+	// Check that all actions in the call chain completed successfully
+	for i, actionResult := range ut.actionResults {
+		if actionResult.Error != nil {
+			report.ValidationErrors = append(report.ValidationErrors,
+				fmt.Sprintf("Action %d failed: %v", i, actionResult.Error))
+			log.Error(fmt.Sprintf("❌ Action %d failed: %v", i, actionResult.Error))
+			return false
+		}
+	}
+
+	// Check that we have the expected number of actions (only if finalResult is available)
+	if ut.finalResult != nil {
+		expectedActions := ut.extractActionsFromResult(ut.finalResult)
+		if len(ut.actionResults) != len(expectedActions) {
+			report.ValidationErrors = append(report.ValidationErrors,
+				fmt.Sprintf("Action count mismatch: expected %d, got %d", len(expectedActions), len(ut.actionResults)))
+			log.Error(fmt.Sprintf("❌ Action count mismatch: expected %d, got %d", len(expectedActions), len(ut.actionResults)))
+			return false
+		}
 	}
 
 	log.Info("Call chain completion validation passed")
@@ -1103,9 +1116,8 @@ func (ut *UnifiedTest) validateEventChainCompletion(report *ValidationReport) bo
 
 	// Check that we have event results
 	if len(ut.eventResults) == 0 {
-		// For action-only tests (like debug), this is acceptable
-		log.Info("No event results found - treating as action-only test")
-		return true
+		report.ValidationErrors = append(report.ValidationErrors, "No event results found - events must be emitted")
+		return false
 	}
 
 	// Check that all events were emitted successfully
@@ -1705,6 +1717,72 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 
 	// Return flat list of all results (this action + all sub-action results)
 	return allResults
+}
+
+// collectEventResults collects event results from all event aggregators
+func (ut *UnifiedTest) collectEventResults() {
+	log.Info("Collecting event results from all aggregators")
+
+	// Get event aggregator services (every 3rd broker)
+	aggregatorBrokers := make([]int, 0)
+	for i := 2; i < ut.config.BrokerCount; i += 3 {
+		aggregatorBrokers = append(aggregatorBrokers, i)
+	}
+
+	log.Debug(fmt.Sprintf("Found event aggregator brokers: %v", aggregatorBrokers))
+
+	// For each aggregator, collect its events
+	for _, brokerIndex := range aggregatorBrokers {
+		aggregatorName := fmt.Sprintf("event-aggregator-%d", brokerIndex)
+
+		// Use the broker that has the aggregator service
+		var aggregatorBroker *broker.ServiceBroker
+		if brokerIndex < len(ut.brokers) {
+			aggregatorBroker = ut.brokers[brokerIndex]
+		} else {
+			// Fallback to broker-0
+			aggregatorBroker = ut.brokers[0]
+		}
+
+		if aggregatorBroker == nil {
+			log.Warn(fmt.Sprintf("No broker found for aggregator %s", aggregatorName))
+			continue
+		}
+
+		// Call get-aggregated-events
+		result := <-aggregatorBroker.Call(fmt.Sprintf("%s.get-aggregated-events", aggregatorName), map[string]interface{}{})
+		if result.Error() != nil {
+			log.WithFields(log.Fields{
+				"aggregator": aggregatorName,
+				"error":      result.Error(),
+			}).Warn("Failed to get aggregated events from aggregator")
+			continue
+		}
+
+		// Convert result to event results
+		if resultMap, ok := result.Value().(map[string]interface{}); ok {
+			if events, ok := resultMap["events"].([]interface{}); ok {
+				for _, event := range events {
+					if eventMap, ok := event.(map[string]interface{}); ok {
+						eventResult := UnifiedActionResult{
+							ServiceName: eventMap["aggregator"].(string),
+							ActionName:  eventMap["event_name"].(string),
+							Result:      eventMap,
+							Error:       nil,
+						}
+						ut.eventResults = append(ut.eventResults, eventResult)
+					}
+				}
+			}
+		}
+
+		log.WithFields(log.Fields{
+			"aggregator":   aggregatorName,
+			"events_count": len(ut.eventResults),
+		}).Debug("Collected events from aggregator")
+	}
+
+	log.Info(fmt.Sprintf("Event collection completed - total events: %d", len(ut.eventResults)))
 }
 
 // handleGetAggregatedEvents handles the get-aggregated-events action for event aggregators
