@@ -199,20 +199,43 @@ func TestUnifiedTestBasic(t *testing.T) {
 		t.Fatalf("Failed to load test configuration: %v", err)
 	}
 
-	// Create and run the test with TCP transporter (skip Memory for now)
-	test := NewUnifiedTest(config)
-	result, err := test.Run("TCP")
-	if err != nil {
-		t.Logf("Basic test run failed: %v", err)
-		return
-	}
+	// Run test for each configured transporter
+	for _, transporterType := range config.TransporterTypes {
+		t.Run(fmt.Sprintf("Transporter_%s", transporterType), func(t *testing.T) {
+			// Create and run the test with current transporter
+			test := NewUnifiedTest(config)
+			result, err := test.Run(transporterType)
+			if err != nil {
+				t.Logf("Basic test run failed for %s: %v", transporterType, err)
+				return
+			}
 
-	t.Logf("Basic test completed successfully:")
-	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
-	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
-	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
-	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
-	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+			// Get validation report
+			report := test.validationReport
+
+			t.Logf("Basic test completed successfully for %s:", transporterType)
+			t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+			t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+			t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+			t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+			t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+			t.Logf("  Validation success: %t", report.IsValid)
+			t.Logf("  Call chain complete: %t", report.CallChainComplete)
+			t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+			t.Logf("  Action order correct: %t", report.ActionOrderCorrect)
+			t.Logf("  Payload sizes correct: %t", report.PayloadSizesCorrect)
+			t.Logf("  Event chain complete: %t", report.EventChainComplete)
+			t.Logf("  Event aggregation valid: %t", report.EventAggregationValid)
+			t.Logf("  Validation errors: %d", len(report.ValidationErrors))
+
+			if !report.IsValid {
+				for _, err := range report.ValidationErrors {
+					t.Errorf("Validation Error: %s", err)
+				}
+				t.Fatalf("Basic test validation failed for %s.", transporterType)
+			}
+		})
+	}
 }
 
 func TestUnifiedTestDebug(t *testing.T) {

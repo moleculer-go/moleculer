@@ -1144,7 +1144,9 @@ func (ut *UnifiedTest) validateActionOrder(report *ValidationReport) bool {
 	// Create a map of actual action results for quick lookup
 	actualActions := make(map[string]bool)
 	for _, actionResult := range ut.actionResults {
-		actualActions[actionResult.ActionName] = true
+		// Construct full action name: service.action
+		fullActionName := fmt.Sprintf("%s.%s", actionResult.ServiceName, actionResult.ActionName)
+		actualActions[fullActionName] = true
 	}
 
 	// Check that all expected actions were executed
