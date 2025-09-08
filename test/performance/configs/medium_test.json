@@ -1,27 +1,14 @@
 {
-    "test_name": "Basic Test",
-    "test_description": "Basic performance test with all transporters",
+    "test_name": "Medium Test",
+    "test_description": "Medium performance test with TCP transporter",
     "transporter_types": ["TCP"],
     "transporter_config": {
         "TCP": {
             "port": 0
-        },
-        "NATS": {
-            "url": "nats://localhost:4222"
-        },
-        "Redis": {
-            "host": "localhost",
-            "port": 6379
-        },
-        "AMQP": {
-            "url": "amqp://localhost:5672"
-        },
-        "Kafka": {
-            "brokers": ["localhost:9092"]
         }
     },
-    "broker_count": 9,
-    "total_services": 9,
+    "broker_count": 6,
+    "total_services": 6,
     "actions_per_service": 2,
     "call_chain_config": {
         "service-0.action-0": {
@@ -60,69 +47,13 @@
             "expected_event_count": 2
         },
         "service-5.action-0": {
-            "actions": ["service-6.action-0"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
-        },
-        "service-6.action-0": {
-            "actions": ["service-7.action-0", "service-8.action-0"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 2,
-            "expected_event_count": 3
-        },
-        "service-7.action-0": {
             "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
             "expected_result_count": 0,
             "expected_event_count": 1
         },
-        "service-8.action-0": {
-            "actions": ["service-7.action-1"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
-        },
-        "service-7.action-1": {
-            "actions": ["service-6.action-1"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
-        },
-        "service-6.action-1": {
-            "actions": ["service-5.action-1"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
-        },
-        "service-5.action-1": {
-            "actions": ["service-4.action-1", "service-3.action-1"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 2,
-            "expected_event_count": 3
-        },
-        "service-4.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count":0,
-            "expected_event_count": 1
-        },
-        "service-3.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-2.action-1": {
+        "service-0.action-1": {
             "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
@@ -136,7 +67,28 @@
             "expected_result_count": 0,
             "expected_event_count": 1
         },
-        "service-0.action-1": {
+        "service-2.action-1": {
+            "actions": [],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 0,
+            "expected_event_count": 1
+        },
+        "service-3.action-1": {
+            "actions": [],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 0,
+            "expected_event_count": 1
+        },
+        "service-4.action-1": {
+            "actions": [],
+            "return_payload_size": 1024,
+            "parameter_payload_size": 512,
+            "expected_result_count": 0,
+            "expected_event_count": 1
+        },
+        "service-5.action-1": {
             "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
@@ -144,7 +96,7 @@
             "expected_event_count": 1
         }
     },
-    "test_timeout_seconds": 0,
+    "test_timeout_seconds": 30,
     "test_cycles": 1,
     "log_level": "TRACE"
 }
