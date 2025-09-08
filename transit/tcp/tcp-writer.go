@@ -148,7 +148,12 @@ func (w *TcpWriter) Send(nodeID string, msgType byte, msgBytes []byte) error {
 	// Update lastUsed for ANY message activity (including gossip/heartbeats)
 	// This ensures that nodes sending regular heartbeats are not considered "idle"
 	socket.lastUsed = time.Now()
+
+	// Lock before writing to the map to prevent concurrent map writes
+	w.lock.Lock()
 	w.sockets[nodeID] = socket
+	w.lock.Unlock()
+
 	return err
 }
 

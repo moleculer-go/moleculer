@@ -1552,12 +1552,8 @@ func (ut *UnifiedTest) addEventAggregatorService(bkr *broker.ServiceBroker, serv
 				// Store the event in the aggregator's collection
 				ut.aggregatedEvents[aggregatorName] = append(ut.aggregatedEvents[aggregatorName], eventData)
 
-				log.WithFields(log.Fields{
-					"aggregator":    aggregatorName,
-					"event_name":    eventName,
-					"total_events":  len(ut.aggregatedEvents[aggregatorName]),
-					"received_from": "event-source",
-				}).Trace("📨 Event received by aggregator")
+				log.Trace(fmt.Sprintf("📨 Event received by aggregator: %s, event: %s, total_events: %d, received_from: event-source",
+					aggregatorName, eventName, len(ut.aggregatedEvents[aggregatorName])))
 			}
 		}(serviceName, eventName)
 
