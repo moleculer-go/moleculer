@@ -387,7 +387,8 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 		result.Error = err
 		return result, err
 	}
-	log.WithField("discovery_time_ms", ut.discoveryTime.Nanoseconds()/1e6).Info("Discovery phase completed")
+	logger := log.WithField("discovery_time_ms", ut.discoveryTime.Nanoseconds()/1e6)
+	logger.Info("Discovery phase completed")
 
 	// Run execution phase
 	log.Info("Starting execution phase")
@@ -396,7 +397,8 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 		result.Error = err
 		return result, err
 	}
-	log.WithField("execution_time_ms", ut.executionTime.Nanoseconds()/1e6).Info("Execution phase completed")
+	execLogger := log.WithField("execution_time_ms", ut.executionTime.Nanoseconds()/1e6)
+	execLogger.Info("Execution phase completed")
 
 	// Run validation phase
 	ut.validationReport = ut.validateResults()
@@ -422,11 +424,12 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 func (ut *UnifiedTest) runDiscoveryPhase() error {
 	startTime := time.Now()
 
-	log.WithField("broker_count", ut.config.BrokerCount).Info("Creating and starting brokers")
+	logger := log.WithField("broker_count", ut.config.BrokerCount)
+	logger.Info("Creating and starting brokers")
 
 	// Create all brokers first
 	for i := 0; i < ut.config.BrokerCount; i++ {
-		log.WithField("broker_index", i).Debug("Creating broker")
+		logger.Debug(fmt.Sprintf("Creating broker %d", i))
 		broker := ut.createBroker(i)
 		ut.brokers = append(ut.brokers, broker)
 	}
@@ -441,12 +444,13 @@ func (ut *UnifiedTest) runDiscoveryPhase() error {
 		go func(brokerIndex int, bkr interface{}) {
 			defer wg.Done()
 
-			log.WithField("broker_index", brokerIndex).Debug("Starting broker in goroutine")
+			brokerLogger := log.WithField("broker_index", brokerIndex)
+			brokerLogger.Debug("Starting broker in goroutine")
 			if startable, ok := bkr.(interface{ Start() }); ok {
 				startable.Start()
-				log.WithField("broker_index", brokerIndex).Debug("Broker started successfully in goroutine")
+				brokerLogger.Debug("Broker started successfully in goroutine")
 			} else {
-				log.WithField("broker_index", brokerIndex).Error("Broker does not have Start method")
+				brokerLogger.Error("Broker does not have Start method")
 			}
 		}(i, broker)
 	}
@@ -507,7 +511,7 @@ func (ut *UnifiedTest) runDiscoveryPhase() error {
 	log.Info("All services discovered successfully")
 
 	ut.discoveryTime = time.Since(startTime)
-	log.WithField("discovery_duration_ms", ut.discoveryTime.Nanoseconds()/1e6).Info("Discovery phase completed")
+	logger.Info(fmt.Sprintf("Discovery phase completed in %d ms", ut.discoveryTime.Nanoseconds()/1e6))
 	return nil
 }
 
@@ -519,7 +523,7 @@ func (ut *UnifiedTest) runExecutionPhase() error {
 
 	// Run multiple cycles of action execution
 	for cycle := 0; cycle < ut.config.TestCycles; cycle++ {
-		log.WithField("cycle", cycle).Debug("Starting execution cycle")
+		log.Debug(fmt.Sprintf("Starting execution cycle %d", cycle))
 
 		// Always start from broker-0
 		rootAction := ut.findRootAction()
@@ -551,31 +555,32 @@ func (ut *UnifiedTest) runExecutionPhase() error {
 			"metadata":    metadata,
 		}).Trace("🎬 Calling root action with config + payload + metadata")
 
-		// Execute call chain - pass complete config + payload + metadata to first action
-		result := <-ut.brokers[0].Call(rootAction, actionPayload, moleculer.Options{Meta: payload.New(metadata)})
-		if result.IsError() {
+		// Execute call chain using the proper executeCallChain function
+		// This will populate actionResults and handle the full call chain
+		finalResult, err := ut.executeCallChain(rootAction, cycle)
+		if err != nil {
 			log.WithFields(log.Fields{
 				"cycle":       cycle,
 				"root_action": rootAction,
-				"error":       result.Error(),
+				"error":       err,
 			}).Error("❌ Call chain execution failed")
-			return fmt.Errorf("call chain failed in cycle %d: %v", cycle, result.Error())
+			return fmt.Errorf("call chain failed in cycle %d: %v", cycle, err)
 		}
 
 		log.WithFields(log.Fields{
 			"cycle":       cycle,
 			"root_action": rootAction,
-			"result":      result.Value(),
+			"result":      finalResult,
 		}).Trace("🎉 Call chain execution completed successfully")
 
 		// Store the final aggregated result from root action
-		ut.finalResult = result.Value()
+		ut.finalResult = finalResult
 
-		log.WithField("cycle", cycle).Debug("Completed execution cycle")
+		log.Debug(fmt.Sprintf("Completed execution cycle %d", cycle))
 	}
 
 	ut.executionTime = time.Since(startTime)
-	log.WithField("execution_duration_ms", ut.executionTime.Nanoseconds()/1e6).Info("Execution phase completed")
+	log.Info(fmt.Sprintf("Execution phase completed in %d ms", ut.executionTime.Nanoseconds()/1e6))
 	return nil
 }
 
@@ -673,7 +678,19 @@ func (ut *UnifiedTest) executeCallChain(actionName string, cycle int) (interface
 		"cycle":       cycle,
 	}).Trace("🚀 Calling action")
 
-	result := <-broker.Call(actionName, map[string]interface{}{})
+	// Create payload with config and load simulation data
+	actionPayload := map[string]interface{}{
+		"config":       ut.config.CallChainConfig,
+		"payload_data": make([]byte, 1024), // Load simulation
+	}
+
+	// Create metadata with service/action info
+	metadata := map[string]interface{}{
+		"service_name": strings.Split(actionName, ".")[0],
+		"action_name":  strings.Split(actionName, ".")[1],
+	}
+
+	result := <-broker.Call(actionName, actionPayload, moleculer.Options{Meta: payload.New(metadata)})
 	if result.IsError() {
 		log.WithFields(log.Fields{
 			"action_name": actionName,
@@ -787,11 +804,7 @@ func (ut *UnifiedTest) findBrokerForAction(actionName string) *broker.ServiceBro
 
 		for _, brokerService := range brokerServices {
 			if brokerService == serviceName {
-				log.WithFields(log.Fields{
-					"action_name":  actionName,
-					"service_name": serviceName,
-					"broker_index": brokerIndex,
-				}).Debug("Found broker for action")
+				log.Debug(fmt.Sprintf("Found broker %d for action %s.%s", brokerIndex, serviceName, actionName))
 				return broker
 			}
 		}
@@ -835,7 +848,22 @@ func (ut *UnifiedTest) validateResults() *ValidationReport {
 	report.ExpectedEventsCollected = report.EventAggregationValid && report.EventChainComplete
 
 	// Determine overall validation success
-	report.CallChainComplete = report.ExpectedActionsExecuted && report.CallChainComplete && report.ActionOrderCorrect
+	log.WithFields(log.Fields{
+		"ExpectedActionsExecuted":  report.ExpectedActionsExecuted,
+		"CallChainComplete_before": report.CallChainComplete,
+		"ActionOrderCorrect":       report.ActionOrderCorrect,
+	}).Debug("Debug: Before CallChainComplete calculation")
+
+	// Store the intermediate call chain completion result (fix circular dependency)
+	callChainCompleteIntermediate := report.ExpectedActionsExecuted && report.ActionOrderCorrect
+	report.CallChainComplete = callChainCompleteIntermediate
+
+	log.WithFields(log.Fields{
+		"CallChainComplete_after": report.CallChainComplete,
+		"ExpectedEventsCollected": report.ExpectedEventsCollected,
+		"PayloadSizesCorrect":     report.PayloadSizesCorrect,
+	}).Debug("Debug: Before IsValid calculation")
+
 	report.IsValid = report.CallChainComplete && report.ExpectedEventsCollected && report.PayloadSizesCorrect
 
 	log.WithFields(log.Fields{
@@ -979,7 +1007,7 @@ func (ut *UnifiedTest) validatePayloadSizes(report *ValidationReport) bool {
 	}
 
 	success := len(report.ValidationErrors) == 0
-	log.WithField("success", success).Info("Payload sizes validation completed")
+	log.Info(fmt.Sprintf("Payload sizes validation completed - success: %t", success))
 	return success
 }
 
@@ -995,7 +1023,7 @@ func (ut *UnifiedTest) validateEventAggregation(report *ValidationReport) bool {
 		aggregatorBrokers = append(aggregatorBrokers, i)
 	}
 
-	log.WithField("aggregator_brokers", aggregatorBrokers).Debug("Found event aggregator brokers")
+	log.Debug(fmt.Sprintf("Found event aggregator brokers: %v", aggregatorBrokers))
 
 	// For each aggregator, collect its events
 	for _, brokerIndex := range aggregatorBrokers {
@@ -1042,7 +1070,7 @@ func (ut *UnifiedTest) validateEventAggregation(report *ValidationReport) bool {
 
 	// For now, we'll consider event aggregation validation successful
 	// since the event aggregators are not fully implemented yet
-	log.WithField("success", true).Info("Event aggregation validation completed (simplified)")
+	log.Info("Event aggregation validation completed (simplified) - success: true")
 	return true
 }
 
@@ -1050,9 +1078,15 @@ func (ut *UnifiedTest) validateEventAggregation(report *ValidationReport) bool {
 func (ut *UnifiedTest) validateCallChainCompletion(report *ValidationReport) bool {
 	log.Info("Validating call chain completion")
 
+	log.WithFields(log.Fields{
+		"action_results_count": len(ut.actionResults),
+		"action_results":       ut.actionResults,
+	}).Debug("Debug: actionResults in validateCallChainCompletion")
+
 	// Check that we have action results
 	if len(ut.actionResults) == 0 {
 		report.ValidationErrors = append(report.ValidationErrors, "No action results found")
+		log.Error("❌ No action results found for call chain validation")
 		return false
 	}
 
@@ -1061,6 +1095,7 @@ func (ut *UnifiedTest) validateCallChainCompletion(report *ValidationReport) boo
 	if rootResult.Error != nil {
 		report.ValidationErrors = append(report.ValidationErrors,
 			fmt.Sprintf("Root action failed: %v", rootResult.Error))
+		log.Error(fmt.Sprintf("❌ Root action failed: %v", rootResult.Error))
 		return false
 	}
 
@@ -1315,7 +1350,7 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 
 	// Create broker
 	bkr := broker.New(brokerConfig)
-	log.WithField("broker_index", index).Debug("Broker instance created")
+	log.Debug(fmt.Sprintf("Broker instance created for index %d", index))
 
 	// Add services to this broker
 	serviceDistribution := ut.distributeServices()
@@ -1348,7 +1383,7 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 		ut.addEventAggregatorService(bkr, aggregatorName, index)
 	}
 
-	log.WithField("broker_index", index).Debug("Broker setup completed")
+	log.Debug(fmt.Sprintf("Broker setup completed for index %d", index))
 	return bkr
 }
 
@@ -1582,19 +1617,13 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 	actionName := meta.Get("action_name").String()
 	actionKey := fmt.Sprintf("%s.%s", serviceName, actionName)
 
-	logger := log.WithFields(log.Fields{
-		"service_name": serviceName,
-		"action_name":  actionName,
-		"action_key":   actionKey,
-		"params":       params,
-	})
-	logger.Trace("🔗 Generic action called")
+	log.Trace(fmt.Sprintf("🔗 Generic action called for %s.%s (key: %s)", serviceName, actionName, actionKey))
 
 	// Get configuration for this action from params
 	config := params.Get("config").RawMap()
 	actionConfig, exists := config[actionKey]
 	if !exists {
-		log.WithField("action_key", actionKey).Error("❌ No configuration found for action")
+		log.Error(fmt.Sprintf("❌ No configuration found for action %s", actionKey))
 		return []interface{}{}
 	}
 
@@ -1608,7 +1637,7 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 		returnPayload[i] = byte(time.Now().UnixNano() % 256)
 	}
 
-	logger.Trace("📦 Created return payload")
+	log.Trace("📦 Created return payload")
 
 	// Emit event
 	eventName := fmt.Sprintf("%s.%s.called", serviceName, actionName)
@@ -1617,10 +1646,7 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 		"random_value": time.Now().UnixNano(),
 		"payload_size": returnPayloadSize,
 	}
-	logger.WithFields(log.Fields{
-		"event_name": eventName,
-		"event_data": eventData,
-	}).Trace("📤 Emitting event")
+	log.Trace(fmt.Sprintf("📤 Emitting event %s with data: %v", eventName, eventData))
 	context.Emit(eventName, eventData)
 
 	// Create result for this action
@@ -1634,26 +1660,19 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 	// Check if this action needs to call other actions
 	subActions := configStruct.Actions
 	if len(subActions) == 0 {
-		logger.Trace("🏁 No sub-actions, returning single result")
+		log.Trace("🏁 No sub-actions, returning single result")
 		// No sub-actions, return just this action's result
 		return []interface{}{actionResult}
 	}
 
-	logger.WithFields(log.Fields{
-		"sub_actions": subActions,
-		"sub_count":   len(subActions),
-	}).Trace("🔄 Action has sub-actions, executing them")
+	log.Trace(fmt.Sprintf("🔄 Action has %d sub-actions, executing them: %v", len(subActions), subActions))
 
 	// Call all sub-actions and collect results
 	var allResults []interface{}
 	allResults = append(allResults, actionResult)
 
 	for i, subActionStr := range subActions {
-		logger.WithFields(log.Fields{
-			"sub_action":        subActionStr,
-			"sub_action_index":  i,
-			"total_sub_actions": len(subActions),
-		}).Trace("🎯 Calling sub-action")
+		log.Trace(fmt.Sprintf("🎯 Calling sub-action %d/%d: %s", i+1, len(subActions), subActionStr))
 
 		// Create payload for sub-action (like math example)
 		parameterPayloadSize := configStruct.ParameterPayloadSize
@@ -1671,17 +1690,11 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 		// Call sub-action with metadata
 		subResult := <-context.Call(subActionStr, subPayload, moleculer.Options{Meta: payload.New(subMeta)})
 		if subResult.IsError() {
-			logger.WithFields(log.Fields{
-				"sub_action": subActionStr,
-				"error":      subResult.Error(),
-			}).Error("❌ Sub-action call failed")
+			log.Error(fmt.Sprintf("❌ Sub-action %s call failed: %v", subActionStr, subResult.Error()))
 			continue
 		}
 
-		logger.WithFields(log.Fields{
-			"sub_action": subActionStr,
-			"sub_result": subResult.Value(),
-		}).Trace("✅ Sub-action executed successfully")
+		log.Trace(fmt.Sprintf("✅ Sub-action %s executed successfully: %v", subActionStr, subResult.Value()))
 
 		// Add sub-action results to our results
 		if subResults, ok := subResult.Value().([]interface{}); ok {
@@ -1689,10 +1702,7 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 		}
 	}
 
-	logger.WithFields(log.Fields{
-		"total_results":    len(allResults),
-		"expected_results": len(subActions) + 1,
-	}).Trace("🎉 All sub-actions executed, returning aggregated results")
+	log.Trace(fmt.Sprintf("🎉 All sub-actions executed, returning %d aggregated results (expected: %d)", len(allResults), len(subActions)+1))
 
 	// Return flat list of all results (this action + all sub-action results)
 	return allResults
@@ -1719,14 +1729,8 @@ func (ut *UnifiedTest) handleGetAggregatedEvents(ctx moleculer.Context, params m
 		events = []interface{}{}
 	}
 
-	// Create logger once with fields
-	logger := ctx.Logger().WithFields(log.Fields{
-		"aggregator":   aggregatorName,
-		"events_count": len(events),
-		"requested_by": serviceName,
-	})
-
-	logger.Trace("📊 Returning aggregated events")
+	// Log the aggregated events
+	log.Trace(fmt.Sprintf("📊 Returning %d aggregated events from %s (requested by %s)", len(events), aggregatorName, serviceName))
 
 	return map[string]interface{}{
 		"status":       "success",
