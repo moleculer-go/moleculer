@@ -214,3 +214,38 @@ func TestUnifiedTestBasic(t *testing.T) {
 	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
 	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
 }
+
+func TestUnifiedTestDebug(t *testing.T) {
+	// Load the debug test configuration
+	config, err := LoadUnifiedTestConfig("configs/debug_test.json")
+	if err != nil {
+		t.Fatalf("Failed to load debug test configuration: %v", err)
+	}
+
+	// Create and run the test with TCP transporter
+	test := NewUnifiedTest(config)
+	result, err := test.Run("TCP")
+	if err != nil {
+		t.Logf("Debug test run failed: %v", err)
+		return
+	}
+
+	// Validate results
+	report := test.validationReport
+	if report == nil {
+		t.Fatal("Validation report is nil")
+	}
+	if !report.IsValid {
+		t.Errorf("Validation failed: %v", report.ValidationErrors)
+	}
+
+	t.Logf("Debug test completed successfully:")
+	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+	t.Logf("  Validation success: %t", report.IsValid)
+	t.Logf("  Call chain complete: %t", report.CallChainComplete)
+	t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+}

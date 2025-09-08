@@ -1,35 +1,60 @@
 {
-    "test_name": "Debug Test",
-    "test_description": "Simple debug test with Memory transporter only",
-    "transporter_types": ["Memory"],
-    "transporter_config": {
-        "Memory": {}
+  "test_name": "Debug Test - Half Action Chain",
+  "test_description": "Debug test with smaller action chain for easier debugging",
+  "transporter_types": ["TCP"],
+  "transporter_config": {
+    "TCP": {
+      "port": 0
+    }
+  },
+  "broker_count": 3,
+  "total_services": 5,
+  "actions_per_service": 1,
+  "call_chain_config": {
+    "service-0.action-0": {
+      "actions": ["service-1.action-0"],
+      "return_payload_size": 1024,
+      "parameter_payload_size": 512,
+      "expected_result_count": 1,
+      "expected_event_count": 2
     },
-    "broker_count": 9,
-    "total_services": 9,
-    "actions_per_service": 3,
-    "call_chain_config": {
-        "service-0.action-0": {
-            "actions": ["service-1.action-0"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
-        },
-        "service-1.action-0": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        }
+    "service-1.action-0": {
+      "actions": ["service-2.action-0", "service-3.action-0"],
+      "return_payload_size": 1024,
+      "parameter_payload_size": 512,
+      "expected_result_count": 2,
+      "expected_event_count": 3
     },
-    "event_aggregator_config": {
-        "broker-2": ["service-0.action-0-event", "service-1.action-0-event"],
-        "broker-5": ["service-0.action-0-event", "service-1.action-0-event"],
-        "broker-8": ["service-0.action-0-event", "service-1.action-0-event"]
+    "service-2.action-0": {
+      "actions": ["service-4.action-0"],
+      "return_payload_size": 1024,
+      "parameter_payload_size": 512,
+      "expected_result_count": 1,
+      "expected_event_count": 2
     },
-    "test_timeout_seconds": 30,
-    "test_cycles": 1,
-    "log_level": "TRACE"
+    "service-3.action-0": {
+      "actions": ["service-5.action-0"],
+      "return_payload_size": 1024,
+      "parameter_payload_size": 512,
+      "expected_result_count": 1,
+      "expected_event_count": 2
+    },
+    "service-4.action-0": {
+      "actions": [],
+      "return_payload_size": 1024,
+      "parameter_payload_size": 512,
+      "expected_result_count": 0,
+      "expected_event_count": 1
+    },
+    "service-5.action-0": {
+      "actions": [],
+      "return_payload_size": 1024,
+      "parameter_payload_size": 512,
+      "expected_result_count": 0,
+      "expected_event_count": 1
+    }
+  },
+  "test_timeout_seconds": 30,
+  "test_cycles": 1,
+  "log_level": "TRACE"
 }
