@@ -145,6 +145,6 @@
         }
     },
     "test_timeout_seconds": 0,
-    "test_cycles": 1,
-    "log_level": "TRACE"
+    "test_cycles": 5,
+    "log_level": "ERROR"
 }

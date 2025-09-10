@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -183,6 +185,9 @@ type UnifiedTest struct {
 	validationReport *ValidationReport
 	finalResult      interface{}
 	aggregatedEvents map[string][]interface{} // Store events by aggregator service name
+	aggregatorMap    map[int]string           // Map broker index to aggregator service name
+	eventsMutex      sync.RWMutex             // Mutex for concurrent access to aggregatedEvents
+	outputDir        string                   // Directory to save JSON results
 }
 
 // NewUnifiedTest creates a new unified test instance
@@ -194,6 +199,51 @@ func NewUnifiedTest(config *UnifiedTestConfig) *UnifiedTest {
 		eventResults:     make([]UnifiedActionResult, 0),
 		memoryStats:      &UnifiedMemoryStats{},
 		aggregatedEvents: make(map[string][]interface{}),
+		aggregatorMap:    make(map[int]string),
+		outputDir:        "test_results", // Default output directory
+	}
+}
+
+// NewUnifiedTestWithOutputDir creates a new unified test instance with custom output directory
+func NewUnifiedTestWithOutputDir(config *UnifiedTestConfig, outputDir string) *UnifiedTest {
+	return &UnifiedTest{
+		config:           config,
+		brokers:          make([]*broker.ServiceBroker, 0),
+		actionResults:    make([]UnifiedActionResult, 0),
+		eventResults:     make([]UnifiedActionResult, 0),
+		memoryStats:      &UnifiedMemoryStats{},
+		aggregatedEvents: make(map[string][]interface{}),
+		aggregatorMap:    make(map[int]string),
+		outputDir:        outputDir,
+	}
+}
+
+// determineAggregatorPlacement determines which brokers should have event aggregators
+// Logic: If less than 3 brokers, use the second broker (index 1), otherwise use every 3rd broker starting from index 2
+func (ut *UnifiedTest) determineAggregatorPlacement() {
+	ut.aggregatorMap = make(map[int]string)
+
+	if ut.config.BrokerCount < 3 {
+		// For small broker counts, use the second broker (index 1)
+		if ut.config.BrokerCount >= 2 {
+			aggregatorName := fmt.Sprintf("event-aggregator-%d", 1)
+			ut.aggregatorMap[1] = aggregatorName
+			log.Info(fmt.Sprintf("Using broker 1 as aggregator for small broker count (%d)", ut.config.BrokerCount))
+		}
+	} else {
+		// For larger broker counts, use every 3rd broker starting from index 2
+		for i := 2; i < ut.config.BrokerCount; i += 3 {
+			aggregatorName := fmt.Sprintf("event-aggregator-%d", i)
+			ut.aggregatorMap[i] = aggregatorName
+		}
+		log.Info(fmt.Sprintf("Using brokers %v as aggregators for broker count %d",
+			func() []int {
+				var indices []int
+				for k := range ut.aggregatorMap {
+					indices = append(indices, k)
+				}
+				return indices
+			}(), ut.config.BrokerCount))
 	}
 }
 
@@ -300,16 +350,22 @@ func (ut *UnifiedTest) distributeServices() map[string][]string {
 		serviceDistribution[fmt.Sprintf("broker-%d", i)] = make([]string, 0)
 	}
 
-	// Simple distribution: each service goes to ALL brokers for maximum availability
-	// This ensures every service is available on every broker
+	// Distribute services across brokers to enable remote event transmission
+	// Each service goes to a specific broker to force events to be transmitted between brokers
 	for i := 0; i < totalServices; i++ {
 		serviceName := fmt.Sprintf("service-%d", i)
 
-		// Place service on ALL brokers
-		for j := 0; j < ut.config.BrokerCount; j++ {
-			brokerKey := fmt.Sprintf("broker-%d", j)
-			serviceDistribution[brokerKey] = append(serviceDistribution[brokerKey], serviceName)
-		}
+		// Distribute services round-robin across brokers
+		// This ensures services are on different brokers than their event aggregators
+		brokerIndex := i % ut.config.BrokerCount
+		brokerKey := fmt.Sprintf("broker-%d", brokerIndex)
+		serviceDistribution[brokerKey] = append(serviceDistribution[brokerKey], serviceName)
+
+		log.WithFields(log.Fields{
+			"service_name": serviceName,
+			"broker_index": brokerIndex,
+			"broker_key":   brokerKey,
+		}).Debug("Distributed service to broker")
 	}
 
 	return serviceDistribution
@@ -321,18 +377,47 @@ func (ut *UnifiedTest) captureMemoryStats() {
 	runtime.ReadMemStats(&m)
 
 	ut.memoryStats.FinalHeapBytes = m.HeapAlloc
-	ut.memoryStats.PeakHeapBytes = m.HeapAlloc // Will be updated during execution
 	ut.memoryStats.FinalGoroutines = runtime.NumGoroutine()
-	ut.memoryStats.PeakGoroutines = runtime.NumGoroutine() // Will be updated during execution
+
+	// Update peak values if current values are higher
+	if m.HeapAlloc > ut.memoryStats.PeakHeapBytes {
+		ut.memoryStats.PeakHeapBytes = m.HeapAlloc
+	}
+	if runtime.NumGoroutine() > ut.memoryStats.PeakGoroutines {
+		ut.memoryStats.PeakGoroutines = runtime.NumGoroutine()
+	}
 
 	// Calculate growth
 	ut.memoryStats.HeapGrowthBytes = int64(ut.memoryStats.FinalHeapBytes) - int64(ut.memoryStats.InitialHeapBytes)
 	ut.memoryStats.GoroutineLeak = ut.memoryStats.FinalGoroutines - ut.memoryStats.InitialGoroutines
 }
 
+// updateMemoryStatsDuringExecution updates memory stats during execution
+func (ut *UnifiedTest) updateMemoryStatsDuringExecution() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	// Update peak values if current values are higher
+	if m.HeapAlloc > ut.memoryStats.PeakHeapBytes {
+		ut.memoryStats.PeakHeapBytes = m.HeapAlloc
+	}
+	if runtime.NumGoroutine() > ut.memoryStats.PeakGoroutines {
+		ut.memoryStats.PeakGoroutines = runtime.NumGoroutine()
+	}
+}
+
 // Run executes the unified performance test
 func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 	ut.transporterType = transporterType
+
+	// Ensure cleanup always happens, even if test panics
+	defer func() {
+		if r := recover(); r != nil {
+			log.WithField("panic", r).Error("Test panicked, cleaning up resources")
+			ut.cleanup()
+			panic(r) // Re-panic after cleanup
+		}
+	}()
 
 	log.WithFields(log.Fields{
 		"test_name":        ut.config.TestName,
@@ -362,12 +447,11 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 	}).Debug("Captured initial memory statistics")
 
 	// Adjust configuration
-	ut.adjustConfiguration()
-
+	// Use configuration as-is without adjustment
 	log.WithFields(log.Fields{
-		"adjusted_broker_count":   ut.config.BrokerCount,
-		"adjusted_total_services": ut.config.TotalServices,
-	}).Info("Configuration adjusted")
+		"broker_count":   ut.config.BrokerCount,
+		"total_services": ut.config.TotalServices,
+	}).Info("Using configuration as-is")
 
 	// Create test result
 	result := &UnifiedTestResult{
@@ -388,11 +472,13 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 	logger := log.WithField("discovery_time_ms", ut.discoveryTime.Nanoseconds()/1e6)
 	logger.Info("Discovery phase completed")
 
-	// Run execution phase
+	// Run execution phase (multiple cycles)
 	log.Info("Starting execution phase")
 	if err := ut.runExecutionPhase(); err != nil {
 		log.WithError(err).Error("Execution phase failed")
 		result.Error = err
+		// Still need to cleanup even if execution fails
+		ut.cleanup()
 		return result, err
 	}
 	execLogger := log.WithField("execution_time_ms", ut.executionTime.Nanoseconds()/1e6)
@@ -415,6 +501,15 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 	result.TotalTimeMs = result.DiscoveryTimeMs + result.ExecutionTimeMs
 	result.Success = true
 
+	// Save results to JSON file
+	if err := ut.saveResultsToJSON(result); err != nil {
+		log.WithError(err).Warn("Failed to save results to JSON file")
+		// Don't fail the test if JSON saving fails
+	}
+
+	// Cleanup resources - Stop all brokers
+	ut.cleanup()
+
 	return result, nil
 }
 
@@ -424,6 +519,9 @@ func (ut *UnifiedTest) runDiscoveryPhase() error {
 
 	logger := log.WithField("broker_count", ut.config.BrokerCount)
 	logger.Info("Creating and starting brokers")
+
+	// Determine aggregator placement before creating brokers
+	ut.determineAggregatorPlacement()
 
 	// Create all brokers first
 	for i := 0; i < ut.config.BrokerCount; i++ {
@@ -462,8 +560,8 @@ func (ut *UnifiedTest) runDiscoveryPhase() error {
 	// Give brokers time to discover each other's services through the transport layer
 	log.Info("Waiting for service discovery to complete across all brokers")
 
-	// Wait a bit for the discovery process to complete
-	time.Sleep(100 * time.Millisecond)
+	// Wait for discovery process to complete - use same timeout as working test
+	time.Sleep(5 * time.Second)
 
 	// Wait for all nodes to be discovered - this ensures all brokers know about each other
 	// When a node is discovered, their services will also be discovered automatically
@@ -529,6 +627,9 @@ func (ut *UnifiedTest) runExecutionPhase() error {
 	// Run multiple cycles of action execution
 	for cycle := 0; cycle < ut.config.TestCycles; cycle++ {
 		log.Debug(fmt.Sprintf("Starting execution cycle %d", cycle))
+
+		// Update memory stats during execution
+		ut.updateMemoryStatsDuringExecution()
 
 		// Always start from broker-0
 		rootAction := ut.findRootAction()
@@ -699,7 +800,9 @@ func (ut *UnifiedTest) executeCallChain(actionName string, cycle int) (interface
 		"action_name":  strings.Split(actionName, ".")[1],
 	}
 
+	// Execute broker call directly (no goroutine to avoid goroutine leaks)
 	result := <-broker.Call(actionName, actionPayload, moleculer.Options{Meta: payload.New(metadata)})
+
 	if result.IsError() {
 		log.WithFields(log.Fields{
 			"action_name": actionName,
@@ -736,13 +839,14 @@ func (ut *UnifiedTest) executeCallChain(actionName string, cycle int) (interface
 		"sub_action_count": len(actionConfig.Actions),
 	}).Trace("🔄 Action has sub-actions, executing them")
 
-	// Execute all the actions this action calls
-	subResults := make([]interface{}, 0, len(actionConfig.Actions))
+	// Execute all the actions this action calls sequentially (no goroutines to avoid leaks)
+	subResults := make([]interface{}, len(actionConfig.Actions))
+
 	log.WithFields(log.Fields{
 		"action_name":      actionName,
 		"sub_actions":      actionConfig.Actions,
 		"sub_action_count": len(actionConfig.Actions),
-	}).Trace("🔄 About to execute all sub-actions")
+	}).Trace("🔄 About to execute all sub-actions sequentially")
 
 	for i, subActionName := range actionConfig.Actions {
 		log.WithFields(log.Fields{
@@ -768,7 +872,7 @@ func (ut *UnifiedTest) executeCallChain(actionName string, cycle int) (interface
 			"sub_result":  subResult,
 		}).Trace("✅ Sub-action executed successfully")
 
-		subResults = append(subResults, subResult)
+		subResults[i] = subResult
 	}
 
 	log.WithFields(log.Fields{
@@ -1017,17 +1121,17 @@ func (ut *UnifiedTest) validateEventAggregation(report *ValidationReport) bool {
 
 	// success := true // Not used in simplified validation
 
-	// Get event aggregator services (every 3rd broker)
+	// Get aggregator brokers from the map
 	aggregatorBrokers := make([]int, 0)
-	for i := 2; i < ut.config.BrokerCount; i += 3 {
-		aggregatorBrokers = append(aggregatorBrokers, i)
+	for brokerIndex := range ut.aggregatorMap {
+		aggregatorBrokers = append(aggregatorBrokers, brokerIndex)
 	}
 
 	log.Debug(fmt.Sprintf("Found event aggregator brokers: %v", aggregatorBrokers))
 
 	// For each aggregator, collect its events
 	for _, brokerIndex := range aggregatorBrokers {
-		aggregatorName := fmt.Sprintf("event-aggregator-%d", brokerIndex)
+		aggregatorName := ut.aggregatorMap[brokerIndex]
 
 		// Use the broker that has the aggregator service
 		var aggregatorBroker *broker.ServiceBroker
@@ -1310,11 +1414,25 @@ func (ut *UnifiedTest) getActualActionResults() []UnifiedActionResult {
 
 // generateMetrics generates comprehensive test metrics
 func (ut *UnifiedTest) generateMetrics() *TestMetrics {
+	// Calculate successful and failed actions
+	successfulActions := 0
+	failedActions := 0
+
+	for _, actionResult := range ut.actionResults {
+		if actionResult.Error != nil {
+			failedActions++
+		} else {
+			successfulActions++
+		}
+	}
+
 	metrics := &TestMetrics{
 		DiscoveryTimeMs:     float64(ut.discoveryTime.Nanoseconds()) / 1e6,
 		ExecutionTimeMs:     float64(ut.executionTime.Nanoseconds()) / 1e6,
 		TotalTimeMs:         float64(ut.discoveryTime.Nanoseconds())/1e6 + float64(ut.executionTime.Nanoseconds())/1e6,
 		TotalActionsCalled:  len(ut.actionResults),
+		SuccessfulActions:   successfulActions,
+		FailedActions:       failedActions,
 		TotalEventsReceived: len(ut.eventResults),
 		InitialHeapBytes:    ut.memoryStats.InitialHeapBytes,
 		PeakHeapBytes:       ut.memoryStats.PeakHeapBytes,
@@ -1350,20 +1468,11 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 		"transporter_type": ut.transporterType,
 	}).Debug("Creating broker")
 
-	// Create transporter factory
-	transporterType := TransporterType(ut.transporterType)
-	factory := NewTransporterFactory(&TransporterConfig{
-		Type: transporterType,
-	})
-
-	// Create broker config
+	// Create broker config - use simple transporter like working test
 	brokerConfig := &moleculer.Config{
-		Transporter: ut.transporterType, // Set the transporter type
-		TransporterFactory: func() interface{} {
-			return factory.CreateTransporter()
-		},
+		Transporter:                ut.transporterType, // Use simple string like working test
 		LogLevel:                   ut.config.LogLevel,
-		WaitForDependenciesTimeout: 24 * time.Hour, // Wait up to 24 hours for discovery
+		WaitForDependenciesTimeout: 10 * time.Second, // Use same timeout as working test
 	}
 
 	log.WithFields(log.Fields{
@@ -1396,9 +1505,8 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 		ut.addServiceToBroker(bkr, serviceName, index)
 	}
 
-	// Add event aggregator service if this is an aggregator broker (every 3rd broker)
-	if index%3 == 2 {
-		aggregatorName := fmt.Sprintf("event-aggregator-%d", index)
+	// Add event aggregator service if this broker is designated as an aggregator
+	if aggregatorName, isAggregator := ut.aggregatorMap[index]; isAggregator {
 		log.WithFields(log.Fields{
 			"broker_index":    index,
 			"aggregator_name": aggregatorName,
@@ -1551,11 +1659,14 @@ func (ut *UnifiedTest) addEventAggregatorService(bkr *broker.ServiceBroker, serv
 					"received_from": "event-source",
 				}
 
-				// Store the event in the aggregator's collection
+				// Store the event in the aggregator's collection (thread-safe)
+				ut.eventsMutex.Lock()
 				ut.aggregatedEvents[aggregatorName] = append(ut.aggregatedEvents[aggregatorName], eventData)
+				eventCount := len(ut.aggregatedEvents[aggregatorName])
+				ut.eventsMutex.Unlock()
 
-				log.Trace(fmt.Sprintf("📨 Event received by aggregator: %s, event: %s, total_events: %d, received_from: event-source",
-					aggregatorName, eventName, len(ut.aggregatedEvents[aggregatorName])))
+				log.Info(fmt.Sprintf("📨 Event received by aggregator: %s, event: %s, total_events: %d, received_from: event-source",
+					aggregatorName, eventName, eventCount))
 			}
 		}(serviceName, eventName)
 
@@ -1599,21 +1710,18 @@ func (ut *UnifiedTest) getEventsToListenTo(aggregatorBrokerIndex int) []string {
 		servicesOnThisBroker[serviceName] = true
 	}
 
-	// Since all services are on all brokers, we need a different approach
-	// Event aggregators should listen to events from services that are on DIFFERENT brokers
-	// For now, let's make each aggregator listen to events from services on other brokers
-	// We'll use a simple round-robin approach where each aggregator listens to events from
-	// services that are primarily on other brokers
-
-	// For each service in the system, add its events (since all services are on all brokers,
-	// we'll listen to all events to ensure we catch them)
+	// Listen to events from services that are NOT on this broker
+	// This ensures the aggregator receives events from remote brokers
 	for i := 0; i < ut.config.TotalServices; i++ {
 		serviceName := fmt.Sprintf("service-%d", i)
 
-		// Add events for all actions of this service
-		for j := 0; j < ut.config.ActionsPerService; j++ {
-			eventName := fmt.Sprintf("%s.action-%d.called", serviceName, j)
-			eventsToListen = append(eventsToListen, eventName)
+		// Only listen to events from services that are NOT on this broker
+		if !servicesOnThisBroker[serviceName] {
+			// Add events for all actions of this service
+			for j := 0; j < ut.config.ActionsPerService; j++ {
+				eventName := fmt.Sprintf("%s.action-%d.called", serviceName, j)
+				eventsToListen = append(eventsToListen, eventName)
+			}
 		}
 	}
 
@@ -1665,7 +1773,7 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 		"random_value": time.Now().UnixNano(),
 		"payload_size": returnPayloadSize,
 	}
-	log.Trace(fmt.Sprintf("📤 Emitting event %s with data: %v", eventName, eventData))
+	log.Info(fmt.Sprintf("📤 Emitting event %s with data: %v", eventName, eventData))
 	context.Emit(eventName, eventData)
 
 	// Create result for this action
@@ -1731,17 +1839,24 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 func (ut *UnifiedTest) collectEventResults() {
 	log.Info("Collecting event results from all aggregators")
 
-	// Get event aggregator services (every 3rd broker)
+	// Get aggregator brokers from the map
 	aggregatorBrokers := make([]int, 0)
-	for i := 2; i < ut.config.BrokerCount; i += 3 {
-		aggregatorBrokers = append(aggregatorBrokers, i)
+	for brokerIndex := range ut.aggregatorMap {
+		aggregatorBrokers = append(aggregatorBrokers, brokerIndex)
 	}
 
-	log.Debug(fmt.Sprintf("Found event aggregator brokers: %v", aggregatorBrokers))
+	log.Info(fmt.Sprintf("Found event aggregator brokers: %v (broker_count: %d)", aggregatorBrokers, ut.config.BrokerCount))
 
-	// For each aggregator, collect its events
+	// Use a channel to collect results from all aggregators concurrently
+	resultChan := make(chan struct {
+		aggregatorName string
+		events         []interface{}
+		error          error
+	}, len(aggregatorBrokers))
+
+	// Start goroutines for each aggregator
 	for _, brokerIndex := range aggregatorBrokers {
-		aggregatorName := fmt.Sprintf("event-aggregator-%d", brokerIndex)
+		aggregatorName := ut.aggregatorMap[brokerIndex]
 
 		// Use the broker that has the aggregator service
 		var aggregatorBroker *broker.ServiceBroker
@@ -1754,40 +1869,98 @@ func (ut *UnifiedTest) collectEventResults() {
 
 		if aggregatorBroker == nil {
 			log.Warn(fmt.Sprintf("No broker found for aggregator %s", aggregatorName))
+			resultChan <- struct {
+				aggregatorName string
+				events         []interface{}
+				error          error
+			}{aggregatorName, nil, fmt.Errorf("no broker found")}
 			continue
 		}
 
-		// Call get-aggregated-events
-		result := <-aggregatorBroker.Call(fmt.Sprintf("%s.get-aggregated-events", aggregatorName), map[string]interface{}{})
-		if result.Error() != nil {
-			log.WithFields(log.Fields{
-				"aggregator": aggregatorName,
-				"error":      result.Error(),
-			}).Warn("Failed to get aggregated events from aggregator")
-			continue
-		}
+		// Start goroutine for this aggregator
+		go func(name string, broker *broker.ServiceBroker) {
+			log.Info(fmt.Sprintf("Calling get-aggregated-events on aggregator %s", name))
 
-		// Convert result to event results
-		if resultMap, ok := result.Value().(map[string]interface{}); ok {
-			if events, ok := resultMap["events"].([]interface{}); ok {
-				for _, event := range events {
-					if eventMap, ok := event.(map[string]interface{}); ok {
-						eventResult := UnifiedActionResult{
-							ServiceName: eventMap["aggregator"].(string),
-							ActionName:  eventMap["event_name"].(string),
-							Result:      eventMap,
-							Error:       nil,
-						}
-						ut.eventResults = append(ut.eventResults, eventResult)
+			// Create a channel for the result with timeout
+			callResultChan := make(chan moleculer.Payload, 1)
+			go func() {
+				result := <-broker.Call(fmt.Sprintf("%s.get-aggregated-events", name), map[string]interface{}{})
+				callResultChan <- result
+			}()
+
+			// Wait for result with timeout
+			select {
+			case result := <-callResultChan:
+				if result.Error() != nil {
+					log.WithFields(log.Fields{
+						"aggregator": name,
+						"error":      result.Error(),
+					}).Warn("Failed to get aggregated events from aggregator")
+					resultChan <- struct {
+						aggregatorName string
+						events         []interface{}
+						error          error
+					}{name, nil, result.Error()}
+					return
+				}
+
+				log.Info(fmt.Sprintf("Got result from aggregator %s: %v", name, result.Value()))
+
+				// Process the result
+				var events []interface{}
+				if resultMap, ok := result.Value().(map[string]interface{}); ok {
+					if eventsList, ok := resultMap["events"].([]interface{}); ok {
+						events = eventsList
 					}
 				}
-			}
-		}
 
-		log.WithFields(log.Fields{
-			"aggregator":   aggregatorName,
-			"events_count": len(ut.eventResults),
-		}).Debug("Collected events from aggregator")
+				resultChan <- struct {
+					aggregatorName string
+					events         []interface{}
+					error          error
+				}{name, events, nil}
+
+			case <-time.After(10 * time.Second):
+				log.WithField("aggregator", name).Warn("Timeout waiting for aggregated events from aggregator")
+				resultChan <- struct {
+					aggregatorName string
+					events         []interface{}
+					error          error
+				}{name, nil, fmt.Errorf("timeout")}
+			}
+		}(aggregatorName, aggregatorBroker)
+	}
+
+	// Collect results from all goroutines
+	for i := 0; i < len(aggregatorBrokers); i++ {
+		select {
+		case result := <-resultChan:
+			if result.error != nil {
+				log.WithFields(log.Fields{
+					"aggregator": result.aggregatorName,
+					"error":      result.error,
+				}).Warn("Failed to collect events from aggregator")
+				continue
+			}
+
+			// Add events to results
+			for _, event := range result.events {
+				ut.eventResults = append(ut.eventResults, UnifiedActionResult{
+					ServiceName: result.aggregatorName,
+					ActionName:  "get-aggregated-events",
+					Result:      event,
+					Timestamp:   time.Now(),
+				})
+			}
+
+			log.WithFields(log.Fields{
+				"aggregator":   result.aggregatorName,
+				"events_count": len(result.events),
+			}).Debug("Collected events from aggregator")
+
+		case <-time.After(15 * time.Second):
+			log.Warn("Timeout waiting for all aggregators to respond")
+		}
 	}
 
 	log.Info(fmt.Sprintf("Event collection completed - total events: %d", len(ut.eventResults)))
@@ -1808,21 +1981,98 @@ func (ut *UnifiedTest) handleGetAggregatedEvents(ctx moleculer.Context, params m
 		"params_service_name": params.Get("service_name").String(),
 	}).Debug("🔍 Debug: handleGetAggregatedEvents called")
 
-	// Get the collected events for this aggregator
+	// Get the collected events for this aggregator (thread-safe)
+	ut.eventsMutex.RLock()
 	events, exists := ut.aggregatedEvents[aggregatorName]
 	if !exists {
 		events = []interface{}{}
 	}
+	// Create a copy to avoid holding the lock
+	eventsCopy := make([]interface{}, len(events))
+	copy(eventsCopy, events)
+	ut.eventsMutex.RUnlock()
 
 	// Log the aggregated events
-	log.Trace(fmt.Sprintf("📊 Returning %d aggregated events from %s (requested by %s)", len(events), aggregatorName, serviceName))
+	log.Trace(fmt.Sprintf("📊 Returning %d aggregated events from %s (requested by %s)", len(eventsCopy), aggregatorName, serviceName))
 
 	return map[string]interface{}{
 		"status":       "success",
-		"events":       events,
-		"events_count": len(events),
+		"events":       eventsCopy,
+		"events_count": len(eventsCopy),
 		"aggregator":   aggregatorName,
 		"requested_by": serviceName,
 		"action":       "get-aggregated-events",
 	}
+}
+
+// cleanup stops all brokers and cleans up resources
+func (ut *UnifiedTest) cleanup() {
+	log.Info("Starting cleanup phase - stopping all brokers")
+
+	// Stop all brokers
+	for i, broker := range ut.brokers {
+		if broker != nil {
+			log.WithField("broker_index", i).Debug("Stopping broker")
+			broker.Stop()
+			log.WithField("broker_index", i).Debug("Broker stopped successfully")
+		}
+	}
+
+	// Clear brokers slice
+	ut.brokers = nil
+
+	// Force garbage collection to clean up memory
+	runtime.GC()
+
+	log.Info("Cleanup phase completed - all brokers stopped")
+}
+
+// SetOutputDir sets the output directory for JSON results
+func (ut *UnifiedTest) SetOutputDir(outputDir string) {
+	ut.outputDir = outputDir
+}
+
+// saveResultsToJSON saves the test results to a JSON file
+func (ut *UnifiedTest) saveResultsToJSON(result *UnifiedTestResult) error {
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(ut.outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory %s: %v", ut.outputDir, err)
+	}
+
+	// Generate filename with timestamp and transporter type
+	timestamp := result.Timestamp.Format("20060102_150405")
+	filename := fmt.Sprintf("unified_test_%s_%s_%s.json",
+		strings.ReplaceAll(result.TestName, " ", "_"),
+		ut.transporterType,
+		timestamp)
+
+	filepath := filepath.Join(ut.outputDir, filename)
+
+	// Create the file
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to create JSON file %s: %v", filepath, err)
+	}
+	defer file.Close()
+
+	// Create JSON encoder with indentation
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+
+	// Encode the result
+	if err := encoder.Encode(result); err != nil {
+		return fmt.Errorf("failed to encode JSON to file %s: %v", filepath, err)
+	}
+
+	log.WithFields(log.Fields{
+		"filepath":         filepath,
+		"transporter_type": ut.transporterType,
+		"test_name":        result.TestName,
+		"success":          result.Success,
+		"discovery_time":   result.DiscoveryTimeMs,
+		"execution_time":   result.ExecutionTimeMs,
+		"total_time":       result.TotalTimeMs,
+	}).Info("📄 Test results saved to JSON file")
+
+	return nil
 }

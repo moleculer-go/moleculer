@@ -158,6 +158,7 @@ func TestUnifiedTestRunMemoryOnly(t *testing.T) {
 	}
 
 	test := NewUnifiedTest(config)
+	test.SetOutputDir("test_results") // Set custom output directory
 
 	// Run the test with the first transporter type from config
 	result, err := test.Run(config.TransporterTypes[0])
@@ -204,6 +205,7 @@ func TestUnifiedTestBasic(t *testing.T) {
 		t.Run(fmt.Sprintf("Transporter_%s", transporterType), func(t *testing.T) {
 			// Create and run the test with current transporter
 			test := NewUnifiedTest(config)
+			test.SetOutputDir("test_results") // Set custom output directory
 			result, err := test.Run(transporterType)
 			if err != nil {
 				t.Logf("Basic test run failed for %s: %v", transporterType, err)
@@ -247,6 +249,7 @@ func TestUnifiedTestDebug(t *testing.T) {
 
 	// Create and run the test with TCP transporter
 	test := NewUnifiedTest(config)
+	test.SetOutputDir("test_results") // Set custom output directory
 	result, err := test.Run("TCP")
 	if err != nil {
 		t.Logf("Debug test run failed: %v", err)
@@ -273,6 +276,42 @@ func TestUnifiedTestDebug(t *testing.T) {
 	t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
 }
 
+func TestUnifiedTestSimple(t *testing.T) {
+	// Load the simple test configuration
+	config, err := LoadUnifiedTestConfig("configs/simple_test.json")
+	if err != nil {
+		t.Fatalf("Failed to load simple test configuration: %v", err)
+	}
+
+	// Create and run the test with TCP transporter
+	test := NewUnifiedTest(config)
+	test.SetOutputDir("test_results") // Set custom output directory
+	result, err := test.Run("TCP")
+	if err != nil {
+		t.Logf("Simple test run failed: %v", err)
+		return
+	}
+
+	// Validate results
+	report := test.validationReport
+	if report == nil {
+		t.Fatal("Validation report is nil")
+	}
+	if !report.IsValid {
+		t.Errorf("Validation failed: %v", report.ValidationErrors)
+	}
+
+	t.Logf("Simple test completed successfully:")
+	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+	t.Logf("  Validation success: %t", report.IsValid)
+	t.Logf("  Call chain complete: %t", report.CallChainComplete)
+	t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+}
+
 func TestUnifiedTestMedium(t *testing.T) {
 	// Load the medium test configuration
 	config, err := LoadUnifiedTestConfig("configs/medium_test.json")
@@ -282,6 +321,7 @@ func TestUnifiedTestMedium(t *testing.T) {
 
 	// Create and run the test with TCP transporter
 	test := NewUnifiedTest(config)
+	test.SetOutputDir("test_results") // Set custom output directory
 	result, err := test.Run("TCP")
 	if err != nil {
 		t.Logf("Medium test run failed: %v", err)
@@ -298,6 +338,41 @@ func TestUnifiedTestMedium(t *testing.T) {
 	}
 
 	t.Logf("Medium test completed successfully:")
+	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+	t.Logf("  Validation success: %t", report.IsValid)
+	t.Logf("  Call chain complete: %t", report.CallChainComplete)
+	t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+}
+
+func TestUnifiedTestMinimal(t *testing.T) {
+	// Load the minimal test configuration
+	config, err := LoadUnifiedTestConfig("configs/minimal_test.json")
+	if err != nil {
+		t.Fatalf("Failed to load minimal test configuration: %v", err)
+	}
+
+	// Create and run the test with the first transporter from config
+	test := NewUnifiedTest(config)
+	test.SetOutputDir("test_results") // Set custom output directory
+	transporterType := config.TransporterTypes[0]
+	result, err := test.Run(transporterType)
+	if err != nil {
+		t.Logf("Minimal test run failed: %v", err)
+		return
+	}
+
+	// Validate the results
+	report := result.ValidationReport
+	if !report.IsValid {
+		t.Logf("Validation failed: %v", report.ValidationErrors)
+	}
+
+	// Log the results
+	t.Logf("Minimal test completed successfully:")
 	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
 	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
 	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)

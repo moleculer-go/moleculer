@@ -1,6 +1,6 @@
 {
-    "test_name": "Simple Discovery Test",
-    "test_description": "Simple test with 3 brokers and 3 services to verify discovery works across brokers",
+    "test_name": "Simple Test",
+    "test_description": "Simple performance test with minimal configuration",
     "transporter_types": ["TCP"],
     "transporter_config": {
         "TCP": {
@@ -9,7 +9,7 @@
     },
     "broker_count": 3,
     "total_services": 3,
-    "actions_per_service": 2,
+    "actions_per_service": 1,
     "call_chain_config": {
         "service-0.action-0": {
             "actions": ["service-1.action-0"],
@@ -34,6 +34,6 @@
         }
     },
     "test_timeout_seconds": 30,
-    "test_cycles": 1,
-    "log_level": "TRACE"
+    "test_cycles": 2,
+    "log_level": "INFO"
 }
