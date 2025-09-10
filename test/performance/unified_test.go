@@ -1468,9 +1468,19 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 		"transporter_type": ut.transporterType,
 	}).Debug("Creating broker")
 
-	// Create broker config - use simple transporter like working test
+	// Create broker config - use proper transporter URLs like working test
+	var transporterURL string
+	switch ut.transporterType {
+	case "TCP":
+		transporterURL = "TCP"
+	case "NATS":
+		transporterURL = "nats://localhost:4222" // Use full URL like working test
+	default:
+		transporterURL = ut.transporterType
+	}
+
 	brokerConfig := &moleculer.Config{
-		Transporter:                ut.transporterType, // Use simple string like working test
+		Transporter:                transporterURL, // Use proper URL like working test
 		LogLevel:                   ut.config.LogLevel,
 		WaitForDependenciesTimeout: 10 * time.Second, // Use same timeout as working test
 	}
@@ -1755,7 +1765,38 @@ func (ut *UnifiedTest) genericAction(context moleculer.Context, params moleculer
 	}
 
 	// Convert actionConfig to UnifiedActionCallConfig for easier access
-	configStruct := actionConfig.(UnifiedActionCallConfig)
+	// The actionConfig can be either a struct or a map, so we need to handle both cases
+	var configStruct UnifiedActionCallConfig
+
+	if configMap, ok := actionConfig.(map[string]interface{}); ok {
+		// Convert map to UnifiedActionCallConfig
+		if actions, ok := configMap["actions"].([]interface{}); ok {
+			configStruct.Actions = make([]string, len(actions))
+			for i, action := range actions {
+				if actionStr, ok := action.(string); ok {
+					configStruct.Actions[i] = actionStr
+				}
+			}
+		}
+		if returnPayloadSize, ok := configMap["return_payload_size"].(float64); ok {
+			configStruct.ReturnPayloadSize = int(returnPayloadSize)
+		}
+		if parameterPayloadSize, ok := configMap["parameter_payload_size"].(float64); ok {
+			configStruct.ParameterPayloadSize = int(parameterPayloadSize)
+		}
+		if expectedResultCount, ok := configMap["expected_result_count"].(float64); ok {
+			configStruct.ExpectedResultCount = int(expectedResultCount)
+		}
+		if expectedEventCount, ok := configMap["expected_event_count"].(float64); ok {
+			configStruct.ExpectedEventCount = int(expectedEventCount)
+		}
+	} else if config, ok := actionConfig.(UnifiedActionCallConfig); ok {
+		// Already a struct, use it directly
+		configStruct = config
+	} else {
+		log.Error(fmt.Sprintf("❌ Unexpected type for action %s: %T", actionKey, actionConfig))
+		return []interface{}{}
+	}
 
 	// Create return payload of specified size and fill with random data
 	returnPayloadSize := configStruct.ReturnPayloadSize

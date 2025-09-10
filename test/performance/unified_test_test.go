@@ -247,33 +247,38 @@ func TestUnifiedTestDebug(t *testing.T) {
 		t.Fatalf("Failed to load debug test configuration: %v", err)
 	}
 
-	// Create and run the test with TCP transporter
-	test := NewUnifiedTest(config)
-	test.SetOutputDir("test_results") // Set custom output directory
-	result, err := test.Run("TCP")
-	if err != nil {
-		t.Logf("Debug test run failed: %v", err)
-		return
-	}
+	// Run tests for all configured transporter types
+	for _, transporterType := range config.TransporterTypes {
+		t.Run(transporterType, func(t *testing.T) {
+			// Create and run the test with the specified transporter
+			test := NewUnifiedTest(config)
+			test.SetOutputDir("test_results") // Set custom output directory
+			result, err := test.Run(transporterType)
+			if err != nil {
+				t.Logf("Debug test run failed for %s: %v", transporterType, err)
+				return
+			}
 
-	// Validate results
-	report := test.validationReport
-	if report == nil {
-		t.Fatal("Validation report is nil")
-	}
-	if !report.IsValid {
-		t.Errorf("Validation failed: %v", report.ValidationErrors)
-	}
+			// Validate results
+			report := test.validationReport
+			if report == nil {
+				t.Fatal("Validation report is nil")
+			}
+			if !report.IsValid {
+				t.Errorf("Validation failed for %s: %v", transporterType, report.ValidationErrors)
+			}
 
-	t.Logf("Debug test completed successfully:")
-	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
-	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
-	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
-	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
-	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
-	t.Logf("  Validation success: %t", report.IsValid)
-	t.Logf("  Call chain complete: %t", report.CallChainComplete)
-	t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+			t.Logf("Debug test completed successfully for %s:", transporterType)
+			t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+			t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+			t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+			t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+			t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+			t.Logf("  Validation success: %t", report.IsValid)
+			t.Logf("  Call chain complete: %t", report.CallChainComplete)
+			t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+		})
+	}
 }
 
 func TestUnifiedTestSimple(t *testing.T) {
@@ -355,30 +360,34 @@ func TestUnifiedTestMinimal(t *testing.T) {
 		t.Fatalf("Failed to load minimal test configuration: %v", err)
 	}
 
-	// Create and run the test with the first transporter from config
-	test := NewUnifiedTest(config)
-	test.SetOutputDir("test_results") // Set custom output directory
-	transporterType := config.TransporterTypes[0]
-	result, err := test.Run(transporterType)
-	if err != nil {
-		t.Logf("Minimal test run failed: %v", err)
-		return
-	}
+	// Run tests for all configured transporter types
+	for _, transporterType := range config.TransporterTypes {
+		t.Run(transporterType, func(t *testing.T) {
+			// Create and run the test with the specified transporter
+			test := NewUnifiedTest(config)
+			test.SetOutputDir("test_results") // Set custom output directory
+			result, err := test.Run(transporterType)
+			if err != nil {
+				t.Logf("Minimal test run failed for %s: %v", transporterType, err)
+				return
+			}
 
-	// Validate the results
-	report := result.ValidationReport
-	if !report.IsValid {
-		t.Logf("Validation failed: %v", report.ValidationErrors)
-	}
+			// Validate the results
+			report := result.ValidationReport
+			if !report.IsValid {
+				t.Logf("Validation failed for %s: %v", transporterType, report.ValidationErrors)
+			}
 
-	// Log the results
-	t.Logf("Minimal test completed successfully:")
-	t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
-	t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
-	t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
-	t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
-	t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
-	t.Logf("  Validation success: %t", report.IsValid)
-	t.Logf("  Call chain complete: %t", report.CallChainComplete)
-	t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+			// Log the results
+			t.Logf("Minimal test completed successfully for %s:", transporterType)
+			t.Logf("  Discovery time: %.2f ms", result.DiscoveryTimeMs)
+			t.Logf("  Execution time: %.2f ms", result.ExecutionTimeMs)
+			t.Logf("  Total time: %.2f ms", result.TotalTimeMs)
+			t.Logf("  Memory growth: %d bytes", result.MemoryStats.HeapGrowthBytes)
+			t.Logf("  Goroutine leak: %d", result.MemoryStats.GoroutineLeak)
+			t.Logf("  Validation success: %t", report.IsValid)
+			t.Logf("  Call chain complete: %t", report.CallChainComplete)
+			t.Logf("  Expected actions executed: %t", report.ExpectedActionsExecuted)
+		})
+	}
 }

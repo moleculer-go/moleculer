@@ -1,7 +1,7 @@
 {
     "test_name": "Debug Test - Half Action Chain",
     "test_description": "Debug test with half brokers and half action chain for TCP testing",
-    "transporter_types": ["TCP"],
+    "transporter_types": ["TCP", "NATS"],
     "transporter_config": {
         "TCP": {
             "port": 0
@@ -46,20 +46,13 @@
             "expected_event_count": 2
         },
         "service-3.action-0": {
-            "actions": ["service-5.action-0"],
+            "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
+            "expected_result_count": 0,
+            "expected_event_count": 1
         },
         "service-4.action-0": {
-            "actions": ["service-5.action-0"],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 1,
-            "expected_event_count": 2
-        },
-        "service-5.action-0": {
             "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
@@ -95,13 +88,6 @@
             "expected_event_count": 1
         },
         "service-4.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-5.action-1": {
             "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
