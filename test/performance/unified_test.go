@@ -19,6 +19,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Helper functions for extracting values from map[string]interface{}
+func getStringFromMap(m map[string]interface{}, key, defaultValue string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return defaultValue
+}
+
+func getIntFromMap(m map[string]interface{}, key string, defaultValue int) int {
+	if val, ok := m[key].(float64); ok {
+		return int(val)
+	}
+	return defaultValue
+}
+
 // UnifiedTestConfig represents the configuration for the unified performance test
 type UnifiedTestConfig struct {
 	// Test Identity
@@ -26,8 +41,8 @@ type UnifiedTestConfig struct {
 	TestDescription string `json:"test_description"`
 
 	// Transporter Configuration
-	TransporterTypes  []string               `json:"transporter_types"`
-	TransporterConfig map[string]interface{} `json:"transporter_config"`
+	TransporterTypes   []string               `json:"transporter_types"`
+	TransporterConfigs map[string]interface{} `json:"transporter_config"`
 
 	// Broker Configuration
 	BrokerCount       int `json:"broker_count"`
@@ -1470,35 +1485,56 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 		"transporter_type": ut.transporterType,
 	}).Debug("Creating broker")
 
-	// Create broker config - use proper transporter configuration like working tests
+	// Create broker config - use configuration from JSON file
 	brokerConfig := &moleculer.Config{
 		LogLevel:                   ut.config.LogLevel,
 		WaitForDependenciesTimeout: 30 * time.Second, // Increased timeout for Redis/AMQP
 	}
 
-	// Configure transporter based on type - use same approach as working tests
+	// Get transporter configuration from JSON file
+	transporterConfigInterface, exists := ut.config.TransporterConfigs[ut.transporterType]
+	if !exists {
+		log.Warn(fmt.Sprintf("No configuration found for transporter %s, using default", ut.transporterType))
+		brokerConfig.Transporter = ut.transporterType
+		return broker.New(brokerConfig)
+	}
+
+	// Type assert to map[string]interface{}
+	transporterConfig, ok := transporterConfigInterface.(map[string]interface{})
+	if !ok {
+		log.Warn(fmt.Sprintf("Invalid configuration format for transporter %s, using default", ut.transporterType))
+		brokerConfig.Transporter = ut.transporterType
+		return broker.New(brokerConfig)
+	}
+
+	// Configure transporter based on type using config from JSON file
 	switch ut.transporterType {
 	case "TCP":
 		brokerConfig.Transporter = "TCP"
 	case "NATS":
-		brokerConfig.Transporter = "nats://localhost:4222"
+		if url, ok := transporterConfig["url"].(string); ok {
+			brokerConfig.Transporter = url
+		} else {
+			brokerConfig.Transporter = "nats://localhost:4222"
+		}
 	case "Redis":
-		// Use TransporterFactory like working Redis test
+		// Use TransporterFactory with config from JSON file
 		brokerConfig.TransporterFactory = func() interface{} {
 			redisConfig := &redis.RedisConfig{
-				Host:     "localhost",
-				Port:     6379,
-				Password: "",
-				DB:       2, // Use DB 2 for testing like working test
-				Prefix:   "test-moleculer",
+				Host:     getStringFromMap(transporterConfig, "host", "localhost"),
+				Port:     getIntFromMap(transporterConfig, "port", 6379),
+				Password: getStringFromMap(transporterConfig, "password", ""),
+				DB:       getIntFromMap(transporterConfig, "db", 2),
+				Prefix:   getStringFromMap(transporterConfig, "prefix", "test-moleculer"),
 			}
 			return redis.NewRedisTransporter(redisConfig)
 		}
 	case "AMQP":
-		// Use TransporterFactory like working AMQP test
+		// Use TransporterFactory with config from JSON file
 		brokerConfig.TransporterFactory = func() interface{} {
+			url := getStringFromMap(transporterConfig, "url", "amqp://localhost:5672")
 			amqpConfig := amqp.AmqpOptions{
-				Url: []string{"amqp://localhost:5672"},
+				Url: []string{url},
 				Logger: log.WithFields(log.Fields{
 					"Unit Test": true,
 					"transport": "amqp",
@@ -1507,7 +1543,15 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 			return amqp.CreateAmqpTransporter(amqpConfig)
 		}
 	case "Kafka":
-		brokerConfig.Transporter = "kafka://localhost:9092"
+		if brokers, ok := transporterConfig["brokers"].([]interface{}); ok && len(brokers) > 0 {
+			if broker, ok := brokers[0].(string); ok {
+				brokerConfig.Transporter = fmt.Sprintf("kafka://%s", broker)
+			} else {
+				brokerConfig.Transporter = "kafka://localhost:9092"
+			}
+		} else {
+			brokerConfig.Transporter = "kafka://localhost:9092"
+		}
 	default:
 		brokerConfig.Transporter = ut.transporterType
 	}

@@ -57,7 +57,12 @@ type NATSTransporterConfig struct {
 
 // RedisTransporterConfig configuration for Redis transporter
 type RedisTransporterConfig struct {
-	URL string
+	URL      string
+	Host     string
+	Port     int
+	Password string
+	DB       int
+	Prefix   string
 }
 
 // AMQPTransporterConfig configuration for AMQP transporter
