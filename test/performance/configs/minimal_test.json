@@ -1,7 +1,7 @@
 {
     "test_name": "Minimal Debug Test",
     "test_description": "Minimal test with 2 brokers and 2 services for easy debugging",
-    "transporter_types": ["TCP"],
+    "transporter_types": ["TCP", "NATS", "Redis", "AMQP", "Kafka"],
     "transporter_config": {
         "TCP": {
             "port": 0

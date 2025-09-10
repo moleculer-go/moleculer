@@ -1,7 +1,7 @@
 {
     "test_name": "Basic Test",
     "test_description": "Basic performance test with all transporters",
-    "transporter_types": ["TCP", "NATS"],
+    "transporter_types": ["TCP", "NATS", "Redis", "AMQP", "Kafka"],
     "transporter_config": {
         "TCP": {
             "port": 0

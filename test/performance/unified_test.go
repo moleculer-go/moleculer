@@ -14,6 +14,8 @@ import (
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
 	"github.com/moleculer-go/moleculer/payload"
+	"github.com/moleculer-go/moleculer/transit/amqp"
+	"github.com/moleculer-go/moleculer/transit/redis"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -560,8 +562,8 @@ func (ut *UnifiedTest) runDiscoveryPhase() error {
 	// Give brokers time to discover each other's services through the transport layer
 	log.Info("Waiting for service discovery to complete across all brokers")
 
-	// Wait for discovery process to complete - use same timeout as working test
-	time.Sleep(5 * time.Second)
+	// Wait for discovery process to complete - increased timeout for Redis/AMQP
+	time.Sleep(10 * time.Second)
 
 	// Wait for all nodes to be discovered - this ensures all brokers know about each other
 	// When a node is discovered, their services will also be discovered automatically
@@ -1468,21 +1470,46 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 		"transporter_type": ut.transporterType,
 	}).Debug("Creating broker")
 
-	// Create broker config - use proper transporter URLs like working test
-	var transporterURL string
-	switch ut.transporterType {
-	case "TCP":
-		transporterURL = "TCP"
-	case "NATS":
-		transporterURL = "nats://localhost:4222" // Use full URL like working test
-	default:
-		transporterURL = ut.transporterType
+	// Create broker config - use proper transporter configuration like working tests
+	brokerConfig := &moleculer.Config{
+		LogLevel:                   ut.config.LogLevel,
+		WaitForDependenciesTimeout: 30 * time.Second, // Increased timeout for Redis/AMQP
 	}
 
-	brokerConfig := &moleculer.Config{
-		Transporter:                transporterURL, // Use proper URL like working test
-		LogLevel:                   ut.config.LogLevel,
-		WaitForDependenciesTimeout: 10 * time.Second, // Use same timeout as working test
+	// Configure transporter based on type - use same approach as working tests
+	switch ut.transporterType {
+	case "TCP":
+		brokerConfig.Transporter = "TCP"
+	case "NATS":
+		brokerConfig.Transporter = "nats://localhost:4222"
+	case "Redis":
+		// Use TransporterFactory like working Redis test
+		brokerConfig.TransporterFactory = func() interface{} {
+			redisConfig := &redis.RedisConfig{
+				Host:     "localhost",
+				Port:     6379,
+				Password: "",
+				DB:       2, // Use DB 2 for testing like working test
+				Prefix:   "test-moleculer",
+			}
+			return redis.NewRedisTransporter(redisConfig)
+		}
+	case "AMQP":
+		// Use TransporterFactory like working AMQP test
+		brokerConfig.TransporterFactory = func() interface{} {
+			amqpConfig := amqp.AmqpOptions{
+				Url: []string{"amqp://localhost:5672"},
+				Logger: log.WithFields(log.Fields{
+					"Unit Test": true,
+					"transport": "amqp",
+				}),
+			}
+			return amqp.CreateAmqpTransporter(amqpConfig)
+		}
+	case "Kafka":
+		brokerConfig.Transporter = "kafka://localhost:9092"
+	default:
+		brokerConfig.Transporter = ut.transporterType
 	}
 
 	log.WithFields(log.Fields{
