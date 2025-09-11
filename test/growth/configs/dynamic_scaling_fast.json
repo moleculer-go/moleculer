@@ -1,0 +1,32 @@
+{
+  "test_name": "Fast Dynamic Scaling Test",
+  "test_description": "Fast test with quick intervals for rapid validation",
+  "transporter_types": ["TCP", "NATS"],
+  "transporter_config": {
+    "TCP": {
+      "type": "TCP",
+      "port": 0
+    },
+    "NATS": {
+      "type": "NATS",
+      "url": "nats://localhost:4222"
+    }
+  },
+  "dynamic_scaling_config": {
+    "starting_brokers": 2,
+    "max_brokers": 5,
+    "growth_interval_seconds": 2,
+    "reduction_interval_seconds": 2,
+    "stabilization_phase_seconds": 5,
+    "enable_stabilization_phase": true
+  },
+  "service_config": {
+    "actions_per_service": 1,
+    "action_name": "action-0",
+    "return_payload_size": 1024,
+    "parameter_payload_size": 512,
+    "expected_event_count": 1
+  },
+  "test_timeout_seconds": 120,
+  "log_level": "WARN"
+}
