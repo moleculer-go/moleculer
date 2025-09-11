@@ -1,7 +1,7 @@
 {
     "test_name": "Debug Test - Half Action Chain",
     "test_description": "Debug test with half brokers and half action chain for TCP testing",
-    "transporter_types": ["TCP", "NATS"],
+    "transporter_types": ["TCP", "NATS", "Redis", "AMQP", "Kafka"],
     "transporter_config": {
         "TCP": {
             "type": "TCP",
@@ -33,69 +33,34 @@
     "actions_per_service": 2,
     "call_chain_config": {
         "service-0.action-0": {
-            "actions": ["service-1.action-0", "service-2.action-0"],
+            "actions": ["service-1.action-0"],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
-            "expected_result_count": 2,
-            "expected_event_count": 3
+            "expected_result_count": 1,
+            "expected_event_count": 2
         },
         "service-1.action-0": {
-            "actions": ["service-3.action-0"],
+            "actions": ["service-2.action-0"],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
             "expected_result_count": 1,
             "expected_event_count": 2
         },
         "service-2.action-0": {
-            "actions": ["service-4.action-0"],
+            "actions": ["service-3.action-0"],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
             "expected_result_count": 1,
             "expected_event_count": 2
         },
         "service-3.action-0": {
-            "actions": [],
+            "actions": ["service-4.action-0"],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
+            "expected_result_count": 1,
+            "expected_event_count": 2
         },
         "service-4.action-0": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-0.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-1.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-2.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-3.action-1": {
-            "actions": [],
-            "return_payload_size": 1024,
-            "parameter_payload_size": 512,
-            "expected_result_count": 0,
-            "expected_event_count": 1
-        },
-        "service-4.action-1": {
             "actions": [],
             "return_payload_size": 1024,
             "parameter_payload_size": 512,
@@ -104,6 +69,6 @@
         }
     },
     "test_timeout_seconds": 0,
-    "test_cycles": 5,
-    "log_level": "ERROR"
+    "test_cycles": 20,
+    "log_level": "DEBUG"
 }

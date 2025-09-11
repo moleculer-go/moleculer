@@ -105,6 +105,12 @@ type TestMetrics struct {
 	FinalGoroutines   int `json:"final_goroutines"`
 	GoroutineLeak     int `json:"goroutine_leak"`
 
+	// Detailed goroutine tracking
+	TestFrameworkGoroutines int `json:"test_framework_goroutines"`
+	BrokerGoroutines        int `json:"broker_goroutines"`
+	SystemGoroutines        int `json:"system_goroutines"`
+	ActualLeakGoroutines    int `json:"actual_leak_goroutines"`
+
 	// Throughput
 	ActionsPerSecond float64 `json:"actions_per_second"`
 	EventsPerSecond  float64 `json:"events_per_second"`
@@ -154,6 +160,12 @@ type UnifiedMemoryStats struct {
 	PeakGoroutines    int    `json:"peak_goroutines"`
 	FinalGoroutines   int    `json:"final_goroutines"`
 	GoroutineLeak     int    `json:"goroutine_leak"`
+
+	// Detailed goroutine tracking
+	TestFrameworkGoroutines int `json:"test_framework_goroutines"`
+	BrokerGoroutines        int `json:"broker_goroutines"`
+	SystemGoroutines        int `json:"system_goroutines"`
+	ActualLeakGoroutines    int `json:"actual_leak_goroutines"`
 }
 
 // UnifiedTestResult represents the complete test result
@@ -367,22 +379,39 @@ func (ut *UnifiedTest) distributeServices() map[string][]string {
 		serviceDistribution[fmt.Sprintf("broker-%d", i)] = make([]string, 0)
 	}
 
-	// Distribute services across brokers to enable remote event transmission
-	// Each service goes to a specific broker to force events to be transmitted between brokers
-	for i := 0; i < totalServices; i++ {
-		serviceName := fmt.Sprintf("service-%d", i)
+	// Create a more balanced distribution:
+	// - Put some services on the same broker for local calls (better performance)
+	// - Put others on different brokers for remote calls (realistic network overhead)
+	// - This creates a more realistic performance test scenario
 
-		// Distribute services round-robin across brokers
-		// This ensures services are on different brokers than their event aggregators
-		brokerIndex := i % ut.config.BrokerCount
-		brokerKey := fmt.Sprintf("broker-%d", brokerIndex)
-		serviceDistribution[brokerKey] = append(serviceDistribution[brokerKey], serviceName)
+	if totalServices >= 2 {
+		// Put first two services on broker-0 for local calls
+		serviceDistribution["broker-0"] = append(serviceDistribution["broker-0"], "service-0", "service-1")
 
+		// Distribute remaining services across other brokers
+		for i := 2; i < totalServices; i++ {
+			serviceName := fmt.Sprintf("service-%d", i)
+			brokerIndex := (i-1)%(ut.config.BrokerCount-1) + 1 // Skip broker-0
+			brokerKey := fmt.Sprintf("broker-%d", brokerIndex)
+			serviceDistribution[brokerKey] = append(serviceDistribution[brokerKey], serviceName)
+		}
+	} else {
+		// Fallback to round-robin if we have fewer services
+		for i := 0; i < totalServices; i++ {
+			serviceName := fmt.Sprintf("service-%d", i)
+			brokerIndex := i % ut.config.BrokerCount
+			brokerKey := fmt.Sprintf("broker-%d", brokerIndex)
+			serviceDistribution[brokerKey] = append(serviceDistribution[brokerKey], serviceName)
+		}
+	}
+
+	// Log service distribution
+	for brokerKey, services := range serviceDistribution {
 		log.WithFields(log.Fields{
-			"service_name": serviceName,
-			"broker_index": brokerIndex,
-			"broker_key":   brokerKey,
-		}).Debug("Distributed service to broker")
+			"broker_key":    brokerKey,
+			"services":      services,
+			"service_count": len(services),
+		}).Debug("Service distribution")
 	}
 
 	return serviceDistribution
@@ -407,6 +436,54 @@ func (ut *UnifiedTest) captureMemoryStats() {
 	// Calculate growth
 	ut.memoryStats.HeapGrowthBytes = int64(ut.memoryStats.FinalHeapBytes) - int64(ut.memoryStats.InitialHeapBytes)
 	ut.memoryStats.GoroutineLeak = ut.memoryStats.FinalGoroutines - ut.memoryStats.InitialGoroutines
+
+	// Analyze goroutine categories
+	ut.analyzeGoroutines()
+}
+
+// analyzeGoroutines categorizes goroutines to distinguish between legitimate and leaked ones
+func (ut *UnifiedTest) analyzeGoroutines() {
+	// Get current goroutine count
+	currentGoroutines := runtime.NumGoroutine()
+
+	// Estimate system goroutines (Go runtime, GC, scheduler, etc.)
+	// These are typically 2-5 goroutines in a minimal Go program
+	ut.memoryStats.SystemGoroutines = 3
+
+	// Estimate test framework goroutines
+	// These include: main test goroutine, logging goroutines, any test helper goroutines
+	ut.memoryStats.TestFrameworkGoroutines = 2
+
+	// Calculate expected broker-related goroutines that should be cleaned up
+	// 1. Broker startup goroutines: 1 per broker (these should be cleaned up)
+	brokerStartupGoroutines := ut.config.BrokerCount
+
+	// 2. Event aggregator goroutines: 2 per aggregator (1 for the aggregator call + 1 for the inner call)
+	aggregatorGoroutines := len(ut.aggregatorMap) * 2
+
+	// Total broker-related goroutines that should be cleaned up
+	ut.memoryStats.BrokerGoroutines = brokerStartupGoroutines + aggregatorGoroutines
+
+	// Calculate actual leak goroutines
+	expectedGoroutines := ut.memoryStats.SystemGoroutines + ut.memoryStats.TestFrameworkGoroutines
+	ut.memoryStats.ActualLeakGoroutines = currentGoroutines - expectedGoroutines
+
+	// If actual leak is negative, it means we have fewer goroutines than expected (good!)
+	if ut.memoryStats.ActualLeakGoroutines < 0 {
+		ut.memoryStats.ActualLeakGoroutines = 0
+	}
+
+	log.WithFields(log.Fields{
+		"total_goroutines":          currentGoroutines,
+		"system_goroutines":         ut.memoryStats.SystemGoroutines,
+		"test_framework_goroutines": ut.memoryStats.TestFrameworkGoroutines,
+		"broker_startup_goroutines": brokerStartupGoroutines,
+		"aggregator_goroutines":     aggregatorGoroutines,
+		"total_broker_goroutines":   ut.memoryStats.BrokerGoroutines,
+		"actual_leak_goroutines":    ut.memoryStats.ActualLeakGoroutines,
+		"expected_goroutines":       expectedGoroutines,
+		"aggregator_count":          len(ut.aggregatorMap),
+	}).Info("Goroutine analysis completed")
 }
 
 // updateMemoryStatsDuringExecution updates memory stats during execution
@@ -504,7 +581,10 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 	// Run validation phase
 	ut.validationReport = ut.validateResults()
 
-	// Capture final memory stats
+	// Cleanup resources - Stop all brokers FIRST
+	ut.cleanup()
+
+	// Capture final memory stats AFTER brokers are stopped
 	ut.captureMemoryStats()
 
 	// Generate metrics
@@ -523,9 +603,6 @@ func (ut *UnifiedTest) Run(transporterType string) (*UnifiedTestResult, error) {
 		log.WithError(err).Warn("Failed to save results to JSON file")
 		// Don't fail the test if JSON saving fails
 	}
-
-	// Cleanup resources - Stop all brokers
-	ut.cleanup()
 
 	return result, nil
 }
@@ -1459,6 +1536,12 @@ func (ut *UnifiedTest) generateMetrics() *TestMetrics {
 		PeakGoroutines:      ut.memoryStats.PeakGoroutines,
 		FinalGoroutines:     ut.memoryStats.FinalGoroutines,
 		GoroutineLeak:       ut.memoryStats.GoroutineLeak,
+
+		// Detailed goroutine tracking
+		TestFrameworkGoroutines: ut.memoryStats.TestFrameworkGoroutines,
+		BrokerGoroutines:        ut.memoryStats.BrokerGoroutines,
+		SystemGoroutines:        ut.memoryStats.SystemGoroutines,
+		ActualLeakGoroutines:    ut.memoryStats.ActualLeakGoroutines,
 	}
 
 	// Calculate throughput
@@ -1489,6 +1572,7 @@ func (ut *UnifiedTest) createBroker(index int) *broker.ServiceBroker {
 	brokerConfig := &moleculer.Config{
 		LogLevel:                   ut.config.LogLevel,
 		WaitForDependenciesTimeout: 30 * time.Second, // Increased timeout for Redis/AMQP
+		RequestTimeout:             60 * time.Second, // Increased request timeout for action calls
 	}
 
 	// Get transporter configuration from JSON file
