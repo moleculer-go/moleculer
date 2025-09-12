@@ -167,14 +167,12 @@ func (service *Service) Events() []Event {
 }
 
 func findAction(name string, actions []moleculer.Action) bool {
+	// Create a map for O(1) lookup instead of O(n) linear search
+	actionMap := make(map[string]bool)
 	for _, a := range actions {
-
-		if a.Name == name {
-			return true
-		}
-
+		actionMap[a.Name] = true
 	}
-	return false
+	return actionMap[name]
 }
 
 // extendActions merges the actions from the base service with the mixin schema.
@@ -200,13 +198,20 @@ func mergeDependencies(service moleculer.ServiceSchema, mixin *moleculer.Mixin) 
 }
 
 func concatenateEvents(service moleculer.ServiceSchema, mixin *moleculer.Mixin) moleculer.ServiceSchema {
+	// Create a map of existing event names for O(1) lookup
+	existingEvents := make(map[string]bool)
+	for _, serviceEvent := range service.Events {
+		existingEvents[serviceEvent.Name] = true
+	}
+
+	// Add mixin events that don't already exist
 	for _, mixinEvent := range mixin.Events {
-		for _, serviceEvent := range service.Events {
-			if serviceEvent.Name != mixinEvent.Name {
-				service.Events = append(service.Events, mixinEvent)
-			}
+		if !existingEvents[mixinEvent.Name] {
+			service.Events = append(service.Events, mixinEvent)
+			existingEvents[mixinEvent.Name] = true // Mark as added to prevent duplicates
 		}
 	}
+
 	return service
 }
 
