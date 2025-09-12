@@ -42,13 +42,26 @@ func (serviceCatalog *ServiceCatalog) FindByName(name string) bool {
 	return exists
 }
 
+// decrementServiceCount decrements the counter for a service name
+func (serviceCatalog *ServiceCatalog) decrementServiceCount(name string) {
+	value, exists := serviceCatalog.servicesByName.Load(name)
+	if exists {
+		counter := value.(int)
+		counter = counter - 1
+		if counter < 0 {
+			counter = 0
+		}
+		serviceCatalog.servicesByName.Store(name, counter)
+	}
+}
+
 // Get : Return the service for the given name, version and nodeID if it exists in the catalog.
 func (serviceCatalog *ServiceCatalog) Get(name string, version string, nodeID string) *service.Service {
 	key := createKey(name, version, nodeID)
 	item, exists := serviceCatalog.services.Load(key)
 	if exists {
-		svc := item.(service.Service)
-		return &svc
+		entry := item.(ServiceEntry)
+		return entry.service
 	}
 	return nil
 }
@@ -85,45 +98,24 @@ func (serviceCatalog *ServiceCatalog) listByName() map[string][]ServiceEntry {
 func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []*service.Service {
 	var removed []*service.Service
 	serviceCatalog.logger.Debug("RemoveByNode() nodeID: ", nodeID)
-	var keysRemove []string
-	var namesRemove []string
-	var fullNamesRemove []string
+
+	// Single pass: process and remove services immediately
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
 		service := value.(ServiceEntry)
 		if service.nodeID == nodeID {
-			service := value.(ServiceEntry)
+			// Add to removed list
 			removed = append(removed, service.service)
-			keysRemove = append(keysRemove, key.(string))
-			namesRemove = append(namesRemove, service.service.Name())
-			fullNamesRemove = append(fullNamesRemove, service.service.FullName())
+
+			// Delete from services map immediately
+			serviceCatalog.services.Delete(key)
+
+			// Update service counters immediately
+			serviceCatalog.decrementServiceCount(service.service.Name())
+			serviceCatalog.decrementServiceCount(service.service.FullName())
 		}
 		return true
 	})
-	for _, key := range keysRemove {
-		serviceCatalog.services.Delete(key)
-	}
-	for _, name := range namesRemove {
-		value, exists := serviceCatalog.servicesByName.Load(name)
-		if exists {
-			counter := value.(int)
-			counter = counter - 1
-			if counter < 0 {
-				counter = 0
-			}
-			serviceCatalog.servicesByName.Store(name, counter)
-		}
-	}
-	for _, name := range fullNamesRemove {
-		value, exists := serviceCatalog.servicesByName.Load(name)
-		if exists {
-			counter := value.(int)
-			counter = counter - 1
-			if counter < 0 {
-				counter = 0
-			}
-			serviceCatalog.servicesByName.Store(name, counter)
-		}
-	}
+
 	return removed
 }
 
@@ -131,22 +123,26 @@ func (serviceCatalog *ServiceCatalog) RemoveByNode(nodeID string) []*service.Ser
 func (serviceCatalog *ServiceCatalog) Remove(nodeID string, name string) []*service.Service {
 	var removed []*service.Service
 	serviceCatalog.logger.Debug("Remove() params -> nodeID:", nodeID, " name:", name)
-	var keysRemove []string
 
+	// Single pass: process and remove services immediately
 	serviceCatalog.services.Range(func(key, value interface{}) bool {
 		service := value.(ServiceEntry)
 		serviceCatalog.logger.Debug("service.nodeID:", service.nodeID, " service.service.Name():", service.service.Name())
 		if service.nodeID == nodeID && service.service.Name() == name {
-			service := value.(ServiceEntry)
+			// Add to removed list
 			removed = append(removed, service.service)
-			keysRemove = append(keysRemove, key.(string))
+
+			// Delete from services map immediately
+			serviceCatalog.services.Delete(key)
+
+			// Update service counters immediately
+			serviceCatalog.decrementServiceCount(service.service.Name())
+			serviceCatalog.decrementServiceCount(service.service.FullName())
 		}
 		return true
 	})
-	serviceCatalog.logger.Debug("keysRemove: ", keysRemove)
-	for _, key := range keysRemove {
-		serviceCatalog.services.Delete(key)
-	}
+
+	serviceCatalog.logger.Debug("removed count: ", len(removed))
 	return removed
 }
 

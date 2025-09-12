@@ -2,6 +2,7 @@ package kafka_test
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -172,6 +173,8 @@ var _ = Describe("Test Kafka Transit", func() {
 
 			received := make(chan bool)
 			done := make(chan bool)
+			closed := false
+			var mu sync.Mutex
 
 			transporter.Subscribe(topicName, node, func(message moleculer.Payload) {
 
@@ -183,7 +186,12 @@ var _ = Describe("Test Kafka Transit", func() {
 				Expect(contextParams.Get("name").String()).Should(Equal("John"))
 				Expect(contextParams.Get("lastName").String()).Should(Equal("Snow"))
 
-				close(done)
+				mu.Lock()
+				if !closed {
+					closed = true
+					close(done)
+				}
+				mu.Unlock()
 				received <- true
 			})
 

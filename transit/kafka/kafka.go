@@ -214,13 +214,25 @@ func (t *KafkaTransporter) closeReader(reader *kafka.Reader) {
 func (t *KafkaTransporter) Disconnect() chan error {
 	errChan := make(chan error)
 	go func() {
+		// Send shutdown signal to all subscriptions
 		for _, subscription := range t.subscriptions {
 			subscription.doneChannel <- true
 		}
 
+		// Clean up publishers
 		for _, publisher := range t.publishers {
 			t.closeWriter(publisher)
 		}
+
+		// Clear subscriptions slice to prevent memory leaks
+		t.subscriptions = nil
+
+		// Clear subscribers slice to prevent memory leaks
+		t.subscribers = nil
+
+		// Clear publishers map to prevent memory leaks
+		t.publishers = make(map[string]*kafka.Writer)
+
 		t.connectionEnable = false
 		errChan <- nil
 	}()
