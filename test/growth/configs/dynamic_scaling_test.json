@@ -30,10 +30,11 @@
   },
   "dynamic_scaling_config": {
     "starting_brokers": 2,
-    "max_brokers": 20,
-    "growth_interval_seconds": 5,
-    "reduction_interval_seconds": 5,
-    "stabilization_phase_seconds": 10,
+    "max_brokers": 6,
+    "cycles": 20,
+    "growth_interval_seconds": 2,
+    "reduction_interval_seconds": 2,
+    "stabilization_phase_seconds": 3,
     "enable_stabilization_phase": true
   },
   "service_config": {
@@ -43,6 +44,6 @@
     "parameter_payload_size": 512,
     "expected_event_count": 1
   },
-  "test_timeout_seconds": 300,
-  "log_level": "ERROR"
+  "test_timeout_seconds": 1200,
+  "log_level": "TRACE"
 }

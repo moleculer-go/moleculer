@@ -6,6 +6,8 @@ import (
 )
 
 func TestDynamicScalingTestTCP(t *testing.T) {
+	t.Log("TestDynamicScalingTestTCP started")
+
 	// Load configuration
 	config, err := LoadDynamicScalingTestConfig("configs/dynamic_scaling_test.json")
 	if err != nil {
@@ -14,9 +16,12 @@ func TestDynamicScalingTestTCP(t *testing.T) {
 
 	// Create test instance
 	test := NewDynamicScalingTest(config)
+	t.Log("DynamicScalingTest instance created")
 
 	// Run test with TCP transporter
+	t.Log("About to call test.Run(\"TCP\")")
 	result, err := test.Run("TCP")
+	t.Log("test.Run(\"TCP\") completed")
 	if err != nil {
 		t.Fatalf("Dynamic scaling test failed: %v", err)
 	}

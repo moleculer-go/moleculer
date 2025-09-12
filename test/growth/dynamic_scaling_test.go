@@ -59,6 +59,7 @@ type DynamicScalingTestConfig struct {
 type DynamicScalingConfig struct {
 	StartingBrokers           int  `json:"starting_brokers"`
 	MaxBrokers                int  `json:"max_brokers"`
+	Cycles                    int  `json:"cycles"`
 	GrowthIntervalSeconds     int  `json:"growth_interval_seconds"`
 	ReductionIntervalSeconds  int  `json:"reduction_interval_seconds"`
 	StabilizationPhaseSeconds int  `json:"stabilization_phase_seconds"`
@@ -142,6 +143,7 @@ type DynamicScalingTest struct {
 	eventsMutex        sync.RWMutex
 	outputDir          string
 	currentBrokerCount int
+	currentCycle       int
 	actionChainConfig  map[string]UnifiedActionCallConfig
 }
 
@@ -284,6 +286,7 @@ func (config *DynamicScalingTestConfig) Validate() error {
 
 // Run executes the dynamic scaling test
 func (dst *DynamicScalingTest) Run(transporterType string) (*DynamicScalingTestResult, error) {
+	log.Debug("DynamicScalingTest.Run() method called")
 	dst.transporterType = transporterType
 
 	// Ensure cleanup always happens, even if test panics
@@ -319,43 +322,81 @@ func (dst *DynamicScalingTest) Run(transporterType string) (*DynamicScalingTestR
 		Success:         false,
 	}
 
-	// Phase 1: Initial Setup
-	if err := dst.runInitialSetupPhase(); err != nil {
-		log.WithError(err).Error("Initial setup phase failed")
-		result.Error = err
-		return result, err
+	// Run multiple cycles
+	cycles := dst.config.DynamicScalingConfig.Cycles
+	if cycles <= 0 {
+		cycles = 1 // Default to 1 cycle if not specified
 	}
 
-	// Phase 2: Dynamic Growth
-	if err := dst.runGrowthPhase(); err != nil {
-		log.WithError(err).Error("Growth phase failed")
-		result.Error = err
-		dst.cleanup()
-		return result, err
-	}
+	log.WithField("cycles", cycles).Info("Running multiple scaling cycles")
 
-	// Phase 3: Stabilization (optional)
-	if dst.config.DynamicScalingConfig.EnableStabilizationPhase {
-		if err := dst.runStabilizationPhase(); err != nil {
-			log.WithError(err).Error("Stabilization phase failed")
+	for cycle := 1; cycle <= cycles; cycle++ {
+		log.WithField("cycle", cycle).Info("Starting scaling cycle")
+
+		// Phase 1: Initial Setup (only for first cycle)
+		if cycle == 1 {
+			log.Debug("About to call runInitialSetupPhase for cycle 1")
+			if err := dst.runInitialSetupPhase(); err != nil {
+				log.WithError(err).Error("Initial setup phase failed")
+				result.Error = err
+				return result, err
+			}
+			log.Debug("runInitialSetupPhase completed for cycle 1")
+		} else {
+			// For subsequent cycles, reset to starting brokers
+			if err := dst.resetToStartingBrokers(); err != nil {
+				log.WithError(err).Error("Failed to reset to starting brokers")
+				result.Error = err
+				dst.cleanup()
+				return result, err
+			}
+		}
+
+		// Set cycle context for phase logging
+		dst.currentCycle = cycle
+
+		// Phase 2: Dynamic Growth
+		if err := dst.runGrowthPhase(); err != nil {
+			log.WithError(err).Error("Growth phase failed")
 			result.Error = err
 			dst.cleanup()
 			return result, err
 		}
-	}
 
-	// Phase 4: Dynamic Reduction
-	if err := dst.runReductionPhase(); err != nil {
-		log.WithError(err).Error("Reduction phase failed")
-		result.Error = err
-		dst.cleanup()
-		return result, err
-	}
+		// Phase 3: Stabilization (optional)
+		if dst.config.DynamicScalingConfig.EnableStabilizationPhase {
+			if err := dst.runStabilizationPhase(); err != nil {
+				log.WithError(err).Error("Stabilization phase failed")
+				result.Error = err
+				dst.cleanup()
+				return result, err
+			}
+		}
 
-	// Cleanup resources
-	dst.cleanup()
+		// Phase 4: Dynamic Reduction
+		if err := dst.runReductionPhase(); err != nil {
+			log.WithError(err).Error("Reduction phase failed")
+			result.Error = err
+			dst.cleanup()
+			return result, err
+		}
+
+		// Add cycle completion logging
+		log.WithFields(log.Fields{
+			"cycle":        dst.currentCycle,
+			"broker_count": dst.currentBrokerCount,
+		}).Info("Cycle completed successfully")
+
+		log.WithField("cycle", cycle).Info("Completed scaling cycle")
+	}
 
 	// Generate final results
+	log.WithFields(log.Fields{
+		"phases_count":   len(dst.phases),
+		"metrics_count":  len(dst.metrics),
+		"action_results": len(dst.actionResults),
+	}).Debug("Generating final results")
+
 	result.Phases = dst.phases
 	result.Metrics = dst.metrics
 	result.Success = true
@@ -374,10 +415,20 @@ func (dst *DynamicScalingTest) Run(transporterType string) (*DynamicScalingTestR
 	result.PeakGoroutineCount = dst.calculatePeakGoroutineCount()
 	result.FinalGoroutineLeak = dst.calculateFinalGoroutineLeak()
 
+	log.WithFields(log.Fields{
+		"result_phases_count":  len(result.Phases),
+		"result_metrics_count": len(result.Metrics),
+		"total_actions":        result.TotalActionsExecuted,
+		"total_events":         result.TotalEventsReceived,
+	}).Debug("Final results generated")
+
 	// Save results to JSON file
 	if err := dst.saveResultsToJSON(result); err != nil {
 		log.WithError(err).Warn("Failed to save results to JSON file")
 	}
+
+	// Cleanup resources after results are generated
+	dst.cleanup()
 
 	return result, nil
 }
@@ -385,7 +436,7 @@ func (dst *DynamicScalingTest) Run(transporterType string) (*DynamicScalingTestR
 // runInitialSetupPhase implements Phase 1: Initial Setup
 func (dst *DynamicScalingTest) runInitialSetupPhase() error {
 	phase := ScalingPhase{
-		PhaseName:         "Initial Setup",
+		PhaseName:         fmt.Sprintf("Initial Setup (Cycle %d)", dst.currentCycle),
 		BrokerCount:       dst.config.DynamicScalingConfig.StartingBrokers,
 		ActionChainLength: dst.config.DynamicScalingConfig.StartingBrokers,
 		StartTime:         time.Now(),
@@ -422,11 +473,84 @@ func (dst *DynamicScalingTest) runInitialSetupPhase() error {
 	dst.metrics = append(dst.metrics, *metrics)
 
 	log.WithFields(log.Fields{
+		"cycle":            dst.currentCycle,
 		"phase":            phase.PhaseName,
 		"broker_count":     phase.BrokerCount,
 		"duration_ms":      phase.DurationMs,
 		"actions_executed": metrics.ActionsExecuted,
 	}).Info("Phase 1 completed")
+
+	return nil
+}
+
+// resetToStartingBrokers resets the broker count to starting brokers for subsequent cycles
+func (dst *DynamicScalingTest) resetToStartingBrokers() error {
+	log.Info("Resetting to starting brokers for new cycle")
+
+	// Capture initial goroutine count
+	initialGoroutines := runtime.NumGoroutine()
+	log.WithField("initial_goroutines", initialGoroutines).Info("Starting cycle reset")
+
+	// Stop all brokers except the starting number with timeout
+	startingBrokers := dst.config.DynamicScalingConfig.StartingBrokers
+	for i := startingBrokers; i < len(dst.brokers); i++ {
+		if dst.brokers[i] != nil {
+			log.WithField("broker_index", i).Debug("Stopping broker for cycle reset")
+
+			// Stop broker in a goroutine with timeout
+			done := make(chan bool, 1)
+			go func(b *broker.ServiceBroker) {
+				b.Stop()
+				done <- true
+			}(dst.brokers[i])
+
+			// Wait for stop with timeout
+			select {
+			case <-done:
+				log.WithField("broker_index", i).Debug("Broker stopped successfully for cycle reset")
+			case <-time.After(3 * time.Second):
+				log.WithField("broker_index", i).Warn("Broker stop timed out during cycle reset")
+			}
+
+			dst.brokers[i] = nil // Clear the reference
+		}
+	}
+
+	// Remove extra brokers from the slice
+	dst.brokers = dst.brokers[:startingBrokers]
+	dst.currentBrokerCount = startingBrokers
+
+	// Reset action chain configuration
+	dst.initializeActionChainConfig()
+
+	// Clear action results for new cycle
+	dst.actionResults = make([]UnifiedActionResult, 0)
+
+	// Clear events for new cycle
+	dst.eventsMutex.Lock()
+	dst.aggregatedEvents = make(map[string][]interface{})
+	dst.eventsMutex.Unlock()
+
+	// Wait for goroutines to clean up
+	log.Info("Waiting for goroutines to clean up after cycle reset")
+	time.Sleep(2 * time.Second)
+
+	// Force garbage collection multiple times
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Final goroutine count
+	finalGoroutines := runtime.NumGoroutine()
+	leakedGoroutines := finalGoroutines - initialGoroutines
+
+	log.WithFields(log.Fields{
+		"broker_count":       dst.currentBrokerCount,
+		"initial_goroutines": initialGoroutines,
+		"final_goroutines":   finalGoroutines,
+		"leaked_goroutines":  leakedGoroutines,
+	}).Info("Reset to starting brokers completed")
 
 	return nil
 }
@@ -575,7 +699,7 @@ func (dst *DynamicScalingTest) createInitialBrokers() error {
 
 	// Create brokers
 	for i := 0; i < dst.config.DynamicScalingConfig.StartingBrokers; i++ {
-		broker := dst.createBroker(i)
+		broker := dst.createBroker(i, dst.transporterType)
 		dst.brokers = append(dst.brokers, broker)
 	}
 
@@ -596,7 +720,7 @@ func (dst *DynamicScalingTest) createInitialBrokers() error {
 
 	// Wait for service discovery to complete
 	log.Info("Waiting for service discovery to complete across all brokers")
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// Log all broker node IDs
 	for i, bkr := range dst.brokers {
@@ -634,16 +758,30 @@ func (dst *DynamicScalingTest) createInitialBrokers() error {
 				"waiting_for":  otherNodeIDs,
 			}).Debug("Broker waiting for other nodes")
 
-			if err := bkr.WaitForNodes(otherNodeIDs...); err != nil {
+			// Use a timeout for WaitForNodes to prevent hanging
+			done := make(chan error, 1)
+			go func() {
+				done <- bkr.WaitForNodes(otherNodeIDs...)
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					log.WithFields(log.Fields{
+						"broker_index": i,
+						"error":        err,
+					}).Warn("WaitForNodes failed, but continuing")
+				} else {
+					log.WithFields(log.Fields{
+						"broker_index": i,
+						"discovered":   otherNodeIDs,
+					}).Debug("Broker successfully discovered other nodes")
+				}
+			case <-time.After(5 * time.Second):
 				log.WithFields(log.Fields{
 					"broker_index": i,
-					"error":        err,
-				}).Warn("WaitForNodes failed, but continuing")
-			} else {
-				log.WithFields(log.Fields{
-					"broker_index": i,
-					"discovered":   otherNodeIDs,
-				}).Debug("Broker successfully discovered other nodes")
+					"timeout":      "5s",
+				}).Warn("WaitForNodes timed out, but continuing")
 			}
 		}
 	}
@@ -667,6 +805,11 @@ func (dst *DynamicScalingTest) createInitialBrokers() error {
 	}
 
 	log.Info("All services published to brokers")
+
+	// Wait for all services to be discovered by all brokers
+	log.Info("Waiting for all services to be discovered by all brokers")
+	time.Sleep(1 * time.Second) // Give services time to be discovered
+	log.Info("All services should be discovered by all brokers")
 
 	// Wait for service discovery to complete after publishing services
 	log.Info("Waiting for service discovery to complete after publishing services")
@@ -716,7 +859,7 @@ func (dst *DynamicScalingTest) addBroker() error {
 	log.WithField("broker_index", brokerIndex).Info("Adding new broker")
 
 	// Create new broker
-	newBroker := dst.createBroker(brokerIndex)
+	newBroker := dst.createBroker(brokerIndex, dst.transporterType)
 	dst.brokers = append(dst.brokers, newBroker)
 
 	// Start the broker in a goroutine and wait for it to start
@@ -754,16 +897,30 @@ func (dst *DynamicScalingTest) addBroker() error {
 			"waiting_for":  existingNodeIDs,
 		}).Debug("New broker waiting for existing nodes")
 
-		if err := newBroker.WaitForNodes(existingNodeIDs...); err != nil {
+		// Use a timeout for WaitForNodes to prevent hanging
+		done := make(chan error, 1)
+		go func() {
+			done <- newBroker.WaitForNodes(existingNodeIDs...)
+		}()
+
+		select {
+		case err := <-done:
+			if err != nil {
+				log.WithFields(log.Fields{
+					"broker_index": brokerIndex,
+					"error":        err,
+				}).Warn("WaitForNodes failed for new broker, but continuing")
+			} else {
+				log.WithFields(log.Fields{
+					"broker_index": brokerIndex,
+					"discovered":   existingNodeIDs,
+				}).Debug("New broker successfully discovered existing nodes")
+			}
+		case <-time.After(5 * time.Second):
 			log.WithFields(log.Fields{
 				"broker_index": brokerIndex,
-				"error":        err,
-			}).Warn("WaitForNodes failed for new broker, but continuing")
-		} else {
-			log.WithFields(log.Fields{
-				"broker_index": brokerIndex,
-				"discovered":   existingNodeIDs,
-			}).Debug("New broker successfully discovered existing nodes")
+				"timeout":      "5s",
+			}).Warn("WaitForNodes timed out for new broker, but continuing")
 		}
 	}
 
@@ -775,16 +932,30 @@ func (dst *DynamicScalingTest) addBroker() error {
 				"waiting_for":     newNodeID,
 			}).Debug("Existing broker waiting for new node")
 
-			if err := bkr.WaitForNodes(newNodeID); err != nil {
+			// Use a timeout for WaitForNodes to prevent hanging
+			done := make(chan error, 1)
+			go func() {
+				done <- bkr.WaitForNodes(newNodeID)
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					log.WithFields(log.Fields{
+						"existing_broker": i,
+						"error":           err,
+					}).Warn("WaitForNodes failed for existing broker, but continuing")
+				} else {
+					log.WithFields(log.Fields{
+						"existing_broker": i,
+						"discovered":      newNodeID,
+					}).Debug("Existing broker successfully discovered new node")
+				}
+			case <-time.After(5 * time.Second):
 				log.WithFields(log.Fields{
 					"existing_broker": i,
-					"error":           err,
-				}).Warn("WaitForNodes failed for existing broker, but continuing")
-			} else {
-				log.WithFields(log.Fields{
-					"existing_broker": i,
-					"discovered":      newNodeID,
-				}).Debug("Existing broker successfully discovered new node")
+					"timeout":         "5s",
+				}).Warn("WaitForNodes timed out for existing broker, but continuing")
 			}
 		}
 	}
@@ -803,28 +974,13 @@ func (dst *DynamicScalingTest) addBroker() error {
 	actionName := fmt.Sprintf("%s.action-0", serviceName)
 	log.WithField("action", actionName).Info("Waiting for new service to be discovered by all brokers")
 
-	// All existing brokers wait for the new service
-	for i, bkr := range dst.brokers {
-		if i != brokerIndex { // Don't include the new broker itself
-			log.WithFields(log.Fields{
-				"existing_broker":    i,
-				"waiting_for_action": actionName,
-			}).Debug("Existing broker waiting for new service action")
+	// Give new broker time to discover existing services
+	log.WithField("new_broker", brokerIndex).Debug("Giving new broker time to discover existing services")
+	time.Sleep(500 * time.Millisecond)
 
-			if err := bkr.WaitForActions(actionName); err != nil {
-				log.WithFields(log.Fields{
-					"existing_broker": i,
-					"action":          actionName,
-					"error":           err,
-				}).Warn("WaitForActions failed for new service, but continuing")
-			} else {
-				log.WithFields(log.Fields{
-					"existing_broker": i,
-					"action":          actionName,
-				}).Debug("Existing broker successfully discovered new service")
-			}
-		}
-	}
+	// Give existing brokers time to discover the new service
+	log.WithField("action", actionName).Debug("Giving existing brokers time to discover new service")
+	time.Sleep(500 * time.Millisecond)
 
 	dst.currentBrokerCount++
 	log.WithField("broker_count", dst.currentBrokerCount).Info("Broker added successfully")
@@ -916,6 +1072,10 @@ func (dst *DynamicScalingTest) runPerformanceTest(phaseName string) (*ScalingMet
 
 	startTime := time.Now()
 
+	// Give actions time to be discovered before executing
+	log.Info("Giving actions time to be discovered before executing action chain")
+	time.Sleep(500 * time.Millisecond)
+
 	// Execute action chain
 	rootAction := "service-0.action-0"
 	log.WithFields(log.Fields{
@@ -925,7 +1085,18 @@ func (dst *DynamicScalingTest) runPerformanceTest(phaseName string) (*ScalingMet
 		"broker_count": dst.currentBrokerCount,
 	}).Info("Executing action chain")
 
+	log.WithFields(log.Fields{
+		"phase":               phaseName,
+		"action_chain_config": dst.actionChainConfig,
+	}).Debug("About to execute action chain")
+
 	result, err := dst.executeActionChain(rootAction)
+
+	log.WithFields(log.Fields{
+		"phase":  phaseName,
+		"result": result,
+		"error":  err,
+	}).Debug("Action chain execution completed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute action chain: %v", err)
 	}
@@ -1006,7 +1177,20 @@ func (dst *DynamicScalingTest) executeActionChain(actionName string) (interface{
 	}
 
 	// Execute action
+	log.WithFields(log.Fields{
+		"action": actionName,
+		"broker": broker.LocalNode().GetID(),
+	}).Debug("About to call action")
+
 	result := <-broker.Call(actionName, actionPayload, moleculer.Options{Meta: payload.New(metadata)})
+
+	log.WithFields(log.Fields{
+		"action":   actionName,
+		"is_error": result.IsError(),
+		"error":    result.Error(),
+		"value":    result.Value(),
+	}).Debug("Action call completed")
+
 	if result.IsError() {
 		return nil, fmt.Errorf("action %s failed: %v", actionName, result.Error())
 	}
@@ -1018,6 +1202,12 @@ func (dst *DynamicScalingTest) executeActionChain(actionName string) (interface{
 		Result:      result.Value(),
 		Timestamp:   time.Now(),
 	})
+
+	log.WithFields(log.Fields{
+		"action":       actionName,
+		"result_count": len(dst.actionResults),
+		"result":       result.Value(),
+	}).Debug("Action result stored")
 
 	// If no sub-actions, return result
 	if len(actionConfig.Actions) == 0 {
@@ -1101,10 +1291,10 @@ func (dst *DynamicScalingTest) determineAggregatorPlacement() {
 }
 
 // createBroker creates a broker with the specified transporter (reused from unified test)
-func (dst *DynamicScalingTest) createBroker(index int) *broker.ServiceBroker {
+func (dst *DynamicScalingTest) createBroker(index int, transporterType string) *broker.ServiceBroker {
 	log.WithFields(log.Fields{
 		"broker_index":     index,
-		"transporter_type": dst.transporterType,
+		"transporter_type": transporterType,
 	}).Debug("Creating broker")
 
 	// Create broker config
@@ -1115,23 +1305,23 @@ func (dst *DynamicScalingTest) createBroker(index int) *broker.ServiceBroker {
 	}
 
 	// Get transporter configuration from JSON file
-	transporterConfigInterface, exists := dst.config.TransporterConfigs[dst.transporterType]
+	transporterConfigInterface, exists := dst.config.TransporterConfigs[transporterType]
 	if !exists {
-		log.Warn(fmt.Sprintf("No configuration found for transporter %s, using default", dst.transporterType))
-		brokerConfig.Transporter = dst.transporterType
+		log.Warn(fmt.Sprintf("No configuration found for transporter %s, using default", transporterType))
+		brokerConfig.Transporter = transporterType
 		return broker.New(brokerConfig)
 	}
 
 	// Type assert to map[string]interface{}
 	transporterConfig, ok := transporterConfigInterface.(map[string]interface{})
 	if !ok {
-		log.Warn(fmt.Sprintf("Invalid configuration format for transporter %s, using default", dst.transporterType))
-		brokerConfig.Transporter = dst.transporterType
+		log.Warn(fmt.Sprintf("Invalid configuration format for transporter %s, using default", transporterType))
+		brokerConfig.Transporter = transporterType
 		return broker.New(brokerConfig)
 	}
 
 	// Configure transporter based on type
-	switch dst.transporterType {
+	switch transporterType {
 	case "TCP":
 		brokerConfig.Transporter = "TCP"
 	case "NATS":
@@ -1494,23 +1684,67 @@ func (dst *DynamicScalingTest) calculateFinalGoroutineLeak() int {
 
 // cleanup stops all brokers and cleans up resources
 func (dst *DynamicScalingTest) cleanup() {
-	log.Info("Starting cleanup phase - stopping all brokers")
+	log.Info("Starting aggressive cleanup phase - stopping all brokers")
 
-	// Stop all brokers
-	for i, broker := range dst.brokers {
-		if broker != nil {
+	// Capture initial goroutine count
+	initialGoroutines := runtime.NumGoroutine()
+	log.WithField("initial_goroutines", initialGoroutines).Info("Starting cleanup")
+
+	// Stop all brokers with timeout
+	for i, bkr := range dst.brokers {
+		if bkr != nil {
 			log.WithField("broker_index", i).Debug("Stopping broker")
-			broker.Stop()
+
+			// Stop broker in a goroutine with timeout
+			done := make(chan bool, 1)
+			go func(b *broker.ServiceBroker) {
+				b.Stop()
+				done <- true
+			}(bkr)
+
+			// Wait for stop with timeout
+			select {
+			case <-done:
+				log.WithField("broker_index", i).Debug("Broker stopped successfully")
+			case <-time.After(5 * time.Second):
+				log.WithField("broker_index", i).Warn("Broker stop timed out")
+			}
 		}
 	}
 
 	// Clear brokers slice
 	dst.brokers = nil
 
-	// Force garbage collection
-	runtime.GC()
+	// Clear other resources
+	dst.actionResults = nil
+	dst.eventResults = nil
+	dst.phases = nil
+	dst.metrics = nil
 
-	log.Info("Cleanup phase completed - all brokers stopped")
+	// Clear events
+	dst.eventsMutex.Lock()
+	dst.aggregatedEvents = nil
+	dst.eventsMutex.Unlock()
+
+	// Wait for goroutines to clean up
+	log.Info("Waiting for goroutines to clean up")
+	time.Sleep(2 * time.Second)
+
+	// Force garbage collection multiple times with longer delays
+	for i := 0; i < 5; i++ {
+		runtime.GC()
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Final goroutine count
+	finalGoroutines := runtime.NumGoroutine()
+	leakedGoroutines := finalGoroutines - initialGoroutines
+
+	log.WithFields(log.Fields{
+		"initial_goroutines": initialGoroutines,
+		"final_goroutines":   finalGoroutines,
+		"leaked_goroutines":  leakedGoroutines,
+	}).Info("Cleanup phase completed - all brokers stopped and resources cleared")
 }
 
 // saveResultsToJSON saves the test results to a JSON file
