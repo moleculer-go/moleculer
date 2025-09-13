@@ -43,6 +43,16 @@ func (bp *BufferPool) SetBufferEventCallback(callback func(eventType string, siz
 
 // GetBuffer returns a buffer of appropriate size from the pool
 func (bp *BufferPool) GetBuffer(size int) []byte {
+	// Handle invalid sizes gracefully
+	if size < 0 {
+		size = 0
+	}
+
+	// For zero size, return empty buffer
+	if size == 0 {
+		return make([]byte, 0)
+	}
+
 	var pool *sync.Pool
 
 	switch {
@@ -55,12 +65,59 @@ func (bp *BufferPool) GetBuffer(size int) []byte {
 	}
 
 	buf := pool.Get().([]byte)
-	// Ensure buffer is large enough, resize if necessary
+
+	// Try to grow existing buffer instead of creating new one
 	if cap(buf) < size {
-		buf = make([]byte, size)
-		// Emit buffer miss event
-		if bp.onBufferEvent != nil {
-			bp.onBufferEvent("miss", size)
+		// Try to find a larger buffer from other pools
+		if size <= 4096 && cap(buf) < 1024 {
+			// Try medium pool
+			mediumBuf := bp.mediumPool.Get().([]byte)
+			if cap(mediumBuf) >= size {
+				// Return the small buffer to its pool
+				bp.smallPool.Put(buf)
+				buf = mediumBuf
+			} else {
+				// Return medium buffer to its pool
+				bp.mediumPool.Put(mediumBuf)
+			}
+		} else if size <= 16384 && cap(buf) < 4096 {
+			// Try large pool
+			largeBuf := bp.largePool.Get().([]byte)
+			if cap(largeBuf) >= size {
+				// Return the smaller buffer to its pool
+				if cap(buf) <= 1024 {
+					bp.smallPool.Put(buf)
+				} else {
+					bp.mediumPool.Put(buf)
+				}
+				buf = largeBuf
+			} else {
+				// Return large buffer to its pool
+				bp.largePool.Put(largeBuf)
+			}
+		}
+
+		// If still not large enough, create new buffer
+		if cap(buf) < size {
+			// Return the buffer to its appropriate pool
+			switch {
+			case cap(buf) <= 1024:
+				bp.smallPool.Put(buf)
+			case cap(buf) <= 4096:
+				bp.mediumPool.Put(buf)
+			case cap(buf) <= 16384:
+				bp.largePool.Put(buf)
+			}
+			buf = make([]byte, size)
+			// Emit buffer miss event
+			if bp.onBufferEvent != nil {
+				bp.onBufferEvent("miss", size)
+			}
+		} else {
+			// Emit buffer growth event
+			if bp.onBufferEvent != nil {
+				bp.onBufferEvent("growth", size)
+			}
 		}
 	} else {
 		// Emit buffer hit event
@@ -68,6 +125,7 @@ func (bp *BufferPool) GetBuffer(size int) []byte {
 			bp.onBufferEvent("hit", size)
 		}
 	}
+
 	return buf[:size]
 }
 
