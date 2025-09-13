@@ -133,15 +133,15 @@ var exchanges = []string{
 }
 
 var _ = Describe("Test AMQPTransporter", func() {
-	// Clear all queues between each test.
-	BeforeEach(func() {
-		purge(queues, exchanges, true)
-	})
-	AfterEach(func() {
-		purge(queues, exchanges, true)
-	})
 
 	Describe("Test AMQPTransporter RPC with built-in balancer", func() {
+		// Clear all queues between each test.
+		BeforeEach(func() {
+			purge(queues, exchanges, true)
+		})
+		AfterEach(func() {
+			purge(queues, exchanges, true)
+		})
 		var logs []map[string]interface{}
 
 		client := createNode("test-rpc", "client", nil)
@@ -347,6 +347,14 @@ var _ = Describe("Test AMQPTransporter", func() {
 	})
 
 	Describe("Test AMQPTransporter event broadcast with built-in balancer", func() {
+		// Clear all queues between each test.
+		BeforeEach(func() {
+			purge(queues, exchanges, true)
+		})
+		AfterEach(func() {
+			purge(queues, exchanges, true)
+		})
+
 		var logs []string
 
 		pub := createBroadcastWorker("pub", &logs)
@@ -357,16 +365,14 @@ var _ = Describe("Test AMQPTransporter", func() {
 		BeforeEach(func() {
 			logs = nil
 
-			go func() {
-				time.Sleep(1500 * time.Millisecond)
-				sub3.Start()
-			}()
-
+			// Start all workers first
 			pub.Start()
 			sub1.Start()
 			sub2.Start()
+			sub3.Start()
 
-			time.Sleep(time.Second)
+			// Wait longer for all AMQP connections to be established
+			time.Sleep(3 * time.Second)
 		})
 
 		AfterEach(func() {
@@ -379,14 +385,15 @@ var _ = Describe("Test AMQPTransporter", func() {
 		It("Should send an event to all subscribed nodes.", func() {
 			pub.Broadcast("hello.world", map[string]interface{}{"testing": true})
 
-			time.Sleep(2 * time.Second)
+			time.Sleep(3 * time.Second)
 
-			Expect(logs).Should(HaveLen(3))
+			Expect(logs).Should(HaveLen(4))
 			Expect(logs).Should(SatisfyAll(
 				ContainElement("pub"),
 				ContainElement("sub1"),
 				ContainElement("sub2"),
+				ContainElement("sub3"),
 			))
-		}, 10)
+		}, 15)
 	})
 })

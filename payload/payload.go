@@ -217,7 +217,7 @@ func (p *RawPayload) First() moleculer.Payload {
 	return New(nil)
 }
 
-//At returns the item at the given index
+// At returns the item at the given index
 func (p *RawPayload) At(index int) moleculer.Payload {
 	if transformer := ArrayTransformer(&p.source); transformer != nil {
 		l := transformer.InterfaceArray(&p.source)
@@ -313,37 +313,6 @@ func orderedKeys(m map[string]moleculer.Payload) []string {
 	return keys
 }
 
-//mapToString takes in a map of payloads and return a string :)
-func mapToString(m map[string]moleculer.Payload, ident string) string {
-	out := "(len=" + strconv.Itoa(len(m)) + ") {\n"
-	for _, key := range orderedKeys(m) {
-		out = out + ident + `"` + key + `": ` + m[key].String() + ",\n"
-	}
-	if len(m) == 0 {
-		out = out + "\n"
-	}
-	out = out + "}"
-	return out
-}
-
-//arrayToString takes in a list of payloads and return a string :)
-func arrayToString(arr []moleculer.Payload, ident string) string {
-	out := "(array (len=" + strconv.Itoa(len(arr)) + ")) {\n"
-	lines := make([]string, len(arr))
-	for index, item := range arr {
-		lines[index] = item.String()
-	}
-	sort.Strings(lines)
-	for _, item := range lines {
-		out = out + ident + item + ",\n"
-	}
-	if len(arr) == 0 {
-		out = out + "\n"
-	}
-	out = out + "}"
-	return out
-}
-
 type Stringer interface {
 	String() string
 }
@@ -359,25 +328,6 @@ func (p *RawPayload) String() string {
 	}
 	return fmt.Sprint(p.source)
 }
-
-// func (p *RawPayload) StringIdented(ident string) string {
-// 	if p.IsMap() {
-// 		return mapToString(p.Map(), ident+"  ")
-// 	}
-// 	if p.IsArray() {
-// 		return arrayToString(p.Array(), ident+"  ")
-// 	}
-// 	byteList, isBytes := p.source.([]byte)
-// 	if isBytes {
-// 		return string(byteList)
-// 	}
-// 	rawString, ok := p.source.(string)
-// 	if ok {
-// 		return rawString
-// 	}
-// 	return fmt.Sprintf("%v", p.source)
-
-// }
 
 func (p *RawPayload) Map() map[string]moleculer.Payload {
 	if transformer := MapTransformer(&p.source); transformer != nil {
@@ -457,7 +407,7 @@ func isPath(s string) bool {
 
 var indexedKey = regexp.MustCompile(`^(\w+)\[(\d+)\]$`)
 
-//isIndexed checks if key is indexed e.g. stage[0]
+// isIndexed checks if key is indexed e.g. stage[0]
 func isIndexed(s string) bool {
 	return indexedKey.MatchString(s)
 }
@@ -500,7 +450,7 @@ func (p *RawPayload) Get(s string, defaultValue ...interface{}) moleculer.Payloa
 	return p.getKey(s)
 }
 
-//getPath get a value using a path expression e.g. address.country.code
+// getPath get a value using a path expression e.g. address.country.code
 // it also accepts indexed lists like address.options[0].label
 func (p *RawPayload) getPath(path string, defaultValue ...interface{}) moleculer.Payload {
 	parts := strings.Split(path, ".")
@@ -528,7 +478,7 @@ func (p *RawPayload) getKey(path string, defaultValue ...interface{}) moleculer.
 	return New(nil)
 }
 
-//Only return a payload containing only the field specified
+// Only return a payload containing only the field specified
 func (p *RawPayload) Only(path string) moleculer.Payload {
 	if value, ok := p.mapGet(path); ok {
 		return New(map[string]interface{}{path: value})
@@ -617,7 +567,7 @@ func (p *RawPayload) AddItem(value interface{}) moleculer.Payload {
 	return New(arr)
 }
 
-//Add add the field:value pair to the existing values and return a new payload.
+// Add add the field:value pair to the existing values and return a new payload.
 func (p *RawPayload) Add(field string, value interface{}) moleculer.Payload {
 	if !p.IsMap() {
 		return Error("payload.Add can only deal with map payloads.")
@@ -627,7 +577,7 @@ func (p *RawPayload) Add(field string, value interface{}) moleculer.Payload {
 	return New(m)
 }
 
-//AddMany merge the maps with eh existing values and return a new payload.
+// AddMany merge the maps with eh existing values and return a new payload.
 func (p *RawPayload) AddMany(toAdd map[string]interface{}) moleculer.Payload {
 	if !p.IsMap() {
 		return Error("payload.Add can only deal with map payloads.")

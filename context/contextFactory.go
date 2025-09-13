@@ -2,7 +2,7 @@ package context
 
 import (
 	"errors"
-	"fmt"
+	"strings"
 
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/payload"
@@ -31,9 +31,14 @@ type Context struct {
 
 func BrokerContext(broker *moleculer.BrokerDelegates) moleculer.BrokerContext {
 	localNodeID := broker.LocalNode().GetID()
-	id := fmt.Sprint("rootContext-broker-", localNodeID, "-", util.RandomString(12))
+	var idBuilder strings.Builder
+	idBuilder.WriteString("rootContext-broker-")
+	idBuilder.WriteString(localNodeID)
+	idBuilder.WriteString("-")
+	idBuilder.WriteString(util.RandomString(12))
+
 	context := Context{
-		id:       id,
+		id:       idBuilder.String(),
 		broker:   broker,
 		level:    1,
 		parentID: "ImGroot;)",
