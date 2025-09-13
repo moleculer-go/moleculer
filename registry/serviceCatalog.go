@@ -162,21 +162,21 @@ func (serviceCatalog *ServiceCatalog) Add(service *service.Service) {
 }
 
 func serviceActionExists(name string, actions []service.Action) bool {
+	// Convert to map for O(1) lookup
+	actionMap := make(map[string]bool)
 	for _, action := range actions {
-		if action.FullName() == name {
-			return true
-		}
+		actionMap[action.FullName()] = true
 	}
-	return false
+	return actionMap[name]
 }
 
 func serviceEventExists(name string, events []service.Event) bool {
+	// Convert to map for O(1) lookup
+	eventMap := make(map[string]bool)
 	for _, event := range events {
-		if event.Name() == name {
-			return true
-		}
+		eventMap[event.Name()] = true
 	}
-	return false
+	return eventMap[name]
 }
 
 // updateEvents takes the remote service definition and the current service definition and calculates what events are new, updated or removed.

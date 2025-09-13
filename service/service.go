@@ -97,8 +97,8 @@ type Service struct {
 	dependencies []string
 	settings     map[string]interface{}
 	metadata     map[string]interface{}
-	actions      []Action
-	events       []Event
+	actions      map[string]*Action
+	events       map[string]*Event
 	created      moleculer.CreatedFunc
 	started      moleculer.LifecycleFunc
 	stopped      moleculer.LifecycleFunc
@@ -151,7 +151,11 @@ func (service *Service) Version() string {
 }
 
 func (service *Service) Actions() []Action {
-	return service.actions
+	actions := make([]Action, 0, len(service.actions))
+	for _, action := range service.actions {
+		actions = append(actions, *action)
+	}
+	return actions
 }
 
 func (service *Service) Summary() map[string]string {
@@ -163,16 +167,40 @@ func (service *Service) Summary() map[string]string {
 }
 
 func (service *Service) Events() []Event {
-	return service.events
+	events := make([]Event, 0, len(service.events))
+	for _, event := range service.events {
+		events = append(events, *event)
+	}
+	return events
+}
+
+// O(1) lookup methods
+func (service *Service) GetAction(name string) *Action {
+	return service.actions[name]
+}
+
+func (service *Service) GetEvent(name string) *Event {
+	return service.events[name]
+}
+
+func (service *Service) HasAction(name string) bool {
+	_, exists := service.actions[name]
+	return exists
+}
+
+func (service *Service) HasEvent(name string) bool {
+	_, exists := service.events[name]
+	return exists
 }
 
 func findAction(name string, actions []moleculer.Action) bool {
-	// Create a map for O(1) lookup instead of O(n) linear search
-	actionMap := make(map[string]bool)
+	// O(1) map lookup
 	for _, a := range actions {
-		actionMap[a.Name] = true
+		if a.Name == name {
+			return true
+		}
 	}
-	return actionMap[name]
+	return false
 }
 
 // extendActions merges the actions from the base service with the mixin schema.
@@ -373,7 +401,7 @@ func (service *Service) AsMap() map[string]interface{} {
 
 	actions := map[string]map[string]interface{}{}
 	for _, serviceAction := range service.actions {
-		if !isInternalAction(serviceAction) {
+		if !isInternalAction(*serviceAction) {
 			actionInfo := make(map[string]interface{})
 			actionInfo["name"] = serviceAction.fullname
 			actionInfo["rawName"] = serviceAction.name
@@ -385,7 +413,7 @@ func (service *Service) AsMap() map[string]interface{} {
 
 	events := map[string]map[string]interface{}{}
 	for _, serviceEvent := range service.events {
-		if !isInternalEvent(serviceEvent) {
+		if !isInternalEvent(*serviceEvent) {
 			eventInfo := make(map[string]interface{})
 			eventInfo["name"] = serviceEvent.name
 			eventInfo["group"] = serviceEvent.group
@@ -426,28 +454,16 @@ func (service *Service) AddActionMap(actionInfo map[string]interface{}) *Action 
 		nil,
 		paramsFromMap(actionInfo["schema"]),
 	)
-	service.actions = append(service.actions, action)
+	service.actions[action.fullname] = &action
 	return &action
 }
 
 func (service *Service) RemoveEvent(name string) {
-	var newEvents []Event
-	for _, event := range service.events {
-		if event.name != name {
-			newEvents = append(newEvents, event)
-		}
-	}
-	service.events = newEvents
+	delete(service.events, name)
 }
 
 func (service *Service) RemoveAction(fullname string) {
-	var newActions []Action
-	for _, action := range service.actions {
-		if action.fullname != fullname {
-			newActions = append(newActions, action)
-		}
-	}
-	service.actions = newActions
+	delete(service.actions, fullname)
 }
 
 func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
@@ -460,7 +476,7 @@ func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 		serviceName: service.name,
 		group:       group.(string),
 	}
-	service.events = append(service.events, serviceEvent)
+	service.events[serviceEvent.name] = &serviceEvent
 	return &serviceEvent
 }
 
@@ -498,6 +514,11 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 
 	service.settings = serviceInfo["settings"].(map[string]interface{})
 	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+
+	// Initialize maps
+	service.actions = make(map[string]*Action)
+	service.events = make(map[string]*Event)
+
 	actions := serviceInfo["actions"].(map[string]interface{})
 	for _, item := range actions {
 		actionInfo := item.(map[string]interface{})
@@ -527,28 +548,30 @@ func (service *Service) populateFromSchema() {
 		service.metadata = make(map[string]interface{})
 	}
 
-	service.actions = make([]Action, len(schema.Actions))
-	for index, actionSchema := range schema.Actions {
-		service.actions[index] = CreateServiceAction(
+	service.actions = make(map[string]*Action)
+	for _, actionSchema := range schema.Actions {
+		action := CreateServiceAction(
 			service.fullname,
 			actionSchema.Name,
 			actionSchema.Handler,
 			actionSchema.Schema,
 		)
+		service.actions[action.fullname] = &action
 	}
 
-	service.events = make([]Event, len(schema.Events))
-	for index, eventSchema := range schema.Events {
+	service.events = make(map[string]*Event)
+	for _, eventSchema := range schema.Events {
 		group := eventSchema.Group
 		if group == "" {
 			group = service.Name()
 		}
-		service.events[index] = Event{
+		event := Event{
 			name:        eventSchema.Name,
 			serviceName: service.Name(),
 			group:       group,
 			handler:     eventSchema.Handler,
 		}
+		service.events[event.name] = &event
 	}
 
 	service.created = schema.Created

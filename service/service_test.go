@@ -129,12 +129,12 @@ var _ = Describe("moleculer/service", func() {
 		Expect(name).Should(Not(Equal(moonMixIn.Name)))
 
 		Expect(len(svc.Actions())).Should(Equal(2))
-		Expect(svc.Actions()[0].Name()).Should(Equal("rotate"))
-		Expect(svc.Actions()[1].Name()).Should(Equal("tide"))
+		Expect(svc.HasAction("0.2.earth.rotate")).Should(BeTrue())
+		Expect(svc.HasAction("0.2.earth.tide")).Should(BeTrue())
 
 		Expect(len(svc.Events())).Should(Equal(2))
-		Expect(svc.Events()[0].Name()).Should(Equal("earth.rotates"))
-		Expect(svc.Events()[1].Name()).Should(Equal("moon.isClose"))
+		Expect(svc.HasEvent("earth.rotates")).Should(BeTrue())
+		Expect(svc.HasEvent("moon.isClose")).Should(BeTrue())
 
 		Expect(len(svc.Settings())).Should(Equal(3))
 		Expect(svc.Settings()["craters"]).Should(Equal(true))
