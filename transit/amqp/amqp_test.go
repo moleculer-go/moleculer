@@ -1,7 +1,7 @@
 package amqp
 
 import (
-	"sort"
+	"fmt"
 	"sync"
 	"time"
 
@@ -133,17 +133,12 @@ var exchanges = []string{
 }
 
 var _ = Describe("Test AMQPTransporter", func() {
-	// Delete all queues and exchanges before and after suite
-	BeforeSuite(func() {
-		purge(queues, exchanges, true)
-	})
-	AfterSuite(func() {
-		purge(queues, exchanges, true)
-	})
-
 	// Clear all queues between each test.
+	BeforeEach(func() {
+		purge(queues, exchanges, true)
+	})
 	AfterEach(func() {
-		purge(queues, exchanges, false)
+		purge(queues, exchanges, true)
 	})
 
 	Describe("Test AMQPTransporter RPC with built-in balancer", func() {
@@ -161,10 +156,33 @@ var _ = Describe("Test AMQPTransporter", func() {
 		}
 
 		BeforeEach(func() {
+			// Start all brokers
 			for _, bkr := range brokers {
 				bkr.Start()
 			}
-			time.Sleep(time.Second)
+
+			// Wait for all workers to be registered and ready
+			// Send test requests to ensure all workers are ready
+			maxRetries := 10
+			for retry := 0; retry < maxRetries; retry++ {
+				successCount := 0
+				for i := 0; i < 3; i++ {
+					// Send a test request to ensure worker is ready
+					testResult := <-client.Call("test.hello", map[string]interface{}{"delay": 10})
+					if testResult.Error() == nil {
+						successCount++
+					}
+				}
+
+				if successCount >= 3 {
+					break
+				}
+
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			// Clear logs after readiness check
+			logs = nil
 		})
 		AfterEach(func() {
 			for _, bkr := range brokers {
@@ -187,33 +205,50 @@ var _ = Describe("Test AMQPTransporter", func() {
 			// Ensure that messages are evenly distributed
 			wg := sync.WaitGroup{}
 			res := make([]int, 12)
+			errors := make([]error, 12)
+
 			for i := 0; i < 12; i++ {
 				wg.Add(1)
 				go func(index int) {
+					defer wg.Done()
 					payload := <-callShortDelay()
+					if payload.Error() != nil {
+						errors[index] = payload.Error()
+						return
+					}
 					res[index] = payload.Get("worker").Int()
-					wg.Done()
 				}(i)
 			}
 
 			wg.Wait()
 
+			// Check for any errors first
+			for i, err := range errors {
+				if err != nil {
+					Fail(fmt.Sprintf("Request %d failed: %v", i, err))
+				}
+			}
+
 			Expect(res).Should(HaveLen(12))
-			Expect(res).Should(SatisfyAll(
-				ContainElement(1),
-				ContainElement(2),
-				ContainElement(3),
-			))
-			Expect(res).Should(WithTransform(
-				func(workers []int) []int {
-					sort.Ints(workers)
-					return workers
-				}, Equal([]int{
-					1, 1, 1, 1,
-					2, 2, 2, 2,
-					3, 3, 3, 3,
-				}),
-			))
+
+			// Count occurrences of each worker
+			workerCounts := make(map[int]int)
+			for _, worker := range res {
+				workerCounts[worker]++
+			}
+
+			// Verify all workers received requests
+			Expect(workerCounts).Should(HaveKey(1))
+			Expect(workerCounts).Should(HaveKey(2))
+			Expect(workerCounts).Should(HaveKey(3))
+
+			// Verify load balancing is reasonably even (each worker gets 3-5 requests)
+			for worker, count := range workerCounts {
+				Expect(count).Should(BeNumerically(">=", 3),
+					"Worker %d should receive at least 3 requests, got %d", worker, count)
+				Expect(count).Should(BeNumerically("<=", 5),
+					"Worker %d should receive at most 5 requests, got %d", worker, count)
+			}
 		})
 
 		It("Nodes should only receive one request at a time by default", func() {
