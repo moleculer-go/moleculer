@@ -1,399 +1,418 @@
 package amqp
 
 import (
-	"fmt"
 	"sync"
+	"testing"
 	"time"
 
-	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/broker"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
-var queues = []string{
-	// RPC
-	"MOL.DISCONNECT.test-rpc-client",
-	"MOL.DISCONNECT.test-rpc-worker1",
-	"MOL.DISCONNECT.test-rpc-worker2",
-	"MOL.DISCONNECT.test-rpc-worker3",
-	"MOL.DISCOVER.test-rpc-client",
-	"MOL.DISCOVER.test-rpc-worker1",
-	"MOL.DISCOVER.test-rpc-worker2",
-	"MOL.DISCOVER.test-rpc-worker3",
-	"MOL.EVENT.test-rpc-client",
-	"MOL.EVENT.test-rpc-worker1",
-	"MOL.EVENT.test-rpc-worker2",
-	"MOL.EVENT.test-rpc-worker3",
-	"MOL.HEARTBEAT.test-rpc-client",
-	"MOL.HEARTBEAT.test-rpc-worker1",
-	"MOL.HEARTBEAT.test-rpc-worker2",
-	"MOL.HEARTBEAT.test-rpc-worker3",
-	"MOL.INFO.test-rpc-client",
-	"MOL.INFO.test-rpc-worker1",
-	"MOL.INFO.test-rpc-worker2",
-	"MOL.INFO.test-rpc-worker3",
-	"MOL.PING.test-rpc-client",
-	"MOL.PING.test-rpc-worker1",
-	"MOL.PING.test-rpc-worker2",
-	"MOL.PING.test-rpc-worker3",
-	"MOL.PONG.test-rpc-client",
-	"MOL.PONG.test-rpc-worker1",
-	"MOL.PONG.test-rpc-worker2",
-	"MOL.PONG.test-rpc-worker3",
-	"MOL.REQ.test-rpc-client",
-	"MOL.REQ.test-rpc-worker1",
-	"MOL.REQ.test-rpc-worker2",
-	"MOL.REQ.test-rpc-worker3",
-	"MOL.RES.test-rpc-client",
-	"MOL.RES.test-rpc-worker1",
-	"MOL.RES.test-rpc-worker2",
-	"MOL.RES.test-rpc-worker3",
-	// Emit
-	"MOL.DISCONNECT.test-emit-event-pub",
-	"MOL.DISCONNECT.test-emit-event-sub1",
-	"MOL.DISCONNECT.test-emit-event-sub2",
-	"MOL.DISCONNECT.test-emit-event-sub3",
-	"MOL.DISCOVER.test-emit-event-pub",
-	"MOL.DISCOVER.test-emit-event-sub1",
-	"MOL.DISCOVER.test-emit-event-sub2",
-	"MOL.DISCOVER.test-emit-event-sub3",
-	"MOL.EVENT.test-emit-event-pub",
-	"MOL.EVENT.test-emit-event-sub1",
-	"MOL.EVENT.test-emit-event-sub2",
-	"MOL.EVENT.test-emit-event-sub3",
-	"MOL.HEARTBEAT.test-emit-event-pub",
-	"MOL.HEARTBEAT.test-emit-event-sub1",
-	"MOL.HEARTBEAT.test-emit-event-sub2",
-	"MOL.HEARTBEAT.test-emit-event-sub3",
-	"MOL.INFO.test-emit-event-pub",
-	"MOL.INFO.test-emit-event-sub1",
-	"MOL.INFO.test-emit-event-sub2",
-	"MOL.INFO.test-emit-event-sub3",
-	"MOL.PING.test-emit-event-pub",
-	"MOL.PING.test-emit-event-sub1",
-	"MOL.PING.test-emit-event-sub2",
-	"MOL.PING.test-emit-event-sub3",
-	"MOL.PONG.test-emit-event-pub",
-	"MOL.PONG.test-emit-event-sub1",
-	"MOL.PONG.test-emit-event-sub2",
-	"MOL.PONG.test-emit-event-sub3",
-	"MOL.REQ.test-emit-event-pub",
-	"MOL.REQ.test-emit-event-sub1",
-	"MOL.REQ.test-emit-event-sub2",
-	"MOL.REQ.test-emit-event-sub3",
-	"MOL.RES.test-emit-event-pub",
-	"MOL.RES.test-emit-event-sub1",
-	"MOL.RES.test-emit-event-sub2",
-	"MOL.RES.test-emit-event-sub3",
-	// Broadcast
-	"MOL.REQ.test-broadcast-event-pub",
-	"MOL.REQ.test-broadcast-event-sub1",
-	"MOL.REQ.test-broadcast-event-sub2",
-	"MOL.REQ.test-broadcast-event-sub3",
-	"MOL.RES.test-broadcast-event-pub",
-	"MOL.RES.test-broadcast-event-sub1",
-	"MOL.RES.test-broadcast-event-sub2",
-	"MOL.RES.test-broadcast-event-sub3",
-	"MOL.DISCONNECT.test-broadcast-event-pub",
-	"MOL.DISCONNECT.test-broadcast-event-sub1",
-	"MOL.DISCONNECT.test-broadcast-event-sub2",
-	"MOL.DISCONNECT.test-broadcast-event-sub3",
-	"MOL.DISCOVER.test-broadcast-event-pub",
-	"MOL.DISCOVER.test-broadcast-event-sub1",
-	"MOL.DISCOVER.test-broadcast-event-sub2",
-	"MOL.DISCOVER.test-broadcast-event-sub3",
-	"MOL.EVENT.test-broadcast-event-pub",
-	"MOL.EVENT.test-broadcast-event-sub1",
-	"MOL.EVENT.test-broadcast-event-sub2",
-	"MOL.EVENT.test-broadcast-event-sub3",
-	"MOL.HEARTBEAT.test-broadcast-event-pub",
-	"MOL.HEARTBEAT.test-broadcast-event-sub1",
-	"MOL.HEARTBEAT.test-broadcast-event-sub2",
-	"MOL.HEARTBEAT.test-broadcast-event-sub3",
-	"MOL.INFO.test-broadcast-event-pub",
-	"MOL.INFO.test-broadcast-event-sub1",
-	"MOL.INFO.test-broadcast-event-sub2",
-	"MOL.INFO.test-broadcast-event-sub3",
-	"MOL.PING.test-broadcast-event-pub",
-	"MOL.PING.test-broadcast-event-sub1",
-	"MOL.PING.test-broadcast-event-sub2",
-	"MOL.PING.test-broadcast-event-sub3",
-	"MOL.PONG.test-broadcast-event-pub",
-	"MOL.PONG.test-broadcast-event-sub1",
-	"MOL.PONG.test-broadcast-event-sub2",
-	"MOL.PONG.test-broadcast-event-sub3",
-}
-var exchanges = []string{
-	"MOL.DISCONNECT",
-	"MOL.DISCOVER",
-	"MOL.HEARTBEAT",
-	"MOL.INFO",
-	"MOL.PING",
+// Test configuration
+var (
+	queues = []string{
+		"MOL.REQ.hello",
+		"MOL.RES.hello",
+		"MOL.REQ.test.hello",
+		"MOL.RES.test.hello",
+		"MOL.EVENT.hello.world",
+		"MOL.EVENT.hello.world2",
+		"MOL.REQ.test-rpc",
+		"MOL.RES.test-rpc",
+		"MOL.REQ.client",
+		"MOL.RES.client",
+		"MOL.REQ.worker1",
+		"MOL.RES.worker1",
+		"MOL.REQ.worker2",
+		"MOL.RES.worker2",
+		"MOL.REQ.worker3",
+		"MOL.RES.worker3",
+		"MOL.REQ.pub",
+		"MOL.RES.pub",
+		"MOL.REQ.sub1",
+		"MOL.RES.sub1",
+		"MOL.REQ.sub2",
+		"MOL.RES.sub2",
+		"MOL.REQ.sub3",
+		"MOL.RES.sub3",
+	}
+
+	exchanges = []string{
+		"MOL.REQ",
+		"MOL.RES",
+		"MOL.EVENT",
+		"MOL.HEARTBEAT",
+		"MOL.INFO",
+		"MOL.PING",
+	}
+)
+
+// Test functions
+func TestAMQPTransporter_RPC_OnlyOneNodeReceivesRequest(t *testing.T) {
+	// Clear queues before test
+	purge(queues, exchanges, true)
+
+	// Setup RPC test
+	var logs []map[string]interface{}
+	client := createNode("test-rpc", "client", nil)
+	worker1 := createActionWorker(1, &logs)
+	worker2 := createActionWorker(2, &logs)
+	worker3 := createActionWorker(3, &logs)
+	brokers := []*broker.ServiceBroker{client, worker1, worker2, worker3}
+
+	// Start all brokers
+	for _, bkr := range brokers {
+		bkr.Start()
+	}
+
+	// Wait for all workers to be registered and ready
+	maxRetries := 10
+	for retry := 0; retry < maxRetries; retry++ {
+		successCount := 0
+		for i := 0; i < 3; i++ {
+			testResult := <-client.Call("test.hello", map[string]interface{}{"delay": 10})
+			if testResult.Error() == nil {
+				successCount++
+			}
+		}
+		if successCount >= 3 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	logs = nil
+
+	// Test logic
+	client = brokers[0] // client is first broker
+	result := <-client.Call("test.hello", map[string]interface{}{"delay": 20})
+	if result.Error() != nil {
+		t.Errorf("Expected no error, got %v", result.Error())
+	}
+	if len(logs) != 2 {
+		t.Errorf("Expected 2 logs, got %d", len(logs))
+	}
+	receiveLogs := filter(&logs, "receive")
+	if len(receiveLogs) != 1 {
+		t.Errorf("Expected 1 receive log, got %d", len(receiveLogs))
+	}
+	respondLogs := filter(&logs, "respond")
+	if len(respondLogs) != 1 {
+		t.Errorf("Expected 1 respond log, got %d", len(respondLogs))
+	}
+
+	// Cleanup
+	for _, bkr := range brokers {
+		bkr.Stop()
+	}
+	time.Sleep(time.Second)
+	purge(queues, exchanges, true)
 }
 
-var _ = Describe("Test AMQPTransporter", func() {
+func TestAMQPTransporter_RPC_LoadBalanceRequests(t *testing.T) {
+	// Clear queues before test
+	purge(queues, exchanges, true)
 
-	Describe("Test AMQPTransporter RPC with built-in balancer", func() {
-		// Clear all queues between each test.
-		BeforeEach(func() {
-			purge(queues, exchanges, true)
-		})
-		AfterEach(func() {
-			purge(queues, exchanges, true)
-		})
-		var logs []map[string]interface{}
+	// Setup RPC test
+	var logs []map[string]interface{}
+	client := createNode("test-rpc", "client", nil)
+	worker1 := createActionWorker(1, &logs)
+	worker2 := createActionWorker(2, &logs)
+	worker3 := createActionWorker(3, &logs)
+	brokers := []*broker.ServiceBroker{client, worker1, worker2, worker3}
 
-		client := createNode("test-rpc", "client", nil)
-		worker1 := createActionWorker(1, &logs)
-		worker2 := createActionWorker(2, &logs)
-		worker3 := createActionWorker(3, &logs)
+	// Start all brokers
+	for _, bkr := range brokers {
+		bkr.Start()
+	}
 
-		brokers := []*broker.ServiceBroker{client, worker1, worker2, worker3}
+	// Wait for all workers to be registered and ready
+	maxRetries := 10
+	for retry := 0; retry < maxRetries; retry++ {
+		successCount := 0
+		for i := 0; i < 3; i++ {
+			testResult := <-client.Call("test.hello", map[string]interface{}{"delay": 10})
+			if testResult.Error() == nil {
+				successCount++
+			}
+		}
+		if successCount >= 3 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	logs = nil
 
-		callShortDelay := func() chan moleculer.Payload {
-			return client.Call("test.hello", map[string]interface{}{"delay": 20})
+	// Test logic - ensure that messages are evenly distributed
+	client = brokers[0] // client is first broker
+	wg := sync.WaitGroup{}
+	res := make([]int, 12)
+	errors := make([]error, 12)
+
+	for i := 0; i < 12; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			payload := <-client.Call("test.hello", map[string]interface{}{"delay": 20})
+			if payload.Error() != nil {
+				errors[index] = payload.Error()
+				return
+			}
+			res[index] = payload.Get("worker").Int()
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Check for any errors first
+	for i, err := range errors {
+		if err != nil {
+			t.Errorf("Request %d failed: %v", i, err)
+		}
+	}
+
+	if len(res) != 12 {
+		t.Errorf("Expected 12 results, got %d", len(res))
+	}
+
+	// Count occurrences of each worker
+	workerCounts := make(map[int]int)
+	for _, worker := range res {
+		workerCounts[worker]++
+	}
+
+	// Verify all workers received requests
+	if _, ok := workerCounts[1]; !ok {
+		t.Error("Worker 1 should have received requests")
+	}
+	if _, ok := workerCounts[2]; !ok {
+		t.Error("Worker 2 should have received requests")
+	}
+	if _, ok := workerCounts[3]; !ok {
+		t.Error("Worker 3 should have received requests")
+	}
+
+	// Verify load balancing is reasonably even (each worker gets 3-5 requests)
+	for worker, count := range workerCounts {
+		if count < 3 {
+			t.Errorf("Worker %d should receive at least 3 requests, got %d", worker, count)
+		}
+		if count > 5 {
+			t.Errorf("Worker %d should receive at most 5 requests, got %d", worker, count)
+		}
+	}
+
+	// Cleanup
+	for _, bkr := range brokers {
+		bkr.Stop()
+	}
+	time.Sleep(time.Second)
+	purge(queues, exchanges, true)
+}
+
+func TestAMQPTransporter_RPC_OneRequestAtATime(t *testing.T) {
+	// Clear queues before test
+	purge(queues, exchanges, true)
+
+	// Setup RPC test
+	var logs []map[string]interface{}
+	client := createNode("test-rpc", "client", nil)
+	worker1 := createActionWorker(1, &logs)
+	worker2 := createActionWorker(2, &logs)
+	worker3 := createActionWorker(3, &logs)
+	brokers := []*broker.ServiceBroker{client, worker1, worker2, worker3}
+
+	// Start all brokers
+	for _, bkr := range brokers {
+		bkr.Start()
+	}
+
+	// Wait for all workers to be registered and ready
+	maxRetries := 10
+	for retry := 0; retry < maxRetries; retry++ {
+		successCount := 0
+		for i := 0; i < 3; i++ {
+			testResult := <-client.Call("test.hello", map[string]interface{}{"delay": 10})
+			if testResult.Error() == nil {
+				successCount++
+			}
+		}
+		if successCount >= 3 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	logs = nil
+
+	// Test logic - ensure that prefetch is working
+	client = brokers[0]  // client is first broker
+	worker2 = brokers[2] // worker2 is third broker
+	worker3 = brokers[3] // worker3 is fourth broker
+
+	worker2.Stop()
+	worker3.Stop()
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func(index int) {
+			<-client.Call("test.hello", map[string]interface{}{"delay": 20})
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	for idx, cur := range logs {
+		// All requests should be handled by single node
+		if cur["worker"] != 1 {
+			t.Errorf("Expected worker 1, got %v", cur["worker"])
 		}
 
-		BeforeEach(func() {
-			// Start all brokers
-			for _, bkr := range brokers {
-				bkr.Start()
+		// Order should go from old -> new
+		if idx+1 < len(logs) {
+			curTime := cur["timestamp"].(time.Time)
+			nextTime := logs[idx+1]["timestamp"].(time.Time)
+			if curTime.After(nextTime) {
+				t.Errorf("Logs should be in chronological order")
 			}
+		}
 
-			// Wait for all workers to be registered and ready
-			// Send test requests to ensure all workers are ready
-			maxRetries := 10
-			for retry := 0; retry < maxRetries; retry++ {
-				successCount := 0
-				for i := 0; i < 3; i++ {
-					// Send a test request to ensure worker is ready
-					testResult := <-client.Call("test.hello", map[string]interface{}{"delay": 10})
-					if testResult.Error() == nil {
-						successCount++
-					}
-				}
-
-				if successCount >= 3 {
-					break
-				}
-
-				time.Sleep(100 * time.Millisecond)
+		// If receive and respond don't alternate requests are concurrent
+		if idx%2 == 0 {
+			if cur["type"] != "receive" {
+				t.Errorf("Expected receive, got %v", cur["type"])
 			}
-
-			// Clear logs after readiness check
-			logs = nil
-		})
-		AfterEach(func() {
-			for _, bkr := range brokers {
-				logs = nil
-				bkr.Stop()
+		} else {
+			if cur["type"] != "respond" {
+				t.Errorf("Expected respond, got %v", cur["type"])
 			}
-			time.Sleep(time.Second)
-		})
+		}
+	}
 
-		It("Only one node should receive any given request", func() {
-			// Ensure that messages are not broadcast to individual queues.
-			result := <-callShortDelay()
-			Expect(result.Error()).Should(Succeed())
-			Expect(logs).Should(HaveLen(2))
-			Expect(filter(&logs, "receive")).Should(HaveLen(1))
-			Expect(filter(&logs, "respond")).Should(HaveLen(1))
-		})
+	// Cleanup
+	for _, bkr := range brokers {
+		bkr.Stop()
+	}
+	time.Sleep(time.Second)
+	purge(queues, exchanges, true)
+}
 
-		It("Should load balance requests to available nodes.", func() {
-			// Ensure that messages are evenly distributed
-			wg := sync.WaitGroup{}
-			res := make([]int, 12)
-			errors := make([]error, 12)
+func TestAMQPTransporter_Emit_OnlyOneService(t *testing.T) {
+	// Clear queues before test
+	purge(queues, exchanges, true)
 
-			for i := 0; i < 12; i++ {
-				wg.Add(1)
-				go func(index int) {
-					defer wg.Done()
-					payload := <-callShortDelay()
-					if payload.Error() != nil {
-						errors[index] = payload.Error()
-						return
-					}
-					res[index] = payload.Get("worker").Int()
-				}(i)
+	// Setup emit test
+	var emitLogs []string
+	pub := createEmitWorker("pub", "emit-handler", &emitLogs)
+	sub1 := createEmitWorker("sub1", "emit-handler", &emitLogs)
+	sub2 := createEmitWorker("sub2", "emit-handler", &emitLogs)
+	sub3 := createEmitWorker("sub3", "other-handler", &emitLogs)
+
+	// Start all workers
+	pub.Start()
+	sub1.Start()
+	sub2.Start()
+	sub3.Start()
+
+	time.Sleep(time.Second)
+
+	// Test logic
+	for i := 0; i < 6; i++ {
+		pub.Emit("hello.world2", map[string]interface{}{"testing": true})
+	}
+
+	time.Sleep(2 * time.Second)
+
+	if len(emitLogs) != 12 {
+		t.Errorf("Expected 12 logs, got %d", len(emitLogs))
+	}
+
+	// Check that pub and sub3 are in logs
+	hasPub := false
+	hasSub3 := false
+	for _, log := range emitLogs {
+		if log == "pub" {
+			hasPub = true
+		}
+		if log == "sub3" {
+			hasSub3 = true
+		}
+	}
+	if !hasPub {
+		t.Error("Expected 'pub' in logs")
+	}
+	if !hasSub3 {
+		t.Error("Expected 'sub3' in logs")
+	}
+
+	// Count sub3 occurrences
+	sub3Count := 0
+	for _, log := range emitLogs {
+		if log == "sub3" {
+			sub3Count++
+		}
+	}
+	if sub3Count != 6 {
+		t.Errorf("Expected 6 'sub3' logs, got %d", sub3Count)
+	}
+
+	// Cleanup
+	pub.Stop()
+	sub1.Stop()
+	sub2.Stop()
+	sub3.Stop()
+	time.Sleep(time.Second)
+	purge(queues, exchanges, true)
+}
+
+func TestAMQPTransporter_Broadcast_AllSubscribedNodes(t *testing.T) {
+	// Clear queues before test
+	purge(queues, exchanges, true)
+
+	// Setup broadcast test
+	var broadcastLogs []string
+	pub := createBroadcastWorker("pub", &broadcastLogs)
+	sub1 := createBroadcastWorker("sub1", &broadcastLogs)
+	sub2 := createBroadcastWorker("sub2", &broadcastLogs)
+	sub3 := createBroadcastWorker("sub3", &broadcastLogs)
+
+	// Start all workers first
+	pub.Start()
+	sub1.Start()
+	sub2.Start()
+	sub3.Start()
+
+	// Wait longer for all AMQP connections to be established
+	time.Sleep(3 * time.Second)
+
+	// Test logic
+	pub.Broadcast("hello.world", map[string]interface{}{"testing": true})
+
+	time.Sleep(3 * time.Second)
+
+	if len(broadcastLogs) != 4 {
+		t.Errorf("Expected 4 logs, got %d: %v", len(broadcastLogs), broadcastLogs)
+	}
+
+	// Check that all expected nodes are in logs
+	expectedNodes := []string{"pub", "sub1", "sub2", "sub3"}
+	for _, expected := range expectedNodes {
+		found := false
+		for _, log := range broadcastLogs {
+			if log == expected {
+				found = true
+				break
 			}
+		}
+		if !found {
+			t.Errorf("Expected '%s' in logs, got %v", expected, broadcastLogs)
+		}
+	}
 
-			wg.Wait()
-
-			// Check for any errors first
-			for i, err := range errors {
-				if err != nil {
-					Fail(fmt.Sprintf("Request %d failed: %v", i, err))
-				}
-			}
-
-			Expect(res).Should(HaveLen(12))
-
-			// Count occurrences of each worker
-			workerCounts := make(map[int]int)
-			for _, worker := range res {
-				workerCounts[worker]++
-			}
-
-			// Verify all workers received requests
-			Expect(workerCounts).Should(HaveKey(1))
-			Expect(workerCounts).Should(HaveKey(2))
-			Expect(workerCounts).Should(HaveKey(3))
-
-			// Verify load balancing is reasonably even (each worker gets 3-5 requests)
-			for worker, count := range workerCounts {
-				Expect(count).Should(BeNumerically(">=", 3),
-					"Worker %d should receive at least 3 requests, got %d", worker, count)
-				Expect(count).Should(BeNumerically("<=", 5),
-					"Worker %d should receive at most 5 requests, got %d", worker, count)
-			}
-		})
-
-		It("Nodes should only receive one request at a time by default", func() {
-			// Ensure that prefetch is working. This relies on message acking happening after the action
-			// handler runs.
-			worker2.Stop()
-			worker3.Stop()
-
-			wg := sync.WaitGroup{}
-			for i := 0; i < 3; i++ {
-				wg.Add(1)
-				go func(index int) {
-					<-callShortDelay()
-					wg.Done()
-				}(i)
-			}
-			wg.Wait()
-
-			for idx, cur := range logs {
-				// All requests should be handled by singe node
-				Expect(cur["worker"]).Should(Equal(1))
-
-				// Order should go from old -> new
-				if idx+1 < len(logs) {
-					Expect(cur["timestamp"]).Should(BeTemporally("<=", logs[idx+1]["timestamp"].(time.Time)))
-				}
-
-				// If receive and respond don't alternate requests are concurrent
-				if idx%2 == 0 {
-					Expect(cur["type"]).Should(Equal("receive"))
-				} else {
-					Expect(cur["type"]).Should(Equal("respond"))
-				}
-			}
-		})
-	})
-
-	XDescribe("Test AMQPTransporter event emit with built-in balancer", func() {
-		var logs []string
-
-		pub := createEmitWorker("pub", "emit-handler", &logs)
-		sub1 := createEmitWorker("sub1", "emit-handler", &logs)
-		sub2 := createEmitWorker("sub2", "emit-handler", &logs)
-		sub3 := createEmitWorker("sub3", "other-handler", &logs)
-
-		brokers := []*broker.ServiceBroker{pub, sub1, sub2, sub3}
-
-		// Reset Flow array and start services
-		BeforeEach(func() {
-			logs = nil
-
-			for _, bkr := range brokers {
-				bkr.Start()
-			}
-			time.Sleep(time.Second)
-		})
-
-		// Stop services and clear queues
-		AfterEach(func() {
-			for _, bkr := range brokers {
-				bkr.Stop()
-			}
-			logs = nil
-			time.Sleep(time.Second)
-		})
-
-		It("should send emit event to only one service", func() {
-			for i := 0; i < 6; i++ {
-				pub.Emit("hello.world2", map[string]interface{}{"testing": true})
-			}
-
-			time.Sleep(2 * time.Second)
-
-			Expect(logs).Should(HaveLen(12))
-			Expect(logs).Should(SatisfyAll(
-				ContainElement("pub"),
-				// TODO: should uncomment when 'preferLocal' registry parameter will be exposed to config
-				//ContainElement("sub1"),
-				//ContainElement("sub2"),
-				ContainElement("sub3"),
-			))
-			Expect(logs).Should(WithTransform(
-				func(items []string) []string {
-					var result []string
-					for _, item := range items {
-						if item == "sub3" {
-							result = append(result, item)
-						}
-					}
-
-					return result
-				},
-				HaveLen(6),
-			))
-		})
-	})
-
-	Describe("Test AMQPTransporter event broadcast with built-in balancer", func() {
-		// Clear all queues between each test.
-		BeforeEach(func() {
-			purge(queues, exchanges, true)
-		})
-		AfterEach(func() {
-			purge(queues, exchanges, true)
-		})
-
-		var logs []string
-
-		pub := createBroadcastWorker("pub", &logs)
-		sub1 := createBroadcastWorker("sub1", &logs)
-		sub2 := createBroadcastWorker("sub2", &logs)
-		sub3 := createBroadcastWorker("sub3", &logs)
-
-		BeforeEach(func() {
-			logs = nil
-
-			// Start all workers first
-			pub.Start()
-			sub1.Start()
-			sub2.Start()
-			sub3.Start()
-
-			// Wait longer for all AMQP connections to be established
-			time.Sleep(3 * time.Second)
-		})
-
-		AfterEach(func() {
-			pub.Stop()
-			sub1.Stop()
-			sub2.Stop()
-			sub3.Stop()
-		})
-
-		It("Should send an event to all subscribed nodes.", func() {
-			pub.Broadcast("hello.world", map[string]interface{}{"testing": true})
-
-			time.Sleep(3 * time.Second)
-
-			Expect(logs).Should(HaveLen(4))
-			Expect(logs).Should(SatisfyAll(
-				ContainElement("pub"),
-				ContainElement("sub1"),
-				ContainElement("sub2"),
-				ContainElement("sub3"),
-			))
-		}, 15)
-	})
-})
+	// Cleanup
+	pub.Stop()
+	sub1.Stop()
+	sub2.Stop()
+	sub3.Stop()
+	time.Sleep(time.Second)
+	purge(queues, exchanges, true)
+}

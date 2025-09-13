@@ -3,6 +3,7 @@ package amqp
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -53,6 +54,11 @@ type AmqpTransporter struct {
 	nodeID      string
 	subscribers []subscriber
 	bindings    []binding
+
+	// Worker pool for consumer goroutines
+	workerPool      *WorkerPool
+	activeConsumers map[string]chan struct{} // Track active consumers for cleanup
+	consumerMutex   sync.RWMutex
 }
 
 type AmqpOptions struct {
@@ -70,6 +76,65 @@ type AmqpOptions struct {
 	EventTimeToLive     time.Duration
 	HeartbeatTimeToLive time.Duration
 	Prefetch            int
+	WorkerPoolSize      int
+}
+
+// WorkerPool manages a limited number of goroutines for consumer handling
+type WorkerPool struct {
+	workers  int
+	jobQueue chan func()
+	stopChan chan struct{}
+	wg       sync.WaitGroup
+}
+
+// NewWorkerPool creates a new worker pool
+func NewWorkerPool(workers int) *WorkerPool {
+	wp := &WorkerPool{
+		workers:  workers,
+		jobQueue: make(chan func(), workers*2), // Buffer for 2x workers
+		stopChan: make(chan struct{}),
+	}
+
+	// Start workers
+	for i := 0; i < workers; i++ {
+		wp.wg.Add(1)
+		go wp.worker(i)
+	}
+
+	return wp
+}
+
+// Submit submits a job to the worker pool
+func (wp *WorkerPool) Submit(job func()) {
+	select {
+	case wp.jobQueue <- job:
+		// Job submitted successfully
+	case <-wp.stopChan:
+		// Pool is stopping, ignore job
+	default:
+		// Queue is full, execute synchronously to avoid blocking
+		go job()
+	}
+}
+
+// worker runs a single worker goroutine
+func (wp *WorkerPool) worker(id int) {
+	defer wp.wg.Done()
+
+	for {
+		select {
+		case job := <-wp.jobQueue:
+			job()
+		case <-wp.stopChan:
+			return
+		}
+	}
+}
+
+// Stop stops the worker pool
+func (wp *WorkerPool) Stop() {
+	close(wp.stopChan)
+	wp.wg.Wait()
 }
 
 func mergeConfigs(baseConfig AmqpOptions, userConfig AmqpOptions) AmqpOptions {
@@ -118,15 +183,29 @@ func mergeConfigs(baseConfig AmqpOptions, userConfig AmqpOptions) AmqpOptions {
 		baseConfig.Logger = userConfig.Logger
 	}
 
+	if userConfig.WorkerPoolSize != 0 {
+		baseConfig.WorkerPoolSize = userConfig.WorkerPoolSize
+	}
+
 	return baseConfig
 }
 
 func CreateAmqpTransporter(options AmqpOptions) transit.Transport {
 	options = mergeConfigs(DefaultConfig, options)
 
+	// Set default worker pool size if not specified
+	if options.WorkerPoolSize <= 0 {
+		options.WorkerPoolSize = 10 // Default value
+		if options.Logger != nil {
+			options.Logger.Warn("Invalid WorkerPoolSize, using default value of 10")
+		}
+	}
+
 	return &AmqpTransporter{
-		opts:   &options,
-		logger: options.Logger,
+		opts:            &options,
+		logger:          options.Logger,
+		workerPool:      NewWorkerPool(options.WorkerPoolSize),
+		activeConsumers: make(map[string]chan struct{}),
 	}
 }
 
@@ -213,6 +292,9 @@ func (t *AmqpTransporter) Disconnect() chan error {
 	t.connectionDisconnecting = true
 
 	go func() {
+		// Stop all active consumers first
+		t.stopAllConsumers()
+
 		if t.connection != nil && t.channel != nil {
 			for _, bind := range t.bindings {
 				if err := t.channel.QueueUnbind(bind.queueName, bind.pattern, bind.topic, nil); err != nil {
@@ -239,6 +321,11 @@ func (t *AmqpTransporter) Disconnect() chan error {
 			}
 
 			t.connection = nil
+		}
+
+		// Stop the worker pool
+		if t.workerPool != nil {
+			t.workerPool.Stop()
 		}
 
 		errChan <- nil
@@ -272,7 +359,7 @@ func (t *AmqpTransporter) subscribeInternal(subscriber subscriber) {
 			return
 		}
 
-		go t.doConsume(topic, needAck, subscriber.handler)
+		t.startConsumer(topic, needAck, subscriber.handler)
 	} else {
 		// Create a queue specific to this nodeID so that this node can receive broadcasted messages.
 		queueName := t.prefix + "." + subscriber.command + "." + t.nodeID
@@ -302,7 +389,7 @@ func (t *AmqpTransporter) subscribeInternal(subscriber subscriber) {
 			return
 		}
 
-		go t.doConsume(queueName, false, subscriber.handler)
+		t.startConsumer(queueName, false, subscriber.handler)
 	}
 }
 
@@ -358,7 +445,47 @@ func (t *AmqpTransporter) SetSerializer(serializer serializer.Serializer) {
 	t.serializer = serializer
 }
 
-func (t *AmqpTransporter) doConsume(queueName string, needAck bool, handler transit.TransportHandler) {
+// startConsumer starts a consumer using the worker pool
+func (t *AmqpTransporter) startConsumer(queueName string, needAck bool, handler transit.TransportHandler) {
+	// Create a stop channel for this consumer
+	stopChan := make(chan struct{})
+
+	// Track this consumer
+	t.consumerMutex.Lock()
+	t.activeConsumers[queueName] = stopChan
+	t.consumerMutex.Unlock()
+
+	// Submit consumer job to worker pool
+	t.workerPool.Submit(func() {
+		t.doConsume(queueName, needAck, handler, stopChan)
+	})
+}
+
+// stopAllConsumers stops all active consumers
+func (t *AmqpTransporter) stopAllConsumers() {
+	t.consumerMutex.Lock()
+	defer t.consumerMutex.Unlock()
+
+	for queueName, stopChan := range t.activeConsumers {
+		select {
+		case <-stopChan:
+			// Channel already closed
+		default:
+			close(stopChan)
+		}
+		delete(t.activeConsumers, queueName)
+	}
+}
+
+func (t *AmqpTransporter) doConsume(queueName string, needAck bool, handler transit.TransportHandler, stopChan chan struct{}) {
+	defer func() {
+		// Clean up consumer from active consumers map when done
+		t.consumerMutex.Lock()
+		delete(t.activeConsumers, queueName)
+		t.consumerMutex.Unlock()
+		t.logger.Debug("AMQP doConsume() - Consumer cleanup completed for queue: ", queueName)
+	}()
+
 	t.logger.Debug("AMQP doConsume() - queue: ", queueName)
 
 	msgs, err := t.channel.Consume(queueName, "", !needAck, false, false, true, t.opts.ConsumeOptions)
@@ -368,24 +495,29 @@ func (t *AmqpTransporter) doConsume(queueName string, needAck bool, handler tran
 	}
 
 	for {
-		msg, ok := <-msgs
-		if !ok {
-			break
-		}
+		select {
+		case msg, ok := <-msgs:
+			if !ok {
+				return
+			}
 
-		payload := t.serializer.BytesToPayload(&msg.Body)
-		t.logger.Debugf("Incoming %s packet from '%s'", queueName, payload.Get("sender").String())
+			payload := t.serializer.BytesToPayload(&msg.Body)
+			t.logger.Debugf("Incoming %s packet from '%s'", queueName, payload.Get("sender").String())
 
-		handler(payload)
+			handler(payload)
 
-		if needAck {
-			if err = msg.Ack(false); err != nil {
-				t.logger.Error("AMQP doConsume() - Can't acknowledge message: ", err)
+			if needAck {
+				if err = msg.Ack(false); err != nil {
+					t.logger.Error("AMQP doConsume() - Can't acknowledge message: ", err)
 
-				if err = msg.Nack(false, true); err != nil {
-					t.logger.Error("AMQP doConsume() - Can't negatively acknowledge message: ", err)
+					if err = msg.Nack(false, true); err != nil {
+						t.logger.Error("AMQP doConsume() - Can't negatively acknowledge message: ", err)
+					}
 				}
 			}
+		case <-stopChan:
+			t.logger.Debug("AMQP doConsume() - Stopping consumer for queue: ", queueName)
+			return
 		}
 	}
 }
