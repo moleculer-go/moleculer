@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moleculer-go/moleculer"
@@ -27,6 +28,9 @@ type subscriber struct {
 
 type subscription struct {
 	doneChannel chan bool
+	reader      *kafka.Reader
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 type KafkaTransporter struct {
@@ -40,6 +44,9 @@ type KafkaTransporter struct {
 	subscribers      []subscriber
 	subscriptions    []*subscription
 	publishers       map[string]*kafka.Writer
+	shutdownCtx      context.Context
+	shutdownCancel   context.CancelFunc
+	shutdownMutex    sync.Mutex
 }
 
 type KafkaOptions struct {
@@ -81,11 +88,14 @@ func mergeConfigs(baseConfig KafkaOptions, userConfig KafkaOptions) KafkaOptions
 
 func CreateKafkaTransporter(options KafkaOptions) transit.Transport {
 	options = mergeConfigs(DefaultConfig, options)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	return &KafkaTransporter{
-		opts:       &options,
-		logger:     options.Logger,
-		publishers: make(map[string]*kafka.Writer),
+		opts:           &options,
+		logger:         options.Logger,
+		publishers:     make(map[string]*kafka.Writer),
+		shutdownCtx:    ctx,
+		shutdownCancel: cancel,
 	}
 }
 
@@ -126,15 +136,32 @@ func (t *KafkaTransporter) subscribeInternal(subscriber subscriber) {
 	doneChannel := make(chan bool)
 	autoDelete := t.getQueueOptions(subscriber.command)
 
+	// Create context for this subscription
+	ctx, cancel := context.WithCancel(t.shutdownCtx)
+
+	// Create reader first
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:         []string{t.opts.Addr},
+		Topic:           topic,
+		GroupID:         t.nodeID,
+		Partition:       t.opts.partition,
+		ReadLagInterval: -1,
+	})
+
+	subscription := &subscription{
+		doneChannel: doneChannel,
+		reader:      reader,
+		ctx:         ctx,
+		cancel:      cancel,
+	}
+	t.subscriptions = append(t.subscriptions, subscription)
+
 	if subscriber.nodeID == "" {
-		go t.doConsume(topic, subscriber.handler, autoDelete, doneChannel)
+		go t.doConsume(topic, subscriber.handler, autoDelete, doneChannel, reader, ctx)
 	} else {
 		queueName := t.prefix + "." + subscriber.command + "." + t.nodeID
-		go t.doConsume(queueName, subscriber.handler, autoDelete, doneChannel)
+		go t.doConsume(queueName, subscriber.handler, autoDelete, doneChannel, reader, ctx)
 	}
-	t.subscriptions = append(t.subscriptions, &subscription{
-		doneChannel: doneChannel,
-	})
 }
 
 func (t *KafkaTransporter) getQueueOptions(command string) (autoDelete bool) {
@@ -151,26 +178,16 @@ func (t *KafkaTransporter) getQueueOptions(command string) (autoDelete bool) {
 }
 
 func (t *KafkaTransporter) doConsume(
-	queueName string, handler transit.TransportHandler, autoDelete bool, doneChannel chan bool) {
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:         []string{t.opts.Addr},
-		Topic:           queueName,
-		GroupID:         t.nodeID,
-		Partition:       t.opts.partition,
-		ReadLagInterval: -1,
-	})
+	queueName string, handler transit.TransportHandler, autoDelete bool, doneChannel chan bool, reader *kafka.Reader, ctx context.Context) {
 	defer t.closeReader(reader)
 
 	messageChannel := make(chan []byte)
 	errorChannel := make(chan error)
-	stopRead := make(chan bool)
-
-	ctx := context.Background()
 
 	go func() {
 		for {
 			select {
-			case <-stopRead:
+			case <-ctx.Done():
 				return
 			default:
 				var msg kafka.Message
@@ -181,10 +198,18 @@ func (t *KafkaTransporter) doConsume(
 					msg, err = reader.FetchMessage(ctx)
 				}
 				if err != nil {
-					errorChannel <- err
+					select {
+					case errorChannel <- err:
+					case <-ctx.Done():
+						return
+					}
 					continue
 				}
-				messageChannel <- msg.Value
+				select {
+				case messageChannel <- msg.Value:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
 	}()
@@ -199,7 +224,8 @@ func (t *KafkaTransporter) doConsume(
 			payload := t.serializer.BytesToPayload(&msg)
 			handler(payload)
 		case <-doneChannel:
-			stopRead <- true
+			return
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -214,14 +240,43 @@ func (t *KafkaTransporter) closeReader(reader *kafka.Reader) {
 func (t *KafkaTransporter) Disconnect() chan error {
 	errChan := make(chan error)
 	go func() {
+		t.shutdownMutex.Lock()
+		defer t.shutdownMutex.Unlock()
+
+		// Cancel all subscription contexts first
+		for _, subscription := range t.subscriptions {
+			if subscription.cancel != nil {
+				subscription.cancel()
+			}
+		}
+
 		// Send shutdown signal to all subscriptions
 		for _, subscription := range t.subscriptions {
-			subscription.doneChannel <- true
+			select {
+			case subscription.doneChannel <- true:
+			default:
+				// Channel might be full, continue
+			}
+		}
+
+		// Wait a moment for goroutines to receive shutdown signal
+		time.Sleep(200 * time.Millisecond)
+
+		// Close all readers to ensure goroutines exit
+		for _, subscription := range t.subscriptions {
+			if subscription.reader != nil {
+				t.closeReader(subscription.reader)
+			}
 		}
 
 		// Clean up publishers
 		for _, publisher := range t.publishers {
 			t.closeWriter(publisher)
+		}
+
+		// Cancel the main shutdown context
+		if t.shutdownCancel != nil {
+			t.shutdownCancel()
 		}
 
 		// Clear subscriptions slice to prevent memory leaks
