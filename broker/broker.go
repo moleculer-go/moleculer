@@ -1,15 +1,17 @@
 package broker
 
 import (
+	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-uuid"
 	bus "github.com/moleculer-go/goemitter"
 	"github.com/moleculer-go/moleculer"
 	"github.com/moleculer-go/moleculer/cache"
-	"github.com/moleculer-go/moleculer/context"
+	brokerContext "github.com/moleculer-go/moleculer/context"
 	"github.com/moleculer-go/moleculer/metrics"
 	"github.com/moleculer-go/moleculer/middleware"
 	"github.com/moleculer-go/moleculer/payload"
@@ -157,6 +159,10 @@ type ServiceBroker struct {
 
 	id string
 
+	// Context for managing waiting operations
+	waitContext context.Context
+	waitCancel  context.CancelFunc
+
 	instanceID string
 
 	localNode moleculer.Node
@@ -165,6 +171,12 @@ type ServiceBroker struct {
 // GetLocalBus : return the service broker local bus (Event Emitter)
 func (broker *ServiceBroker) LocalBus() *bus.Emitter {
 	return broker.localBus
+}
+
+// cleanupAllListeners removes all event listeners by clearing the bus
+func (broker *ServiceBroker) cleanupAllListeners() {
+	// Clear all listeners by creating a new bus
+	broker.localBus = bus.Construct()
 }
 
 // stopService stop the service.
@@ -229,28 +241,18 @@ func (broker *ServiceBroker) waitForDependencies(service *service.Service) {
 	if len(service.Dependencies()) == 0 {
 		return
 	}
-	start := time.Now()
-	for {
-		if !broker.started {
-			break
-		}
-		found := true
-		for _, dependency := range service.Dependencies() {
-			known := broker.registry.KnowService(dependency)
-			if !known {
-				found = false
-				break
-			}
-		}
-		if found {
-			broker.logger.Debug("waitForDependencies() - All dependencies were found :) -> service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
-			break
-		}
-		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
+
+	resultChan := broker.WaitForDependenciesAsync(service.Dependencies(), broker.config.WaitForDependenciesTimeout)
+	select {
+	case err := <-resultChan:
+		if err != nil {
 			broker.logger.Warn("waitForDependencies() - Time out ! service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
-			break
+		} else {
+			broker.logger.Debug("waitForDependencies() - All dependencies were found :) -> service: ", service.Name(), " wait For Dependencies: ", service.Dependencies())
 		}
-		time.Sleep(time.Microsecond)
+	case <-broker.waitContext.Done():
+		// Broker is stopping, dependencies check is cancelled
+		return
 	}
 }
 
@@ -365,56 +367,237 @@ func (broker *ServiceBroker) WaitForActions(actions ...string) error {
 
 // waitForService wait for a service to be available
 func (broker *ServiceBroker) waitForService(service string) error {
-	start := time.Now()
-	for {
-		if broker.registry.KnowService(service) {
-			break
-		}
-		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
-			broker.logger.Debug("Time:", time.Since(start))
-			broker.logger.Debug("WaitForDependenciesTimeout:", broker.config.WaitForDependenciesTimeout)
-
-			err := errors.New("waitForService() - Timeout ! service: " + service)
-			broker.logger.Error(err)
-			return err
-		}
-		time.Sleep(time.Microsecond)
+	resultChan := broker.WaitForServiceAsync(service, broker.config.WaitForDependenciesTimeout)
+	select {
+	case err := <-resultChan:
+		return err
+	case <-broker.waitContext.Done():
+		return errors.New("broker is stopping")
 	}
-	return nil
 }
 
 // waitAction wait for an action to be available
 func (broker *ServiceBroker) waitAction(action string) error {
-	start := time.Now()
-	for {
-		if broker.registry.KnowAction(action) {
-			break
-		}
-		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
-			err := errors.New("waitAction() - Timeout ! action: " + action)
-			broker.logger.Error(err)
-			return err
-		}
-		time.Sleep(time.Microsecond)
+	resultChan := broker.WaitForActionAsync(action, broker.config.WaitForDependenciesTimeout)
+	select {
+	case err := <-resultChan:
+		return err
+	case <-broker.waitContext.Done():
+		return errors.New("broker is stopping")
 	}
-	return nil
 }
 
 // waitForNode wait for a node to be available
 func (broker *ServiceBroker) waitForNode(nodeID string) error {
-	start := time.Now()
-	for {
-		if broker.registry.KnowNode(nodeID) {
+	resultChan := broker.WaitForNodeAsync(nodeID, broker.config.WaitForDependenciesTimeout)
+	select {
+	case err := <-resultChan:
+		return err
+	case <-broker.waitContext.Done():
+		return errors.New("broker is stopping")
+	}
+}
+
+// WaitForServiceAsync returns a channel that will receive an error when the service becomes available or times out
+func (broker *ServiceBroker) WaitForServiceAsync(serviceName string, timeout time.Duration) <-chan error {
+	resultChan := make(chan error, 1)
+
+	// Check if already available
+	if broker.registry.KnowService(serviceName) {
+		resultChan <- nil
+		return resultChan
+	}
+
+	// Define the event handler function
+	eventHandler := func(args ...interface{}) {
+		if len(args) > 0 {
+			if availableServiceName, ok := args[0].(string); ok && availableServiceName == serviceName {
+				select {
+				case resultChan <- nil:
+				case <-broker.waitContext.Done():
+					// Broker is stopping, don't send result
+				}
+			}
+		}
+	}
+
+	// Subscribe to service available event
+	broker.LocalBus().On(registry.EventServiceAvailable, eventHandler)
+
+	// Handle timeout with context cancellation
+	go func() {
+		select {
+		case <-time.After(timeout):
+			select {
+			case resultChan <- errors.New("timeout waiting for service: " + serviceName):
+			case <-broker.waitContext.Done():
+				// Broker is stopping, don't send result
+			}
+		case <-broker.waitContext.Done():
+			// Broker is stopping, don't send timeout error
+			return
+		}
+	}()
+
+	return resultChan
+}
+
+// WaitForActionAsync returns a channel that will receive an error when the action becomes available or times out
+func (broker *ServiceBroker) WaitForActionAsync(actionName string, timeout time.Duration) <-chan error {
+	resultChan := make(chan error, 1)
+
+	// Check if already available
+	if broker.registry.KnowAction(actionName) {
+		resultChan <- nil
+		return resultChan
+	}
+
+	// Define the event handler function
+	eventHandler := func(args ...interface{}) {
+		if len(args) > 0 {
+			if availableActionName, ok := args[0].(string); ok && availableActionName == actionName {
+				select {
+				case resultChan <- nil:
+				case <-broker.waitContext.Done():
+					// Broker is stopping, don't send result
+				}
+			}
+		}
+	}
+
+	// Subscribe to action available event
+	broker.LocalBus().On(registry.EventActionAvailable, eventHandler)
+
+	// Handle timeout with context cancellation
+	go func() {
+		select {
+		case <-time.After(timeout):
+			select {
+			case resultChan <- errors.New("timeout waiting for action: " + actionName):
+			case <-broker.waitContext.Done():
+				// Broker is stopping, don't send result
+			}
+		case <-broker.waitContext.Done():
+			// Broker is stopping, don't send timeout error
+			return
+		}
+	}()
+
+	return resultChan
+}
+
+// WaitForNodeAsync returns a channel that will receive an error when the node becomes available or times out
+func (broker *ServiceBroker) WaitForNodeAsync(nodeID string, timeout time.Duration) <-chan error {
+	resultChan := make(chan error, 1)
+
+	// Check if already available
+	if broker.registry.KnowNode(nodeID) {
+		resultChan <- nil
+		return resultChan
+	}
+
+	// Define the event handler function
+	eventHandler := func(args ...interface{}) {
+		if len(args) > 0 {
+			if availableNodeID, ok := args[0].(string); ok && availableNodeID == nodeID {
+				select {
+				case resultChan <- nil:
+				case <-broker.waitContext.Done():
+					// Broker is stopping, don't send result
+				}
+			}
+		}
+	}
+
+	// Subscribe to node available event
+	broker.LocalBus().On(registry.EventNodeAvailable, eventHandler)
+
+	// Handle timeout with context cancellation
+	go func() {
+		select {
+		case <-time.After(timeout):
+			select {
+			case resultChan <- errors.New("timeout waiting for node: " + nodeID):
+			case <-broker.waitContext.Done():
+				// Broker is stopping, don't send result
+			}
+		case <-broker.waitContext.Done():
+			// Broker is stopping, don't send timeout error
+			return
+		}
+	}()
+
+	return resultChan
+}
+
+// WaitForDependenciesAsync returns a channel that will receive an error when all dependencies become available or times out
+func (broker *ServiceBroker) WaitForDependenciesAsync(deps []string, timeout time.Duration) <-chan error {
+	resultChan := make(chan error, 1)
+
+	// Check if all dependencies are already available
+	allAvailable := true
+	for _, dep := range deps {
+		if !broker.registry.KnowService(dep) {
+			allAvailable = false
 			break
 		}
-		if time.Since(start) > broker.config.WaitForDependenciesTimeout {
-			err := errors.New("waitForNode() - Timeout ! nodeID: " + nodeID)
-			broker.logger.Error(err)
-			return err
-		}
-		time.Sleep(time.Microsecond)
 	}
-	return nil
+
+	if allAvailable {
+		resultChan <- nil
+		return resultChan
+	}
+
+	// Track which dependencies we're still waiting for
+	remainingDeps := make(map[string]bool)
+	var depsMutex sync.Mutex
+	for _, dep := range deps {
+		if !broker.registry.KnowService(dep) {
+			remainingDeps[dep] = true
+		}
+	}
+
+	// Define the event handler function
+	eventHandler := func(args ...interface{}) {
+		if len(args) > 0 {
+			if availableServiceName, ok := args[0].(string); ok {
+				depsMutex.Lock()
+				if remainingDeps[availableServiceName] {
+					delete(remainingDeps, availableServiceName)
+					if len(remainingDeps) == 0 {
+						depsMutex.Unlock()
+						select {
+						case resultChan <- nil:
+						case <-broker.waitContext.Done():
+							// Broker is stopping, don't send result
+						}
+						return
+					}
+				}
+				depsMutex.Unlock()
+			}
+		}
+	}
+
+	// Subscribe to service available events
+	broker.LocalBus().On(registry.EventServiceAvailable, eventHandler)
+
+	// Handle timeout with context cancellation
+	go func() {
+		select {
+		case <-time.After(timeout):
+			select {
+			case resultChan <- errors.New("timeout waiting for dependencies: " + strings.Join(deps, ", ")):
+			case <-broker.waitContext.Done():
+				// Broker is stopping, don't send result
+			}
+		case <-broker.waitContext.Done():
+			// Broker is stopping, don't send timeout error
+			return
+		}
+	}()
+
+	return resultChan
 }
 
 // Publish : for each service schema it will validate and create
@@ -474,6 +657,14 @@ func (broker *ServiceBroker) Stop() {
 	broker.logger.Info("Service Broker is stopping...")
 
 	broker.middlewares.CallHandlers("brokerStopping", broker.delegates)
+
+	// Cancel all waiting operations
+	if broker.waitCancel != nil {
+		broker.waitCancel()
+	}
+
+	// Clean up all active event listeners
+	broker.cleanupAllListeners()
 
 	for _, service := range broker.services {
 		broker.stopService(service)
@@ -627,7 +818,11 @@ func (broker *ServiceBroker) init() {
 	broker.delegates = broker.createDelegates()
 	broker.registry = registry.CreateRegistry(broker.id, broker.delegates)
 	broker.localNode = broker.registry.LocalNode()
-	broker.rootContext = context.BrokerContext(broker.delegates)
+
+	// Initialize context for managing waiting operations
+	broker.waitContext, broker.waitCancel = context.WithCancel(context.Background())
+
+	broker.rootContext = brokerContext.BrokerContext(broker.delegates)
 
 }
 

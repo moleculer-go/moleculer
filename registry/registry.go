@@ -21,6 +21,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Event constants for broker wait operations
+const (
+	EventServiceAvailable = "service.available"
+	EventActionAvailable  = "action.available"
+	EventNodeAvailable    = "node.available"
+)
+
 type messageHandlerFunc func(message moleculer.Payload)
 
 type ServiceRegistry struct {
@@ -512,6 +519,15 @@ func (registry *ServiceRegistry) RemoteNodeInfoReceived(message moleculer.Payloa
 			registry.broker.Bus().EmitAsync(
 				"$registry.service.added",
 				[]interface{}{svc.Summary()})
+
+			// Emit service available events for broker wait operations
+			registry.broker.Bus().EmitAsync(EventServiceAvailable, []interface{}{svc.Name()})
+			registry.broker.Bus().EmitAsync(EventServiceAvailable, []interface{}{svc.FullName()})
+		}
+
+		// Emit action available events for new actions
+		for _, newAction := range newActions {
+			registry.broker.Bus().EmitAsync(EventActionAvailable, []interface{}{newAction.FullName()})
 		}
 
 		for _, removedService := range removedServices {
@@ -533,6 +549,9 @@ func (registry *ServiceRegistry) RemoteNodeInfoReceived(message moleculer.Payloa
 		eventName = "$node.reconnected"
 	}
 	registry.broker.Bus().EmitAsync(eventName, eventParam)
+
+	// Emit node available event for broker wait operations
+	registry.broker.Bus().EmitAsync(EventNodeAvailable, []interface{}{nodeID})
 }
 
 // subscribeInternalEvent subscribe event listeners for internal events (e.g. $node.disconnected) using the localBus.
@@ -574,6 +593,15 @@ func (registry *ServiceRegistry) AddLocalService(service *service.Service) {
 	registry.localNode.Publish(service.AsMap())
 	registry.logger.Debug("Registry published local service: ", service.FullName(), " # actions: ", len(actions), " # events: ", len(events), " nodeID: ", service.NodeID())
 	registry.notifyServiceAdded(service.Summary())
+
+	// Emit service available events for broker wait operations
+	registry.broker.Bus().EmitAsync(EventServiceAvailable, []interface{}{service.Name()})
+	registry.broker.Bus().EmitAsync(EventServiceAvailable, []interface{}{service.FullName()})
+
+	// Emit action available events for broker wait operations
+	for _, action := range actions {
+		registry.broker.Bus().EmitAsync(EventActionAvailable, []interface{}{action.FullName()})
+	}
 }
 
 // notifyServiceAdded notify when a service is added to the registry.
