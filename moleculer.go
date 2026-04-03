@@ -335,12 +335,17 @@ type Options struct {
 	NodeID string
 }
 
+type EventOptions struct {
+	Meta   Payload
+	Groups []string
+}
+
 type Context interface {
 	//context methods used by services
 	MCall(map[string]map[string]interface{}) chan map[string]Payload
 	Call(actionName string, params interface{}, opts ...Options) chan Payload
-	Emit(eventName string, params interface{}, groups ...string)
-	Broadcast(eventName string, params interface{}, groups ...string)
+	Emit(eventName string, params interface{}, opts ...EventOptions)
+	Broadcast(eventName string, params interface{}, opts ...EventOptions)
 	Logger() *log.Entry
 
 	Payload() Payload
@@ -360,7 +365,8 @@ type Registry interface {
 
 type BrokerContext interface {
 	Call(actionName string, params interface{}, opts ...Options) chan Payload
-	Emit(eventName string, params interface{}, groups ...string)
+	Emit(eventName string, params interface{}, opts ...EventOptions)
+	Broadcast(eventName string, params interface{}, opts ...EventOptions)
 
 	ChildActionContext(actionName string, params Payload, opts ...Options) BrokerContext
 	ChildEventContext(eventName string, params Payload, groups []string, broadcast bool) BrokerContext

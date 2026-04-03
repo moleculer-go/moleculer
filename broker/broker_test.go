@@ -3,7 +3,9 @@ package broker_test
 import (
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/moleculer-go/moleculer/payload"
 	"github.com/moleculer-go/moleculer/transit/memory"
 	log "github.com/sirupsen/logrus"
 
@@ -189,5 +191,36 @@ var _ = Describe("Broker", func() {
 
 		Expect(result.Value()).Should(Equal(actionResult))
 
+	})
+
+	It("Should propagate meta with EventOptions", func() {
+		metaSeen := make(chan string, 1)
+
+		bkr := broker.New(&moleculer.Config{LogLevel: "ERROR"})
+		bkr.Publish(moleculer.ServiceSchema{
+			Name: "metaReceiver",
+			Events: []moleculer.Event{
+				{
+					Name: "meta.event",
+					Handler: func(ctx moleculer.Context, params moleculer.Payload) {
+						metaSeen <- ctx.Meta().Get("origin").String()
+					},
+				},
+			},
+		})
+
+		bkr.Start()
+		defer bkr.Stop()
+
+		bkr.Emit("meta.event", map[string]interface{}{"ok": true}, moleculer.EventOptions{
+			Meta: payload.New(map[string]interface{}{"origin": "events-watcher"}),
+		})
+
+		select {
+		case got := <-metaSeen:
+			Expect(got).Should(Equal("events-watcher"))
+		case <-time.After(time.Second):
+			Fail("timed out waiting for meta.event")
+		}
 	})
 })

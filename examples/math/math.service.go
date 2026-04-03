@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/moleculer-go/moleculer"
+	"github.com/moleculer-go/moleculer/payload"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,6 +72,8 @@ func addAction(context moleculer.Context, params moleculer.Payload) interface{} 
 		"a":      a,
 		"b":      b,
 		"result": result,
+	}, moleculer.EventOptions{
+		Meta: payload.New(map[string]interface{}{"source": "math.add"}),
 	})
 
 	return result
@@ -95,6 +98,8 @@ func multAction(context moleculer.Context, params moleculer.Payload) interface{}
 		"a":      a,
 		"b":      b,
 		"result": result,
+	}, moleculer.EventOptions{
+		Meta: payload.New(map[string]interface{}{"source": "math.mult"}),
 	})
 
 	return result
@@ -109,6 +114,8 @@ func subAction(context moleculer.Context, params moleculer.Payload) interface{} 
 		"a":      a,
 		"b":      b,
 		"result": result,
+	}, moleculer.EventOptions{
+		Meta: payload.New(map[string]interface{}{"source": "math.sub"}),
 	})
 	return result
 }
