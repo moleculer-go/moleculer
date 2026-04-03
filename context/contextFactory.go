@@ -266,15 +266,37 @@ func (context *Context) Call(actionName string, params interface{}, opts ...mole
 }
 
 // Emit : Emit an event (grouped & balanced global event)
-func (context *Context) Emit(eventName string, params interface{}, groups ...string) {
-	context.Logger().Debug("Context Emit() eventName: ", eventName)
+func (context *Context) Emit(eventName string, params interface{}, opts ...moleculer.EventOptions) {
+	groups := []string(nil)
+	var meta moleculer.Payload
+	if len(opts) > 0 {
+		groups = opts[0].Groups
+		if opts[0].Meta != nil && opts[0].Meta.Len() > 0 {
+			meta = opts[0].Meta
+		}
+	}
+	context.Logger().Debug("Context Emit() eventName: ", eventName, " groups: ", groups)
 	newContext := context.ChildEventContext(eventName, payload.New(params), groups, false)
+	if meta != nil {
+		newContext.UpdateMeta(newContext.Meta().AddMany(meta.RawMap()))
+	}
 	context.broker.EmitEvent(newContext)
 }
 
 // Broadcast : Broadcast an event for all local & remote services
-func (context *Context) Broadcast(eventName string, params interface{}, groups ...string) {
+func (context *Context) Broadcast(eventName string, params interface{}, opts ...moleculer.EventOptions) {
+	groups := []string(nil)
+	var meta moleculer.Payload
+	if len(opts) > 0 {
+		groups = opts[0].Groups
+		if opts[0].Meta != nil && opts[0].Meta.Len() > 0 {
+			meta = opts[0].Meta
+		}
+	}
 	newContext := context.ChildEventContext(eventName, payload.New(params), groups, true)
+	if meta != nil {
+		newContext.UpdateMeta(newContext.Meta().AddMany(meta.RawMap()))
+	}
 	context.broker.BroadcastEvent(newContext)
 }
 

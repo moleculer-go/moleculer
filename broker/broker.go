@@ -552,21 +552,43 @@ func (broker *ServiceBroker) Call(actionName string, params interface{}, opts ..
 	return broker.registry.LoadBalanceCall(actionContext, opts...)
 }
 
-func (broker *ServiceBroker) Emit(event string, params interface{}, groups ...string) {
-	broker.logger.Trace("Broker - Emit() event: ", event, " params: ", params, " groups: ", groups)
+func (broker *ServiceBroker) Emit(event string, params interface{}, opts ...moleculer.EventOptions) {
+	groups := []string(nil)
+	var meta moleculer.Payload
+	if len(opts) > 0 {
+		groups = opts[0].Groups
+		if opts[0].Meta != nil && opts[0].Meta.Len() > 0 {
+			meta = opts[0].Meta
+		}
+	}
+	broker.logger.Trace("Broker - Emit() event: ", event, " params: ", params, " groups: ", groups, " hasMeta: ", meta != nil)
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before emiting events :("))
 	}
 	newContext := broker.rootContext.ChildEventContext(event, payload.New(params), groups, false)
+	if meta != nil {
+		newContext.UpdateMeta(newContext.Meta().AddMany(meta.RawMap()))
+	}
 	broker.registry.LoadBalanceEvent(newContext)
 }
 
-func (broker *ServiceBroker) Broadcast(event string, params interface{}, groups ...string) {
-	broker.logger.Trace("Broker - Broadcast() event: ", event, " params: ", params, " groups: ", groups)
+func (broker *ServiceBroker) Broadcast(event string, params interface{}, opts ...moleculer.EventOptions) {
+	groups := []string(nil)
+	var meta moleculer.Payload
+	if len(opts) > 0 {
+		groups = opts[0].Groups
+		if opts[0].Meta != nil && opts[0].Meta.Len() > 0 {
+			meta = opts[0].Meta
+		}
+	}
+	broker.logger.Trace("Broker - Broadcast() event: ", event, " params: ", params, " groups: ", groups, " hasMeta: ", meta != nil)
 	if !broker.IsStarted() {
 		panic(errors.New("Broker must be started before broadcasting events :("))
 	}
 	newContext := broker.rootContext.ChildEventContext(event, payload.New(params), groups, true)
+	if meta != nil {
+		newContext.UpdateMeta(newContext.Meta().AddMany(meta.RawMap()))
+	}
 	broker.registry.BroadcastEvent(newContext)
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/moleculer-go/moleculer"
@@ -163,16 +164,44 @@ func findLocal(events []EventEntry) *EventEntry {
 	return nil
 }
 
+func wildcardEventKeyMatches(pattern string, eventName string) bool {
+	if !strings.HasPrefix(pattern, "*.") {
+		return false
+	}
+	// Moleculer wildcard listener format "*.EventName" should match
+	// canonical emitted names like "target.EventName".
+	return strings.HasSuffix(eventName, pattern[1:])
+}
+
+func (eventCatalog *EventCatalog) matchingEvents(name string) []EventEntry {
+	var matched []EventEntry
+
+	if events, exists := eventCatalog.events.Load(name); exists {
+		matched = append(matched, events.([]EventEntry)...)
+	}
+
+	eventCatalog.events.Range(func(key, value interface{}) bool {
+		pattern, ok := key.(string)
+		if !ok || !wildcardEventKeyMatches(pattern, name) {
+			return true
+		}
+		matched = append(matched, value.([]EventEntry)...)
+		return true
+	})
+
+	return matched
+}
+
 // Find find all events registered in this node and use the strategy to select and return the best one to be called.
 func (eventCatalog *EventCatalog) Find(name string, groups []string, preferLocal bool, localOnly bool, stg strategy.Strategy) []*EventEntry {
-	events, exists := eventCatalog.events.Load(name)
-	if !exists {
+	events := eventCatalog.matchingEvents(name)
+	if len(events) == 0 {
 		return make([]*EventEntry, 0)
 	}
 	eventCatalog.logger.Trace("event: ", name, " started: ", events)
 
 	// Sort events by nodeID to ensure deterministic order
-	eventList := events.([]EventEntry)
+	eventList := events
 	sort.Slice(eventList, func(i, j int) bool {
 		return eventList[i].targetNodeID < eventList[j].targetNodeID
 	})

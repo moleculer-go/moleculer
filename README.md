@@ -83,6 +83,26 @@ func main() {
 $ go get github.com/moleculer-go/moleculer
 ```
 
+## Event Meta Propagation
+
+`EventOptions` is added to broker event APIs to propagate context metadata so consumers
+can read values from `ctx.meta`:
+
+```go
+bkr.Emit("event.name", payload, moleculer.EventOptions{
+  Groups: []string{"eventhub"},
+  Meta:   payload.New(map[string]interface{}{"source": "watcher"}),
+})
+bkr.Broadcast("event.name", payload, moleculer.EventOptions{
+  Groups: []string{"eventhub"},
+  Meta:   payload.New(map[string]interface{}{"source": "watcher"}),
+})
+```
+
+When `EventOptions.Meta` is provided, metadata is attached to the event context and
+serialized through transit as `meta`, compatible with Moleculer runtimes that
+expose it in event handlers (e.g. `ctx.meta` in Moleculer JS).
+
 # Running examples
 
 ```bash
