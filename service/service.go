@@ -491,18 +491,39 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 			service.version)
 	}
 
-	service.settings = serviceInfo["settings"].(map[string]interface{})
-	service.metadata = serviceInfo["metadata"].(map[string]interface{})
-	actions := serviceInfo["actions"].(map[string]interface{})
-	for _, item := range actions {
-		actionInfo := item.(map[string]interface{})
-		service.AddActionMap(actionInfo)
+	if s, ok := serviceInfo["settings"].(map[string]interface{}); ok {
+		service.settings = s
+	} else {
+		log.Warnf("populateFromMap: service %q has nil/invalid settings from node %q — defaulting to empty map", service.name, service.nodeID)
+		service.settings = map[string]interface{}{}
 	}
-
-	events := serviceInfo["events"].(map[string]interface{})
-	for _, item := range events {
-		eventInfo := item.(map[string]interface{})
-		service.AddEventMap(eventInfo)
+	if m, ok := serviceInfo["metadata"].(map[string]interface{}); ok {
+		service.metadata = m
+	} else {
+		log.Warnf("populateFromMap: service %q has nil/invalid metadata from node %q — defaulting to empty map", service.name, service.nodeID)
+		service.metadata = map[string]interface{}{}
+	}
+	if actions, ok := serviceInfo["actions"].(map[string]interface{}); ok {
+		for _, item := range actions {
+			if actionInfo, ok := item.(map[string]interface{}); ok {
+				service.AddActionMap(actionInfo)
+			} else {
+				log.Warnf("populateFromMap: service %q action entry is nil/invalid — skipping", service.name)
+			}
+		}
+	} else {
+		log.Warnf("populateFromMap: service %q has nil/invalid actions from node %q — skipping", service.name, service.nodeID)
+	}
+	if events, ok := serviceInfo["events"].(map[string]interface{}); ok {
+		for _, item := range events {
+			if eventInfo, ok := item.(map[string]interface{}); ok {
+				service.AddEventMap(eventInfo)
+			} else {
+				log.Warnf("populateFromMap: service %q event entry is nil/invalid — skipping", service.name)
+			}
+		}
+	} else {
+		log.Warnf("populateFromMap: service %q has nil/invalid events from node %q — skipping", service.name, service.nodeID)
 	}
 }
 
