@@ -461,8 +461,18 @@ func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 
 // UpdateFromMap update the service metadata and settings from a serviceInfo map
 func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
-	service.settings = serviceInfo["settings"].(map[string]interface{})
-	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+	if s, ok := serviceInfo["settings"].(map[string]interface{}); ok {
+		service.settings = s
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid settings — defaulting to empty map", service.name, service.nodeID)
+		service.settings = map[string]interface{}{}
+	}
+	if m, ok := serviceInfo["metadata"].(map[string]interface{}); ok {
+		service.metadata = m
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid metadata — defaulting to empty map", service.name, service.nodeID)
+		service.metadata = map[string]interface{}{}
+	}
 }
 
 // AddSettings add settings to the service. it will be merged with the
