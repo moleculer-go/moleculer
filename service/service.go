@@ -461,8 +461,18 @@ func (service *Service) AddEventMap(eventInfo map[string]interface{}) *Event {
 
 // UpdateFromMap update the service metadata and settings from a serviceInfo map
 func (service *Service) UpdateFromMap(serviceInfo map[string]interface{}) {
-	service.settings = serviceInfo["settings"].(map[string]interface{})
-	service.metadata = serviceInfo["metadata"].(map[string]interface{})
+	if s, ok := serviceInfo["settings"].(map[string]interface{}); ok {
+		service.settings = s
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid settings — defaulting to empty map", service.name, service.nodeID)
+		service.settings = map[string]interface{}{}
+	}
+	if m, ok := serviceInfo["metadata"].(map[string]interface{}); ok {
+		service.metadata = m
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid metadata — defaulting to empty map", service.name, service.nodeID)
+		service.metadata = map[string]interface{}{}
+	}
 }
 
 // AddSettings add settings to the service. it will be merged with the
@@ -491,18 +501,39 @@ func populateFromMap(service *Service, serviceInfo map[string]interface{}) {
 			service.version)
 	}
 
-	service.settings = serviceInfo["settings"].(map[string]interface{})
-	service.metadata = serviceInfo["metadata"].(map[string]interface{})
-	actions := serviceInfo["actions"].(map[string]interface{})
-	for _, item := range actions {
-		actionInfo := item.(map[string]interface{})
-		service.AddActionMap(actionInfo)
+	if s, ok := serviceInfo["settings"].(map[string]interface{}); ok {
+		service.settings = s
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid settings — defaulting to empty map", service.name, service.nodeID)
+		service.settings = map[string]interface{}{}
 	}
-
-	events := serviceInfo["events"].(map[string]interface{})
-	for _, item := range events {
-		eventInfo := item.(map[string]interface{})
-		service.AddEventMap(eventInfo)
+	if m, ok := serviceInfo["metadata"].(map[string]interface{}); ok {
+		service.metadata = m
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid metadata — defaulting to empty map", service.name, service.nodeID)
+		service.metadata = map[string]interface{}{}
+	}
+	if actions, ok := serviceInfo["actions"].(map[string]interface{}); ok {
+		for _, item := range actions {
+			if actionInfo, ok := item.(map[string]interface{}); ok {
+				service.AddActionMap(actionInfo)
+			} else {
+				log.Warnf("Remote service %q on node %q sent an invalid action entry — skipping", service.name, service.nodeID)
+			}
+		}
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid actions — skipping", service.name, service.nodeID)
+	}
+	if events, ok := serviceInfo["events"].(map[string]interface{}); ok {
+		for _, item := range events {
+			if eventInfo, ok := item.(map[string]interface{}); ok {
+				service.AddEventMap(eventInfo)
+			} else {
+				log.Warnf("Remote service %q on node %q sent an invalid event entry — skipping", service.name, service.nodeID)
+			}
+		}
+	} else {
+		log.Warnf("Remote service %q on node %q sent invalid events — skipping", service.name, service.nodeID)
 	}
 }
 
